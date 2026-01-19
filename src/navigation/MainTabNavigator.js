@@ -6,10 +6,13 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { AppContext } from "../context/AppContext";
 import { getData, storeData } from "../utils/storageHelper";
+
+// Icon Import
+import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 
 // Draggable List Imports
 import DraggableFlatList, {
@@ -52,7 +55,7 @@ const BudgetStackNavigator = () => {
     headerStyle: { backgroundColor: colors.background },
     headerTintColor: colors.textPrimary,
     headerTitleStyle: { fontWeight: "bold" },
-    headerShadowVisible: false, // Clean look
+    headerShadowVisible: false,
   };
 
   return (
@@ -88,13 +91,13 @@ const DEFAULT_TAB_ORDER = [
 ];
 
 const TAB_ICONS = {
-  HomeTab: "🏠",
-  Habits: "🔥",
-  Tasks: "✅",
-  Attendance: "🎓",
-  BudgetTab: "💰",
-  Journal: "📖",
-  BucketList: "✨",
+  HomeTab: "home-variant",
+  Habits: "fire",
+  Tasks: "checkbox-marked-circle-outline",
+  Attendance: "school",
+  BudgetTab: "wallet",
+  Journal: "notebook",
+  BucketList: "star-four-points",
 };
 
 const TAB_LABELS = {
@@ -119,7 +122,6 @@ const CustomTabBar = ({
   const screenWidth = Dimensions.get("window").width;
   const flatListRef = useRef(null);
 
-  // Adjusted width for the floating design
   const TAB_WIDTH = (screenWidth - 40) / 4.5;
 
   useEffect(() => {
@@ -135,10 +137,11 @@ const CustomTabBar = ({
   const renderTabButton = (route, isActive, drag) => {
     const { options } = descriptors[route.key];
     const label = options.tabBarLabel || TAB_LABELS[route.name];
-    const icon = TAB_ICONS[route.name] || "❓";
+    const iconName = TAB_ICONS[route.name] || "help-circle";
 
-    // Modern colors
-    const iconColor = isActive ? colors.white : colors.textMuted;
+    // Colors
+    const activeColor = colors.white;
+    const inactiveColor = colors.textMuted || "#888";
 
     return (
       <TouchableOpacity
@@ -158,26 +161,42 @@ const CustomTabBar = ({
         activeOpacity={0.7}
         style={[styles.tabItem, { width: TAB_WIDTH }]}
       >
-        {/* Active Indicator (Glowing Circle) */}
-        {isActive && (
-          <View
-            style={[
-              styles.activeBackground,
-              { backgroundColor: colors.primary, shadowColor: colors.primary },
-            ]}
+        {/* TAB CONTENT WRAPPER
+            This single view holds BOTH Icon and Text.
+            The Background Circle is absolutely positioned inside here.
+        */}
+        <View style={styles.tabContent}>
+          {isActive && (
+            <View
+              style={[
+                styles.activeBackground,
+                {
+                  backgroundColor: colors.primary,
+                  shadowColor: colors.primary,
+                },
+              ]}
+            />
+          )}
+
+          <MaterialCommunityIcons
+            name={iconName}
+            size={24}
+            color={isActive ? activeColor : inactiveColor}
           />
-        )}
 
-        <Text style={{ fontSize: 22, color: iconColor, zIndex: 2 }}>
-          {icon}
-        </Text>
-
-        {/* Label only shows if active or plenty of space, let's keep it minimal for modern look */}
-        {isActive && (
-          <Text style={[styles.tabLabel, { color: colors.white }]}>
+          <Text
+            style={[
+              styles.tabLabel,
+              {
+                color: isActive ? activeColor : inactiveColor,
+                opacity: isActive ? 1 : 0.7,
+              },
+            ]}
+            numberOfLines={1}
+          >
             {label}
           </Text>
-        )}
+        </View>
       </TouchableOpacity>
     );
   };
@@ -338,38 +357,42 @@ const styles = StyleSheet.create({
   glassPanel: {
     height: 70,
     width: "100%",
-    borderRadius: 35, // Fully rounded capsule
+    borderRadius: 35,
     borderWidth: 1,
     overflow: "hidden",
     flexDirection: "row",
     paddingHorizontal: 10,
-
-    // Glass Shadow
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
-    backdropFilter: "blur(10px)", // Works on Web, Native needs BlurView usually but rgba helps
   },
   tabItem: {
-    alignItems: "center",
-    justifyContent: "center",
     height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  // UPDATED: A large, unified container for Icon + Text
+  tabContent: {
+    width: 60, // Increased width
+    height: 60, // Increased height to wrap both elements
+    borderRadius: 30, // Perfectly rounded
+    justifyContent: "center",
+    alignItems: "center",
   },
   activeBackground: {
-    position: "absolute",
-    width: 45,
-    height: 45,
-    borderRadius: 25,
-    opacity: 0.9,
+    ...StyleSheet.absoluteFillObject, // Fills the tabContent completely
+    borderRadius: 30,
+    opacity: 1, // Full opacity or slightly less if desired
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   tabLabel: {
     fontSize: 9,
-    fontWeight: "800",
-    marginTop: 4,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 2, // Slight spacing between Icon and Text
     zIndex: 2,
   },
 });
