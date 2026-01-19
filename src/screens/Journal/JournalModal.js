@@ -1,21 +1,23 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import colors from "../../constants/colors";
+import { AppContext } from "../../context/AppContext";
 
 const MOODS = ["😊", "😂", "🥰", "😐", "😢", "😡"];
 
@@ -23,12 +25,13 @@ const JournalModal = ({
   visible,
   onClose,
   onSave,
-  theme,
   existingTags,
   onAddCustomTag,
   initialData,
   onDeleteTag,
 }) => {
+  const { colors, theme } = useContext(AppContext);
+
   // Fields
   const [topic, setTopic] = useState("");
   const [note, setNote] = useState("");
@@ -41,14 +44,6 @@ const JournalModal = ({
   const [isFetchingLoc, setIsFetchingLoc] = useState(false);
   const [newTagInput, setNewTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
-
-  const isDark = theme === "dark";
-  const containerStyle = {
-    backgroundColor: isDark ? "#121212" : colors.background,
-  };
-  const textStyle = { color: isDark ? "#fff" : colors.textPrimary };
-  const inputStyle = { color: isDark ? "#fff" : "#000" };
-  const placeholderColor = isDark ? "#666" : "#aaa";
 
   useEffect(() => {
     if (visible) {
@@ -90,7 +85,6 @@ const JournalModal = ({
         setIsFetchingLoc(false);
         return;
       }
-      // Use Balanced for faster results on emulators
       let location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
         timeout: 5000,
@@ -164,163 +158,234 @@ const JournalModal = ({
     }
   };
 
+  // Dynamic Styles
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    headerText: { color: colors.textPrimary },
+    textSecondary: { color: colors.textSecondary },
+    input: { backgroundColor: colors.surface, color: colors.textPrimary },
+    modalHeader: {
+      backgroundColor: colors.background,
+      borderBottomColor: colors.border,
+    },
+    chipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    chipInactive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    chipTextActive: { color: colors.white },
+    chipTextInactive: { color: colors.textSecondary },
+  };
+
   return (
-    <Modal visible={visible} animationType="slide">
-      <View style={[styles.container, containerStyle]}>
-        <View
-          style={[styles.header, { borderColor: isDark ? "#333" : "#eee" }]}
-        >
-          <TouchableOpacity onPress={onClose}>
-            <Text style={styles.cancelText}>Cancel</Text>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.container, dynamicStyles.container]}
+      >
+        {/* Header */}
+        <View style={[styles.header, dynamicStyles.modalHeader]}>
+          <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
+            <Text style={[styles.cancelText, dynamicStyles.textSecondary]}>
+              Cancel
+            </Text>
           </TouchableOpacity>
-          <Text style={[styles.title, textStyle]}>
+          <Text style={[styles.title, dynamicStyles.headerText]}>
             {initialData ? "Edit Memory" : "New Memory"}
           </Text>
-          <TouchableOpacity onPress={handleSave}>
-            <Text style={styles.saveText}>Save</Text>
+          <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
+            <Text style={[styles.saveText, { color: colors.primary }]}>
+              Save
+            </Text>
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
+          {/* Topic Input */}
           <TextInput
-            style={[styles.topicInput, inputStyle]}
-            placeholder="Topic (e.g., Trip to Mountains)"
-            placeholderTextColor={placeholderColor}
+            style={[styles.topicInput, { color: colors.textPrimary }]}
+            placeholder="Title (e.g. Trip to Mountains)"
+            placeholderTextColor={colors.textMuted}
             value={topic}
             onChangeText={setTopic}
             maxLength={50}
           />
 
-          <View style={styles.sectionContainer}>
-            <Text style={[styles.label, textStyle]}>Mood:</Text>
-            <View style={styles.moodRow}>
-              {MOODS.map((m, index) => (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => setSelectedMood(m)}
-                  style={[
-                    styles.moodItem,
-                    selectedMood === m && {
-                      backgroundColor: isDark ? "#333" : "#eee",
-                      borderColor: colors.primary,
-                      borderWidth: 1,
-                    },
-                  ]}
-                >
-                  <Text style={{ fontSize: 24 }}>{m}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.sectionContainer}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Text style={[styles.label, textStyle]}>Location:</Text>
-              <TouchableOpacity
-                onPress={handleGetLocation}
-                disabled={isFetchingLoc}
-              >
-                {isFetchingLoc ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <Text style={{ color: colors.primary, fontWeight: "bold" }}>
-                    📍 Auto-Detect
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          {/* Location Bar */}
+          <View
+            style={[
+              styles.locationContainer,
+              { backgroundColor: colors.surfaceHighlight },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={20}
+              color={colors.primary}
+            />
             <TextInput
-              style={[
-                styles.locationInput,
-                inputStyle,
-                { backgroundColor: isDark ? "#333" : "#f9f9f9" },
-              ]}
+              style={[styles.locationInput, { color: colors.textPrimary }]}
               placeholder="Add location..."
-              placeholderTextColor={placeholderColor}
+              placeholderTextColor={colors.textMuted}
               value={locationName}
               onChangeText={setLocationName}
             />
+            <TouchableOpacity
+              onPress={handleGetLocation}
+              disabled={isFetchingLoc}
+            >
+              {isFetchingLoc ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <MaterialCommunityIcons
+                  name="crosshairs-gps"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+              )}
+            </TouchableOpacity>
           </View>
 
+          {/* Mood Selector */}
+          <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
+            How did you feel?
+          </Text>
+          <View style={styles.moodRow}>
+            {MOODS.map((m, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => setSelectedMood(m)}
+                style={[
+                  styles.moodItem,
+                  {
+                    backgroundColor:
+                      selectedMood === m
+                        ? colors.surfaceHighlight
+                        : "transparent",
+                    borderColor:
+                      selectedMood === m ? colors.primary : "transparent",
+                    borderWidth: 1,
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 28 }}>{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Tags */}
+          <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
+            Tags
+          </Text>
           <View style={styles.tagSection}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingRight: 20 }}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.tagChip,
+                  {
+                    borderColor: colors.primary,
+                    borderWidth: 1,
+                    borderStyle: "dashed",
+                    backgroundColor: "transparent",
+                  },
+                ]}
+                onPress={() => setShowTagInput(!showTagInput)}
+              >
+                <MaterialCommunityIcons
+                  name="plus"
+                  size={16}
+                  color={colors.primary}
+                />
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontSize: 12,
+                    fontWeight: "bold",
+                    marginLeft: 4,
+                  }}
+                >
+                  New
+                </Text>
+              </TouchableOpacity>
+
               {existingTags.map((tag, index) => (
                 <TouchableOpacity
                   key={index}
                   onPress={() => toggleTag(tag)}
-                  onLongPress={() => onDeleteTag && onDeleteTag(tag)} // <--- LONG PRESS DELETE
+                  onLongPress={() => onDeleteTag && onDeleteTag(tag)}
                   style={[
                     styles.tagChip,
                     selectedTags.includes(tag)
-                      ? { backgroundColor: colors.primary }
-                      : { backgroundColor: isDark ? "#333" : "#e0e0e0" },
+                      ? dynamicStyles.chipActive
+                      : dynamicStyles.chipInactive,
                   ]}
                 >
                   <Text
                     style={[
                       styles.tagText,
                       selectedTags.includes(tag)
-                        ? { color: "#fff" }
-                        : { color: isDark ? "#ccc" : "#333" },
+                        ? dynamicStyles.chipTextActive
+                        : dynamicStyles.chipTextInactive,
                     ]}
                   >
-                    {tag}
+                    #{tag}
                   </Text>
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity
-                style={[
-                  styles.tagChip,
-                  {
-                    backgroundColor: "transparent",
-                    borderWidth: 1,
-                    borderColor: colors.primary,
-                  },
-                ]}
-                onPress={() => setShowTagInput(!showTagInput)}
-              >
-                <Text style={{ color: colors.primary }}>+ New</Text>
-              </TouchableOpacity>
             </ScrollView>
+
             {showTagInput && (
               <View style={styles.newTagRow}>
                 <TextInput
                   style={[
                     styles.smallInput,
-                    inputStyle,
-                    { borderColor: isDark ? "#444" : "#ccc" },
+                    dynamicStyles.input,
+                    { borderColor: colors.border },
                   ]}
                   placeholder="Tag name..."
-                  placeholderTextColor={placeholderColor}
+                  placeholderTextColor={colors.textMuted}
                   value={newTagInput}
                   onChangeText={setNewTagInput}
+                  autoFocus
                 />
-                <TouchableOpacity onPress={handleAddTag}>
-                  <Text style={styles.addTagBtn}>Add</Text>
+                <TouchableOpacity
+                  onPress={handleAddTag}
+                  style={{ marginLeft: 10 }}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+                    Add
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
+          {/* Main Note */}
           <TextInput
-            style={[styles.textInput, inputStyle]}
+            style={[styles.textInput, dynamicStyles.input]}
             multiline
-            placeholder="Write your details here..."
-            placeholderTextColor={placeholderColor}
+            placeholder="Write your memories here..."
+            placeholderTextColor={colors.textMuted}
             value={note}
             onChangeText={setNote}
           />
 
+          {/* Image Picker */}
           <TouchableOpacity
             style={[
               styles.imgBtn,
-              { backgroundColor: isDark ? "#333" : "#f1f2f6" },
+              { backgroundColor: colors.surface, borderColor: colors.border },
             ]}
             onPress={pickImage}
           >
@@ -329,13 +394,29 @@ const JournalModal = ({
                 source={{ uri: selectedImage }}
                 style={styles.previewImage}
               />
-            ) : null}
-            <Text style={[styles.imgBtnText, textStyle]}>
-              📷 {selectedImage ? "Change Photo" : "Add Photo"}
-            </Text>
+            ) : (
+              <View style={{ alignItems: "center", padding: 20 }}>
+                <MaterialCommunityIcons
+                  name="camera-plus-outline"
+                  size={32}
+                  color={colors.textSecondary}
+                />
+                <Text style={[styles.imgBtnText, dynamicStyles.textSecondary]}>
+                  Add Photo
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
+          {selectedImage && (
+            <TouchableOpacity
+              onPress={() => setSelectedImage(null)}
+              style={{ alignSelf: "center", marginTop: 10 }}
+            >
+              <Text style={{ color: colors.danger }}>Remove Photo</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -345,61 +426,89 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 20,
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
     borderBottomWidth: 1,
-    marginTop: Platform.OS === "android" ? 20 : 40,
   },
+  headerBtn: { padding: 5 },
   title: { fontSize: 18, fontWeight: "bold" },
-  cancelText: { fontSize: 16, color: colors.textSecondary },
-  saveText: { fontSize: 16, color: colors.primary, fontWeight: "bold" },
+  cancelText: { fontSize: 16 },
+  saveText: { fontSize: 16, fontWeight: "bold" },
+
   content: { padding: 20, paddingBottom: 50 },
+
   topicInput: {
     fontSize: 24,
     fontWeight: "bold",
     marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#33333333",
-    paddingBottom: 5,
   },
-  sectionContainer: { marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 8 },
-  moodRow: { flexDirection: "row", justifyContent: "space-between" },
-  moodItem: { padding: 8, borderRadius: 30 },
-  locationInput: { borderRadius: 10, padding: 10, fontSize: 14, marginTop: 5 },
-  tagSection: { marginBottom: 20 },
+
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  locationInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  sectionLabel: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
+  moodRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 25,
+  },
+  moodItem: { padding: 10, borderRadius: 20 },
+
+  tagSection: { marginBottom: 25 },
   tagChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    justifyContent: "center",
+    borderWidth: 1,
   },
-  tagText: { fontSize: 12 },
+  tagText: { fontSize: 12, fontWeight: "600" },
   newTagRow: { flexDirection: "row", alignItems: "center", marginTop: 10 },
   smallInput: {
     borderWidth: 1,
     borderRadius: 8,
-    padding: 5,
-    width: 120,
-    marginRight: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    width: 150,
   },
-  addTagBtn: { color: colors.primary, fontWeight: "bold" },
+
   textInput: {
     fontSize: 16,
     minHeight: 150,
     marginBottom: 20,
     textAlignVertical: "top",
     lineHeight: 24,
+    borderRadius: 12,
+    padding: 15,
+  },
+
+  imgBtn: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    overflow: "hidden",
+    justifyContent: "center",
   },
   previewImage: {
     width: "100%",
     height: 300,
-    borderRadius: 12,
-    marginBottom: 10,
-    resizeMode: "contain",
+    resizeMode: "cover",
   },
-  imgBtn: { padding: 15, borderRadius: 12, alignItems: "center" },
-  imgBtnText: { fontWeight: "600" },
+  imgBtnText: { marginTop: 8, fontWeight: "600" },
 });
 
 export default JournalModal;

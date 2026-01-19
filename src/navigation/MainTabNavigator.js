@@ -6,9 +6,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import colors from "../constants/colors";
 import { AppContext } from "../context/AppContext";
 import { getData, storeData } from "../utils/storageHelper";
 
@@ -47,13 +46,15 @@ const HomeStackNavigator = () => {
 };
 
 const BudgetStackNavigator = () => {
-  const { theme } = useContext(AppContext);
-  const isDark = theme === "dark";
+  const { colors } = useContext(AppContext);
+
   const headerStyle = {
-    headerStyle: { backgroundColor: isDark ? "#1e1e1e" : "#fff" },
-    headerTintColor: isDark ? "#fff" : "#000",
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.textPrimary,
     headerTitleStyle: { fontWeight: "bold" },
+    headerShadowVisible: false, // Clean look
   };
+
   return (
     <BudgetStack.Navigator>
       <BudgetStack.Screen
@@ -111,31 +112,33 @@ const CustomTabBar = ({
   state,
   descriptors,
   navigation,
-  isDark,
+  colors,
   onReorder,
 }) => {
   const { routes, index: activeIndex } = state;
   const screenWidth = Dimensions.get("window").width;
   const flatListRef = useRef(null);
-  const TAB_WIDTH = screenWidth / 4.2; // Extracted width constant
 
-  // Auto-scroll to active tab when index changes (e.g., via swipe)
+  // Adjusted width for the floating design
+  const TAB_WIDTH = (screenWidth - 40) / 4.5;
+
   useEffect(() => {
     if (flatListRef.current && routes.length > 0) {
       flatListRef.current.scrollToIndex({
         index: activeIndex,
         animated: true,
-        viewPosition: 0.5, // Centers the active tab
+        viewPosition: 0.5,
       });
     }
   }, [activeIndex, routes.length]);
 
-  // Helper to render a single tab button
   const renderTabButton = (route, isActive, drag) => {
     const { options } = descriptors[route.key];
     const label = options.tabBarLabel || TAB_LABELS[route.name];
     const icon = TAB_ICONS[route.name] || "❓";
-    const color = isActive ? colors.primary : isDark ? "#666" : "#999";
+
+    // Modern colors
+    const iconColor = isActive ? colors.white : colors.textMuted;
 
     return (
       <TouchableOpacity
@@ -152,70 +155,82 @@ const CustomTabBar = ({
         }}
         onLongPress={drag}
         delayLongPress={200}
-        style={[
-          styles.tabItem,
-          { width: TAB_WIDTH },
-          isActive && styles.activeTabItem,
-        ]}
+        activeOpacity={0.7}
+        style={[styles.tabItem, { width: TAB_WIDTH }]}
       >
-        <Text style={{ fontSize: 24, opacity: isActive ? 1 : 0.7, color }}>
+        {/* Active Indicator (Glowing Circle) */}
+        {isActive && (
+          <View
+            style={[
+              styles.activeBackground,
+              { backgroundColor: colors.primary, shadowColor: colors.primary },
+            ]}
+          />
+        )}
+
+        <Text style={{ fontSize: 22, color: iconColor, zIndex: 2 }}>
           {icon}
         </Text>
-        <Text style={[styles.tabLabel, { color }]}>{label}</Text>
-        {isActive && <View style={styles.activeIndicator} />}
+
+        {/* Label only shows if active or plenty of space, let's keep it minimal for modern look */}
+        {isActive && (
+          <Text style={[styles.tabLabel, { color: colors.white }]}>
+            {label}
+          </Text>
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
-    <View
-      style={[
-        styles.tabBarContainer,
-        {
-          backgroundColor: isDark ? "#1e1e1e" : "#ffffff",
-          borderTopColor: isDark ? "#333" : "#eee",
-        },
-      ]}
-    >
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <DraggableFlatList
-          ref={flatListRef}
-          data={routes}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.key}
-          // Optimization for scrollToIndex
-          getItemLayout={(data, index) => ({
-            length: TAB_WIDTH,
-            offset: TAB_WIDTH * index,
-            index,
-          })}
-          onDragEnd={({ data }) => {
-            const newOrder = data.map((route) => route.name);
-            onReorder(newOrder);
-          }}
-          renderItem={({ item, drag, isActive }) => {
-            const isTabActive = state.index === state.routes.indexOf(item);
-            return (
-              <ScaleDecorator>
-                {renderTabButton(item, isTabActive, drag)}
-              </ScaleDecorator>
-            );
-          }}
-        />
-      </GestureHandlerRootView>
+    <View style={styles.floatingContainer}>
+      <View
+        style={[
+          styles.glassPanel,
+          {
+            backgroundColor: colors.glassBg,
+            borderColor: colors.glassBorder,
+            shadowColor: colors.shadow,
+          },
+        ]}
+      >
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <DraggableFlatList
+            ref={flatListRef}
+            data={routes}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.key}
+            getItemLayout={(data, index) => ({
+              length: TAB_WIDTH,
+              offset: TAB_WIDTH * index,
+              index,
+            })}
+            onDragEnd={({ data }) => {
+              const newOrder = data.map((route) => route.name);
+              onReorder(newOrder);
+            }}
+            renderItem={({ item, drag, isActive }) => {
+              const isTabActive = state.index === state.routes.indexOf(item);
+              return (
+                <ScaleDecorator>
+                  {renderTabButton(item, isTabActive, drag)}
+                </ScaleDecorator>
+              );
+            }}
+          />
+        </GestureHandlerRootView>
+      </View>
     </View>
   );
 };
 
 // --- MAIN NAVIGATOR ---
 const MainTabNavigator = () => {
-  const { theme, userData } = useContext(AppContext);
-  const isDark = theme === "dark";
+  const { colors, userData } = useContext(AppContext);
   const [orderedTabs, setOrderedTabs] = useState(DEFAULT_TAB_ORDER);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load saved order on startup
   useEffect(() => {
     const loadOrder = async () => {
       const savedOrder = await getData("userTabOrder");
@@ -242,7 +257,7 @@ const MainTabNavigator = () => {
       initialRouteName="HomeTab"
       tabBarPosition="bottom"
       tabBar={(props) => (
-        <CustomTabBar {...props} isDark={isDark} onReorder={handleReorder} />
+        <CustomTabBar {...props} colors={colors} onReorder={handleReorder} />
       )}
       screenOptions={{
         swipeEnabled: true,
@@ -311,36 +326,51 @@ const MainTabNavigator = () => {
 
 // --- STYLES ---
 const styles = StyleSheet.create({
-  tabBarContainer: {
+  floatingContainer: {
+    position: "absolute",
+    bottom: 25,
+    left: 20,
+    right: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+  },
+  glassPanel: {
+    height: 70,
+    width: "100%",
+    borderRadius: 35, // Fully rounded capsule
+    borderWidth: 1,
+    overflow: "hidden",
     flexDirection: "row",
-    height: 90,
-    borderTopWidth: 1,
-    paddingTop: 10,
-    paddingBottom: 20,
-    elevation: 0,
+    paddingHorizontal: 10,
+
+    // Glass Shadow
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    backdropFilter: "blur(10px)", // Works on Web, Native needs BlurView usually but rgba helps
   },
   tabItem: {
     alignItems: "center",
     justifyContent: "center",
     height: "100%",
   },
-  activeTabItem: {
-    // Optional highlight
+  activeBackground: {
+    position: "absolute",
+    width: 45,
+    height: 45,
+    borderRadius: 25,
+    opacity: 0.9,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: "bold",
-    textTransform: "capitalize",
-    marginTop: 2,
-  },
-  activeIndicator: {
-    position: "absolute",
-    top: -10,
-    width: "40%",
-    height: 3,
-    backgroundColor: colors.primary,
-    borderBottomLeftRadius: 2,
-    borderBottomRightRadius: 2,
+    fontSize: 9,
+    fontWeight: "800",
+    marginTop: 4,
+    zIndex: 2,
   },
 });
 

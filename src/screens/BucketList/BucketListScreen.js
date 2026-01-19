@@ -1,20 +1,32 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
+// 1. Import Safe Area Insets
 import {
   Alert,
   FlatList,
+  LayoutAnimation,
   Modal,
-  Platform, // <--- Added
+  Platform,
   ScrollView,
-  StatusBar, // <--- Added
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+
+// Enable Layout Animation
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const CATEGORIES = [
   "All",
@@ -26,28 +38,17 @@ const CATEGORIES = [
 ];
 
 const BucketListScreen = () => {
-  const { theme } = useContext(AppContext);
+  const { colors } = useContext(AppContext);
+
+  // 2. Calculate Dynamic Bottom Spacing
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = insets.bottom + 60;
+
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("All");
   const [modalVisible, setModalVisible] = useState(false);
   const [newItem, setNewItem] = useState("");
   const [selectedCat, setSelectedCat] = useState("Travel ✈️");
-
-  const isDark = theme === "dark";
-  const containerStyle = {
-    backgroundColor: isDark ? "#121212" : colors.background,
-  };
-  const cardStyle = { backgroundColor: isDark ? "#1e1e1e" : "#fff" };
-  const textStyle = { color: isDark ? "#fff" : colors.textPrimary };
-  const subTextStyle = { color: isDark ? "#aaa" : colors.textSecondary };
-  const pillStyle = {
-    backgroundColor: isDark ? "#333" : "#fff",
-    borderColor: isDark ? "#444" : "#eee",
-  };
-  const inputStyle = {
-    color: isDark ? "#fff" : "#000",
-    borderColor: isDark ? "#444" : colors.gray,
-  };
 
   useEffect(() => {
     loadItems();
@@ -71,12 +72,14 @@ const BucketListScreen = () => {
       category: selectedCat,
       completed: false,
     };
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     saveItems([newEntry, ...items]);
     setNewItem("");
     setModalVisible(false);
   };
 
   const toggleComplete = (id) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const updated = items.map((item) =>
       item.id === id ? { ...item, completed: !item.completed } : item,
     );
@@ -84,12 +87,13 @@ const BucketListScreen = () => {
   };
 
   const deleteItem = (id) => {
-    Alert.alert("Delete Item", "Remove from list?", [
-      { text: "Cancel" },
+    Alert.alert("Delete Dream", "Remove this from your bucket list?", [
+      { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
         style: "destructive",
         onPress: () => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           const updated = items.filter((item) => item.id !== id);
           saveItems(updated);
         },
@@ -99,149 +103,275 @@ const BucketListScreen = () => {
 
   const visibleItems =
     filter === "All" ? items : items.filter((i) => i.category === filter);
+  const completedCount = items.filter((i) => i.completed).length;
+
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    headerText: { color: colors.textPrimary },
+    subText: { color: colors.textSecondary },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+    },
+    pillActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    pillInactive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    textActive: { color: colors.white },
+    textInactive: { color: colors.textSecondary },
+    fab: { backgroundColor: colors.primary, shadowColor: colors.primary },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    input: {
+      backgroundColor: colors.background,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+  };
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      <Text style={[styles.headerTitle, textStyle]}>Bucket List</Text>
+    <View style={[styles.container, dynamicStyles.container]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
-      <View style={{ height: 60 }}>
+      {/* Header */}
+      <View style={styles.headerArea}>
+        <View>
+          <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+            Bucket List
+          </Text>
+          <Text style={[styles.headerSub, dynamicStyles.subText]}>
+            {completedCount}/{items.length} Dreams Achieved
+          </Text>
+        </View>
+        <View style={styles.progressCircle}>
+          <MaterialCommunityIcons
+            name="star"
+            size={24}
+            color={colors.warning}
+          />
+        </View>
+      </View>
+
+      {/* Category Pills */}
+      <View style={{ height: 60, marginBottom: 10 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.catScroll}
         >
-          {CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={[
-                styles.catPill,
-                pillStyle,
-                filter === cat && {
-                  backgroundColor: isDark ? "#fff" : colors.textPrimary,
-                  borderColor: isDark ? "#fff" : colors.textPrimary,
-                },
-              ]}
-              onPress={() => setFilter(cat)}
-            >
-              <Text
+          {CATEGORIES.map((cat) => {
+            const isActive = filter === cat;
+            return (
+              <TouchableOpacity
+                key={cat}
+                activeOpacity={0.7}
                 style={[
-                  styles.catText,
-                  filter === cat
-                    ? { color: isDark ? "#000" : "#fff" }
-                    : subTextStyle,
+                  styles.catPill,
+                  isActive
+                    ? dynamicStyles.pillActive
+                    : dynamicStyles.pillInactive,
                 ]}
+                onPress={() => {
+                  LayoutAnimation.configureNext(
+                    LayoutAnimation.Presets.easeInEaseOut,
+                  );
+                  setFilter(cat);
+                }}
               >
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.catText,
+                    isActive
+                      ? dynamicStyles.textActive
+                      : dynamicStyles.textInactive,
+                  ]}
+                >
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
+      {/* List */}
       <FlatList
         data={visibleItems}
         keyExtractor={(item) => item.id.toString()}
+        // 3. Apply Dynamic Bottom Padding to List
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
         renderItem={({ item }) => (
           <TouchableOpacity
+            activeOpacity={0.9}
             style={[
               styles.card,
-              cardStyle,
-              item.completed && {
-                opacity: 0.5,
-                backgroundColor: isDark ? "#111" : "#f9f9f9",
-              },
+              dynamicStyles.card,
+              item.completed && { opacity: 0.6 }, // Dim completed items
             ]}
             onPress={() => toggleComplete(item.id)}
             onLongPress={() => deleteItem(item.id)}
           >
-            <View
-              style={[
-                styles.checkbox,
-                item.completed && styles.checkboxChecked,
-              ]}
-            >
-              {item.completed && (
-                <Text style={{ color: "#fff", fontSize: 12 }}>✓</Text>
-              )}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.itemText,
-                  textStyle,
-                  item.completed && styles.textDone,
-                ]}
-              >
-                {item.text}
-              </Text>
-              <Text style={subTextStyle}>{item.category}</Text>
+            <View style={styles.row}>
+              <TouchableOpacity onPress={() => toggleComplete(item.id)}>
+                <MaterialCommunityIcons
+                  name={
+                    item.completed
+                      ? "checkbox-marked-circle"
+                      : "checkbox-blank-circle-outline"
+                  }
+                  size={26}
+                  color={item.completed ? colors.success : colors.textMuted}
+                />
+              </TouchableOpacity>
+
+              <View style={styles.textContainer}>
+                <Text
+                  style={[
+                    styles.itemText,
+                    dynamicStyles.headerText,
+                    item.completed && {
+                      textDecorationLine: "line-through",
+                      color: colors.textMuted,
+                    },
+                  ]}
+                >
+                  {item.text}
+                </Text>
+                <View
+                  style={[
+                    styles.categoryBadge,
+                    { backgroundColor: colors.background },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    {item.category}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Optional Delete Icon for clarity */}
+              <TouchableOpacity onPress={() => deleteItem(item.id)}>
+                <MaterialCommunityIcons
+                  name="dots-horizontal"
+                  size={20}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <Text style={[styles.emptyText, subTextStyle]}>
-            No dreams added yet ✨
-          </Text>
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons
+              name="lightbulb-on-outline"
+              size={48}
+              color={colors.textMuted}
+            />
+            <Text style={[styles.emptyText, dynamicStyles.subText]}>
+              No dreams found. Tap + to add one!
+            </Text>
+          </View>
         }
       />
 
+      {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        // 4. Dynamic Position for FAB
+        style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
+        activeOpacity={0.8}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={styles.fabText}>+</Text>
+        <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
       </TouchableOpacity>
 
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+      {/* Add Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, cardStyle]}>
-            <Text style={[styles.modalTitle, textStyle]}>
-              Add to Bucket List
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
+              New Goal
             </Text>
+
             <TextInput
-              style={[styles.input, inputStyle]}
-              placeholder="What do you want to do?"
-              placeholderTextColor="#aaa"
+              style={[styles.input, dynamicStyles.input]}
+              placeholder="What do you want to achieve?"
+              placeholderTextColor={colors.textMuted}
               value={newItem}
               onChangeText={setNewItem}
+              autoFocus
             />
-            <Text style={[styles.label, subTextStyle]}>Category</Text>
+
+            <Text style={[styles.label, dynamicStyles.subText]}>
+              Select Category
+            </Text>
             <View style={styles.catWrap}>
               {CATEGORIES.filter((c) => c !== "All").map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   style={[
                     styles.catChip,
-                    selectedCat === cat && styles.catChipActive,
                     {
                       backgroundColor:
-                        isDark && selectedCat !== cat
-                          ? "#333"
-                          : selectedCat === cat
-                            ? colors.primary
-                            : "#f1f2f6",
+                        selectedCat === cat
+                          ? colors.primary
+                          : colors.background,
+                      borderColor:
+                        selectedCat === cat ? colors.primary : colors.border,
                     },
                   ]}
                   onPress={() => setSelectedCat(cat)}
                 >
                   <Text
-                    style={[
-                      styles.chipText,
-                      selectedCat === cat && styles.chipTextActive,
-                      isDark && selectedCat !== cat && { color: "#fff" },
-                    ]}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color:
+                        selectedCat === cat
+                          ? colors.white
+                          : colors.textSecondary,
+                    }}
                   >
                     {cat}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.saveBtn} onPress={addItem}>
-              <Text style={styles.saveBtnText}>Add to List</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                style={{ padding: 10 }}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: "600" }}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={addItem}
+              >
+                <Text style={styles.saveBtnText}>Add Dream</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -250,93 +380,110 @@ const BucketListScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  // FIXED CONTAINER STYLE
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingBottom: 20,
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 60,
   },
-  headerTitle: { fontSize: 28, fontWeight: "bold", marginBottom: 15 },
+  headerArea: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  headerTitle: { fontSize: 32, fontWeight: "800", letterSpacing: -1 },
+  headerSub: { fontSize: 14, fontWeight: "500", marginTop: 4 },
+  progressCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 25,
+    backgroundColor: "rgba(255, 215, 0, 0.15)", // Gold tint
+    justifyContent: "center",
+    alignItems: "center",
+  },
   catScroll: { gap: 10, paddingRight: 20 },
   catPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    height: 40,
-    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 25,
     borderWidth: 1,
-  },
-  catText: { fontWeight: "600" },
-  card: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 10,
-    gap: 15,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: "center",
     justifyContent: "center",
   },
-  checkboxChecked: { backgroundColor: colors.primary },
-  itemText: { fontSize: 16, fontWeight: "500" },
-  textDone: { textDecorationLine: "line-through", opacity: 0.7 },
+  catText: { fontWeight: "600", fontSize: 13 },
+  card: {
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: 15 },
+  textContainer: { flex: 1 },
+  itemText: { fontSize: 16, fontWeight: "600", marginBottom: 6 },
+  categoryBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  categoryText: { fontSize: 10, fontWeight: "bold" },
+
   fab: {
     position: "absolute",
-    bottom: 30,
-    right: 30,
+    // bottom: 30, // REMOVED: Now controlled dynamically
+    right: 25,
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: colors.textPrimary,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5,
+    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
-  fabText: { fontSize: 30, color: "#fff" },
-  emptyText: { textAlign: "center", marginTop: 50 },
+  emptyContainer: { alignItems: "center", marginTop: 60, opacity: 0.7 },
+  emptyText: { textAlign: "center", marginTop: 15, fontSize: 16 },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
-    padding: 20,
+    padding: 25,
   },
-  modalContent: { borderRadius: 20, padding: 25 },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-    textAlign: "center",
-  },
+  modalContent: { borderRadius: 24, padding: 25, borderWidth: 1 },
+  modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
     fontSize: 16,
   },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
-  catWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 25 },
-  catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  catChipActive: { backgroundColor: colors.primary },
-  chipText: { fontSize: 12 },
-  chipTextActive: { color: "#fff" },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 15,
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 12 },
+  catWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 30,
   },
-  saveBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  cancelText: { textAlign: "center", color: colors.textSecondary },
+  catChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 20,
+  },
+  saveBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 14 },
+  saveBtnText: { color: "#fff", fontWeight: "bold", fontSize: 15 },
 });
 
 export default BucketListScreen;

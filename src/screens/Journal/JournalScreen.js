@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
 import {
   Alert,
@@ -5,6 +6,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  LayoutAnimation,
   Modal,
   Platform,
   ScrollView,
@@ -12,24 +14,36 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import JournalModal from "./JournalModal";
-import { getMonthColor, getMonthName } from "./JournalUtils";
+import { getMonthName } from "./JournalUtils";
+
+// Enable Layout Animation
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width, height } = Dimensions.get("window");
 
 const JournalScreen = () => {
-  const { theme } = useContext(AppContext);
+  const { colors, theme } = useContext(AppContext);
+
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = insets.bottom + 60;
+
   const [entries, setEntries] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
 
   // Navigation & View States
-  // viewMode options: 'list' (cards), 'compact' (rows), 'month' (folders)
-  const [viewMode, setViewMode] = useState("list");
+  const [viewMode, setViewMode] = useState("list"); // list, compact, month
   const [selectedMonthData, setSelectedMonthData] = useState(null);
   const [detailEntry, setDetailEntry] = useState(null);
   const [entryToEdit, setEntryToEdit] = useState(null);
@@ -41,9 +55,6 @@ const JournalScreen = () => {
     "Food",
     "Work",
   ]);
-
-  const isDark = theme === "dark";
-  const styles = getStyles(isDark);
 
   useEffect(() => {
     loadData();
@@ -85,35 +96,9 @@ const JournalScreen = () => {
     }
   };
 
-  // --- DELETE TAG LOGIC ---
-  const handleDeleteTag = (tagToDelete) => {
-    Alert.alert(
-      "Delete Tag",
-      `Are you sure you want to delete "${tagToDelete}"?`,
-      [
-        { text: "Cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const newTags = availableTags.filter((t) => t !== tagToDelete);
-            setAvailableTags(newTags);
-            await storeData("user_tags", newTags);
-
-            if (selectedFilterTag === tagToDelete) {
-              setSelectedFilterTag("All");
-            }
-          },
-        },
-      ],
-    );
-  };
-
   const handleSaveEntry = async (entryData) => {
     let updatedEntries = [];
-
     if (entryData.id) {
-      // Update existing
       updatedEntries = entries.map((e) =>
         e.id === entryData.id ? { ...e, ...entryData } : e,
       );
@@ -121,7 +106,6 @@ const JournalScreen = () => {
         setDetailEntry({ ...detailEntry, ...entryData });
       }
     } else {
-      // Create new
       const newEntry = {
         ...entryData,
         id: Date.now(),
@@ -130,63 +114,31 @@ const JournalScreen = () => {
       };
       updatedEntries = [newEntry, ...entries];
     }
-
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     setEntries(updatedEntries);
     await storeData("journal_data", updatedEntries);
-
-    setModalVisible(false);
-    setEntryToEdit(null);
-  };
-
-  const startEdit = (entry) => {
-    setEntryToEdit(entry);
-    setModalVisible(true);
-  };
-
-  const handleCloseModal = () => {
     setModalVisible(false);
     setEntryToEdit(null);
   };
 
   const handleDelete = (id) => {
     if (detailEntry && detailEntry.id === id) setDetailEntry(null);
-
     Alert.alert("Delete", "Delete this memory?", [
-      { text: "Cancel" },
+      { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           const updated = entries.filter((e) => e.id !== id);
           setEntries(updated);
           await storeData("journal_data", updated);
-
-          if (selectedMonthData) {
-            const updatedMonthData = {
-              ...selectedMonthData,
-              data: updated.filter((e) => {
-                const d = new Date(e.timestamp || e.id);
-                return (
-                  d.getMonth() === selectedMonthData.monthIndex &&
-                  d.getFullYear() === selectedMonthData.year
-                );
-              }),
-            };
-            setSelectedMonthData(updatedMonthData);
-          }
         },
       },
     ]);
   };
 
-  const handleAddCustomTag = async (newTag) => {
-    if (!availableTags.includes(newTag)) {
-      const updatedTags = [...availableTags, newTag];
-      setAvailableTags(updatedTags);
-      await storeData("user_tags", updatedTags);
-    }
-  };
-
+  // --- VIEW LOGIC ---
   const getFilteredEntries = (sourceData) => {
     if (!sourceData) return [];
     return sourceData.filter((entry) => {
@@ -200,13 +152,9 @@ const JournalScreen = () => {
       (a, b) => (b.timestamp || b.id) - (a.timestamp || a.id),
     );
     const groups = {};
-
     sortedEntries.forEach((entry) => {
       const ts = entry.timestamp || entry.id;
-      if (!ts) return;
       const date = new Date(ts);
-      if (isNaN(date.getTime())) return;
-
       const key = `${date.getMonth()}-${date.getFullYear()}`;
       if (!groups[key]) {
         groups[key] = {
@@ -217,118 +165,163 @@ const JournalScreen = () => {
           data: [],
         };
       }
-
       groups[key].data.push(entry);
       groups[key].count++;
       if (entry.image && groups[key].previewImages.length < 3) {
         groups[key].previewImages.push(entry.image);
       }
     });
-
     return Object.values(groups).sort((a, b) => {
       if (b.year !== a.year) return b.year - a.year;
       return b.monthIndex - a.monthIndex;
     });
   };
 
-  // --- RENDERERS ---
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    headerText: { color: colors.textPrimary },
+    subText: { color: colors.textSecondary },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+    },
+    chipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    chipInactive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    modalContent: { backgroundColor: colors.surface },
+    fab: { backgroundColor: colors.primary, shadowColor: colors.primary },
+  };
 
-  // 1. CARD VIEW (Existing)
+  // --- RENDERERS ---
   const renderJournalCard = ({ item }) => (
     <TouchableOpacity
       onPress={() => setDetailEntry(item)}
       onLongPress={() => handleDelete(item.id)}
       activeOpacity={0.9}
+      style={[styles.card, dynamicStyles.card]}
     >
-      <View style={styles.card}>
+      <View style={styles.imageContainer}>
+        {item.image ? (
+          <Image source={{ uri: item.image }} style={styles.cardImage} />
+        ) : (
+          <View
+            style={[
+              styles.placeholderImage,
+              { backgroundColor: colors.surfaceHighlight },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="text-box-outline"
+              size={40}
+              color={colors.textMuted}
+            />
+          </View>
+        )}
         <View style={styles.dateBadge}>
           <Text style={styles.dateText}>{item.date}</Text>
         </View>
+      </View>
 
-        {item.tags && item.tags.length > 0 && (
-          <View style={styles.cardTagsContainer}>
-            {item.tags.slice(0, 2).map((t, i) => (
-              <View key={i} style={styles.cardTag}>
-                <Text style={styles.cardTagText}>{t}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {item.image && (
-          <Image source={{ uri: item.image }} style={styles.cardImage} />
-        )}
-
-        <View style={styles.cardContent}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
+      <View style={styles.cardContent}>
+        <View style={styles.rowBetween}>
+          <Text
+            style={[styles.topicText, dynamicStyles.headerText]}
+            numberOfLines={1}
           >
-            <Text style={[styles.topicText, { flex: 1 }]} numberOfLines={2}>
-              {item.topic ? item.topic : "Untitled Memory"}
-            </Text>
-            {item.mood && (
-              <Text style={{ fontSize: 24, marginLeft: 5 }}>{item.mood}</Text>
-            )}
-          </View>
-          {item.location && (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 5,
-              }}
+            {item.topic || "Untitled Memory"}
+          </Text>
+          {item.mood && <Text style={{ fontSize: 20 }}>{item.mood}</Text>}
+        </View>
+
+        {item.location && (
+          <View style={styles.rowStart}>
+            <MaterialCommunityIcons
+              name="map-marker"
+              size={12}
+              color={colors.textSecondary}
+            />
+            <Text
+              style={[styles.locText, dynamicStyles.subText]}
+              numberOfLines={1}
             >
-              <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                📍 {item.location}
+              {item.location}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.tagRow}>
+          {item.tags &&
+            item.tags.slice(0, 3).map((t, i) => (
+              <Text key={i} style={[styles.miniTag, { color: colors.primary }]}>
+                #{t}
               </Text>
-            </View>
-          )}
+            ))}
         </View>
       </View>
     </TouchableOpacity>
   );
 
-  // 2. COMPACT ROW VIEW (New)
-  const renderCompactJournalRow = ({ item }) => (
+  const renderCompactRow = ({ item }) => (
     <TouchableOpacity
-      style={styles.compactRow}
+      style={[styles.compactRow, dynamicStyles.card]}
       onPress={() => setDetailEntry(item)}
-      onLongPress={() => handleDelete(item.id)}
       activeOpacity={0.7}
     >
-      {/* Leftmost Small Image Preview */}
       {item.image ? (
         <Image source={{ uri: item.image }} style={styles.compactImage} />
       ) : (
         <View
           style={[
             styles.compactImage,
-            { backgroundColor: isDark ? "#333" : "#e0e0e0" },
+            { backgroundColor: colors.surfaceHighlight },
           ]}
-        />
+        >
+          <MaterialCommunityIcons
+            name="text"
+            size={20}
+            color={colors.textMuted}
+          />
+        </View>
       )}
-
-      {/* Middle Content (Date & Topic) */}
-      <View style={styles.compactContent}>
-        <Text style={styles.compactDate}>{item.date}</Text>
-        <Text style={styles.compactTopic} numberOfLines={1}>
-          {item.topic ? item.topic : "Untitled"}
+      <View style={{ flex: 1, justifyContent: "center" }}>
+        <Text style={[styles.compactDate, dynamicStyles.subText]}>
+          {item.date}
+        </Text>
+        <Text
+          style={[styles.compactTopic, dynamicStyles.headerText]}
+          numberOfLines={1}
+        >
+          {item.topic || "Untitled"}
         </Text>
       </View>
-
-      {/* Rightmost Mood */}
-      {item.mood && <Text style={styles.compactMood}>{item.mood}</Text>}
+      {item.mood && <Text style={{ fontSize: 24 }}>{item.mood}</Text>}
     </TouchableOpacity>
   );
 
-  // 3. MONTH FOLDER VIEW (Existing)
-  const renderMonthSummary = ({ item }) => {
-    const bgColor = getMonthColor(item.monthIndex);
-    const monthName = getMonthName(item.monthIndex);
+  const renderMonthFolder = ({ item }) => {
+    const folderColors = [
+      colors.primary,
+      colors.secondary,
+      colors.accent,
+      colors.warning,
+      colors.success,
+      "#8e44ad",
+      "#e67e22",
+      "#2ecc71",
+      "#3498db",
+      "#9b59b6",
+      "#34495e",
+      "#16a085",
+    ];
+    const bg = folderColors[item.monthIndex % folderColors.length];
 
     return (
       <TouchableOpacity
@@ -337,596 +330,509 @@ const JournalScreen = () => {
           setSelectedFilterTag("All");
           setSelectedMonthData(item);
         }}
+        style={[styles.folderCard, { backgroundColor: bg }]}
       >
-        <View style={[styles.monthSummaryCard, { backgroundColor: bgColor }]}>
-          <View style={styles.monthHeaderRow}>
-            <Text style={styles.monthTitle}>
-              {monthName} {item.year}
-            </Text>
-            <Text style={styles.monthCount}>{item.count} Entries</Text>
-          </View>
-
-          <View style={styles.previewContainer}>
-            {item.previewImages.length > 0 ? (
-              item.previewImages.map((uri, index) => (
-                <Image
-                  key={index}
-                  source={{ uri }}
-                  style={[
-                    styles.previewThumb,
-                    { zIndex: 3 - index, left: index * -15 },
-                  ]}
-                />
-              ))
-            ) : (
-              <Text
-                style={{ opacity: 0.5, fontStyle: "italic", marginTop: 10 }}
-              >
-                No photos this month
-              </Text>
-            )}
-          </View>
-          <Text style={styles.tapToView}>Tap to view all</Text>
+        <View style={styles.folderContent}>
+          <Text style={styles.folderTitle}>
+            {getMonthName(item.monthIndex)} '{item.year.toString().substr(2)}
+          </Text>
+          <Text style={styles.folderCount}>{item.count} Memories</Text>
+        </View>
+        <View style={styles.folderPreview}>
+          {item.previewImages.slice(0, 3).map((uri, idx) => (
+            <Image
+              key={idx}
+              source={{ uri }}
+              style={[
+                styles.folderThumb,
+                {
+                  transform: [{ rotate: `${(idx - 1) * 10}deg` }],
+                  left: idx * 15,
+                  zIndex: idx,
+                },
+              ]}
+            />
+          ))}
         </View>
       </TouchableOpacity>
     );
   };
 
-  // FLOATING DETAIL WINDOW
-  const renderDetailModal = () => {
-    if (!detailEntry) return null;
-    return (
-      <Modal
-        visible={true}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setDetailEntry(null)}
-      >
-        <View style={styles.floatingOverlay}>
-          <View style={styles.floatingWindow}>
-            <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
-              {detailEntry.image && (
-                <Image
-                  source={{ uri: detailEntry.image }}
-                  style={styles.detailImage}
-                />
-              )}
-              <View style={styles.detailContent}>
-                <View style={styles.detailMetaRow}>
-                  <Text style={styles.detailDate}>{detailEntry.date}</Text>
-                  {detailEntry.location && (
-                    <Text
-                      style={[
-                        styles.detailDate,
-                        { fontSize: 12, maxWidth: "60%", textAlign: "right" },
-                      ]}
-                    >
-                      📍 {detailEntry.location}
-                    </Text>
-                  )}
-                </View>
-                <View
+  return (
+    <View style={[styles.container, dynamicStyles.container]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
+
+      <View style={styles.headerRow}>
+        <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+          Journal
+        </Text>
+
+        <View
+          style={[
+            styles.viewToggle,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          {["list", "compact", "month"].map((mode) => (
+            <TouchableOpacity
+              key={mode}
+              onPress={() => {
+                LayoutAnimation.configureNext(
+                  LayoutAnimation.Presets.easeInEaseOut,
+                );
+                setViewMode(mode);
+                setSelectedMonthData(null);
+              }}
+              style={[
+                styles.toggleBtn,
+                viewMode === mode && { backgroundColor: colors.primary },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={
+                  mode === "list"
+                    ? "view-grid"
+                    : mode === "compact"
+                      ? "view-list"
+                      : "folder-open"
+                }
+                size={20}
+                color={viewMode === mode ? colors.white : colors.textSecondary}
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.filterContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 20 }}
+        >
+          {["All", ...availableTags].map((tag, idx) => {
+            const isActive = selectedFilterTag === tag;
+            return (
+              <TouchableOpacity
+                key={idx}
+                onPress={() => setSelectedFilterTag(tag)}
+                style={[
+                  styles.filterChip,
+                  isActive
+                    ? dynamicStyles.chipActive
+                    : dynamicStyles.chipInactive,
+                ]}
+              >
+                <Text
                   style={{
-                    flexDirection: "row",
-                    flexWrap: "wrap",
-                    marginBottom: 15,
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color: isActive ? colors.white : colors.textSecondary,
                   }}
                 >
-                  {detailEntry.tags &&
-                    detailEntry.tags.map((t, i) => (
-                      <View key={i} style={styles.detailTag}>
-                        <Text style={styles.detailTagText}>{t}</Text>
-                      </View>
-                    ))}
-                </View>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: 15,
-                  }}
-                >
-                  <Text style={[styles.detailTopic, { flex: 1 }]}>
-                    {detailEntry.topic ? detailEntry.topic : "Untitled Memory"}
-                  </Text>
-                  {detailEntry.mood && (
-                    <Text style={{ fontSize: 32, marginLeft: 10 }}>
-                      {detailEntry.mood}
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.detailBody}>{detailEntry.text}</Text>
-              </View>
-            </ScrollView>
-            <TouchableOpacity
-              style={styles.closeFloatBtn}
-              onPress={() => setDetailEntry(null)}
-            >
-              <Text style={styles.closeFloatText}>✕</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.editFloatBtn}
-              onPress={() => startEdit(detailEntry)}
-            >
-              <Text style={styles.editFloatText}>✎ Edit</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
+                  {tag}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-  const renderContent = () => {
-    // CASE 1: COMPACT VIEW (New)
-    if (viewMode === "compact") {
-      return (
-        <View style={{ flex: 1 }}>
-          {renderTagFilter()}
-          <FlatList
-            data={getFilteredEntries(entries)}
-            keyExtractor={(item, index) =>
-              item?.id ? item.id.toString() : index.toString()
-            }
-            contentContainerStyle={{ paddingBottom: 100 }}
-            renderItem={renderCompactJournalRow} // Use compact renderer
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No memories found.</Text>
-            }
-          />
-        </View>
-      );
-    }
-
-    // CASE 2: Inside a specific month folder
-    if (viewMode === "month" && selectedMonthData) {
-      const displayedEntries = getFilteredEntries(selectedMonthData.data);
-      const monthName = getMonthName(selectedMonthData.monthIndex);
-      return (
-        <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }}>
+        {selectedMonthData && (
           <View style={styles.subHeader}>
             <TouchableOpacity
               onPress={() => setSelectedMonthData(null)}
-              style={styles.backBtn}
+              style={{ flexDirection: "row", alignItems: "center" }}
             >
-              <Text style={styles.backText}>← Back</Text>
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={20}
+                color={colors.primary}
+              />
+              <Text
+                style={{
+                  color: colors.primary,
+                  fontWeight: "bold",
+                  marginLeft: 5,
+                }}
+              >
+                Back
+              </Text>
             </TouchableOpacity>
-            <Text
-              style={[styles.subTitle, { color: isDark ? "#fff" : "#000" }]}
-            >
-              {monthName} {selectedMonthData.year}
+            <Text style={[styles.subTitle, dynamicStyles.headerText]}>
+              {getMonthName(selectedMonthData.monthIndex)}{" "}
+              {selectedMonthData.year}
             </Text>
           </View>
-          {renderTagFilter()}
-          <FlatList
-            data={displayedEntries}
-            keyExtractor={(item, index) =>
-              item?.id ? item.id.toString() : index.toString()
-            }
-            contentContainerStyle={{ paddingBottom: 100 }}
-            renderItem={renderJournalCard} // Use standard card inside month
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No entries found.</Text>
-            }
-          />
-        </View>
-      );
-    }
+        )}
 
-    // CASE 3: Month Folder View
-    if (viewMode === "month" && !selectedMonthData) {
-      return (
-        <View style={{ flex: 1 }}>
-          <FlatList
-            data={getGroupedByMonth()}
-            keyExtractor={(item) => `${item.monthIndex}-${item.year}`}
-            contentContainerStyle={{ paddingBottom: 100 }}
-            renderItem={renderMonthSummary}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No memories yet.</Text>
-            }
-          />
-        </View>
-      );
-    }
-
-    // CASE 4: Standard Card List View (Default)
-    return (
-      <View style={{ flex: 1 }}>
-        {renderTagFilter()}
         <FlatList
-          data={getFilteredEntries(entries)}
-          keyExtractor={(item, index) =>
-            item?.id ? item.id.toString() : index.toString()
+          data={
+            viewMode === "month" && !selectedMonthData
+              ? getGroupedByMonth()
+              : getFilteredEntries(
+                  selectedMonthData ? selectedMonthData.data : entries,
+                )
           }
-          contentContainerStyle={{ paddingBottom: 100 }}
-          renderItem={renderJournalCard}
+          keyExtractor={(item) =>
+            item.id ? item.id.toString() : `${item.monthIndex}-${item.year}`
+          }
+          contentContainerStyle={{
+            paddingBottom: tabBarHeight + 20,
+            paddingHorizontal: 20,
+          }}
+          renderItem={({ item }) => {
+            if (viewMode === "month" && !selectedMonthData)
+              return renderMonthFolder({ item });
+            if (viewMode === "compact") return renderCompactRow({ item });
+            return renderJournalCard({ item });
+          }}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No memories found.</Text>
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <MaterialCommunityIcons
+                name="notebook-outline"
+                size={50}
+                color={colors.textMuted}
+              />
+              <Text style={{ color: colors.textMuted, marginTop: 10 }}>
+                No memories found.
+              </Text>
+            </View>
           }
         />
       </View>
-    );
-  };
-
-  const renderTagFilter = () => (
-    <View style={styles.filterContainer}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            selectedFilterTag === "All" && styles.activeChip,
-          ]}
-          onPress={() => setSelectedFilterTag("All")}
-        >
-          <Text
-            style={[
-              styles.filterText,
-              selectedFilterTag === "All" && styles.activeFilterText,
-            ]}
-          >
-            All
-          </Text>
-        </TouchableOpacity>
-        {availableTags.map((tag, idx) => (
-          <TouchableOpacity
-            key={idx}
-            style={[
-              styles.filterChip,
-              selectedFilterTag === tag && styles.activeChip,
-            ]}
-            onPress={() => setSelectedFilterTag(tag)}
-            onLongPress={() => handleDeleteTag(tag)}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                selectedFilterTag === tag && styles.activeFilterText,
-              ]}
-            >
-              {tag}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Journal</Text>
-        {/* Updated View Toggle with 3 buttons */}
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            onPress={() => {
-              setViewMode("list");
-              setSelectedMonthData(null);
-            }}
-            style={[
-              styles.toggleBtn,
-              viewMode === "list" && styles.activeToggle,
-            ]}
-          >
-            <Text
-              style={{ fontSize: 18, opacity: viewMode === "list" ? 1 : 0.4 }}
-            >
-              📄
-            </Text>
-          </TouchableOpacity>
-
-          {/* NEW COMPACT BUTTON */}
-          <TouchableOpacity
-            onPress={() => {
-              setViewMode("compact");
-              setSelectedMonthData(null);
-            }}
-            style={[
-              styles.toggleBtn,
-              viewMode === "compact" && styles.activeToggle,
-            ]}
-          >
-            <Text
-              style={{
-                fontSize: 18,
-                opacity: viewMode === "compact" ? 1 : 0.4,
-              }}
-            >
-              ≣
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              setViewMode("month");
-              setSelectedMonthData(null);
-            }}
-            style={[
-              styles.toggleBtn,
-              viewMode === "month" && styles.activeToggle,
-            ]}
-          >
-            <Text
-              style={{ fontSize: 18, opacity: viewMode === "month" ? 1 : 0.4 }}
-            >
-              📅
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {renderContent()}
-      {renderDetailModal()}
 
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => setModalVisible(true)}
+        style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
+        onPress={() => {
+          setEntryToEdit(null);
+          setModalVisible(true);
+        }}
       >
-        <Text style={styles.fabText}>+</Text>
+        <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
       </TouchableOpacity>
 
       <JournalModal
         visible={modalVisible}
-        onClose={handleCloseModal}
+        onClose={() => setModalVisible(false)}
         onSave={handleSaveEntry}
-        theme={theme}
         existingTags={availableTags}
-        onAddCustomTag={handleAddCustomTag}
-        onDeleteTag={handleDeleteTag}
+        onAddCustomTag={(tag) => setAvailableTags([...availableTags, tag])}
         initialData={entryToEdit}
       />
+
+      {/* Detail Modal Overlay */}
+      {detailEntry && (
+        <Modal
+          visible={true}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setDetailEntry(null)}
+        >
+          <View style={styles.detailOverlay}>
+            <View style={[styles.detailCard, dynamicStyles.modalContent]}>
+              <ScrollView>
+                {detailEntry.image && (
+                  <Image
+                    source={{ uri: detailEntry.image }}
+                    style={styles.detailImage}
+                  />
+                )}
+                <View style={styles.detailBody}>
+                  <View style={styles.rowBetween}>
+                    <Text style={[styles.detailDate, dynamicStyles.subText]}>
+                      {detailEntry.date}
+                    </Text>
+                    {detailEntry.mood && (
+                      <Text style={{ fontSize: 28 }}>{detailEntry.mood}</Text>
+                    )}
+                  </View>
+
+                  <Text style={[styles.detailTitle, dynamicStyles.headerText]}>
+                    {detailEntry.topic}
+                  </Text>
+
+                  {detailEntry.location && (
+                    <View style={[styles.rowStart, { marginVertical: 10 }]}>
+                      <MaterialCommunityIcons
+                        name="map-marker"
+                        size={16}
+                        color={colors.primary}
+                      />
+                      <Text
+                        style={{ color: colors.textSecondary, marginLeft: 5 }}
+                      >
+                        {detailEntry.location}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      marginVertical: 10,
+                    }}
+                  >
+                    {detailEntry.tags &&
+                      detailEntry.tags.map((t, i) => (
+                        <View
+                          key={i}
+                          style={{
+                            backgroundColor: colors.surfaceHighlight,
+                            paddingHorizontal: 10,
+                            paddingVertical: 4,
+                            borderRadius: 8,
+                          }}
+                        >
+                          <Text
+                            style={{ color: colors.textPrimary, fontSize: 12 }}
+                          >
+                            #{t}
+                          </Text>
+                        </View>
+                      ))}
+                  </View>
+
+                  <Text style={[styles.detailText, dynamicStyles.headerText]}>
+                    {detailEntry.text}
+                  </Text>
+                </View>
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.closeDetailBtn}
+                onPress={() => setDetailEntry(null)}
+              >
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={colors.white}
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.editDetailBtn}
+                onPress={() => {
+                  setEntryToEdit(detailEntry);
+                  setDetailEntry(null);
+                  setModalVisible(true);
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="pencil"
+                  size={24}
+                  color={colors.white}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
 
-// --- STYLES ---
-const getStyles = (isDark) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      paddingHorizontal: 20,
-      paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 60,
-      backgroundColor: isDark ? "#121212" : colors.background,
-    },
-    headerRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 15,
-    },
-    headerTitle: {
-      fontSize: 28,
-      fontWeight: "bold",
-      color: isDark ? "#fff" : colors.textPrimary,
-    },
-    viewToggle: {
-      flexDirection: "row",
-      backgroundColor: isDark ? "#333" : "#eee",
-      borderRadius: 12,
-      padding: 4,
-    },
-    toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-    activeToggle: { backgroundColor: isDark ? "#555" : "#fff", elevation: 2 },
-    subHeader: { flexDirection: "row", alignItems: "center", marginBottom: 15 },
-    backBtn: { paddingRight: 15 },
-    backText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
-    subTitle: { fontSize: 20, fontWeight: "bold" },
-    filterContainer: { marginBottom: 15, height: 40 },
-    filterChip: {
-      paddingHorizontal: 15,
-      paddingVertical: 8,
-      borderRadius: 20,
-      backgroundColor: isDark ? "#333" : "#e0e0e0",
-      marginRight: 10,
-      justifyContent: "center",
-    },
-    activeChip: { backgroundColor: colors.primary },
-    filterText: { color: isDark ? "#ccc" : "#333", fontWeight: "600" },
-    activeFilterText: { color: "#fff" },
-    card: {
-      borderRadius: 16,
-      marginBottom: 15,
-      overflow: "hidden",
-      elevation: 2,
-      backgroundColor: isDark ? "#1e1e1e" : colors.cardBg,
-    },
-    cardImage: { width: "100%", height: 140, resizeMode: "cover" },
-    cardContent: { padding: 12 },
-    topicText: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: isDark ? "#fff" : colors.textPrimary,
-    },
-    dateBadge: {
-      position: "absolute",
-      top: 10,
-      right: 10,
-      backgroundColor: "rgba(0,0,0,0.6)",
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      zIndex: 1,
-    },
-    dateText: { color: "#fff", fontSize: 10, fontWeight: "bold" },
-    cardTagsContainer: {
-      position: "absolute",
-      top: 10,
-      left: 10,
-      flexDirection: "row",
-      zIndex: 1,
-    },
-    cardTag: {
-      backgroundColor: "rgba(255,255,255,0.9)",
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: 6,
-      marginRight: 5,
-    },
-    cardTagText: { fontSize: 10, fontWeight: "bold", color: "#333" },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 60,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  headerTitle: { fontSize: 28, fontWeight: "bold" },
 
-    // --- NEW COMPACT ROW STYLES ---
-    compactRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: isDark ? "#1e1e1e" : colors.cardBg,
-      padding: 10,
-      borderRadius: 12,
-      marginBottom: 10,
-      elevation: 1,
-    },
-    compactImage: {
-      width: 50,
-      height: 50,
-      borderRadius: 8,
-      marginRight: 15,
-      backgroundColor: "#ccc", // Fallback color
-    },
-    compactContent: {
-      flex: 1,
-      justifyContent: "center",
-    },
-    compactDate: {
-      fontSize: 12,
-      color: isDark ? "#aaa" : colors.textSecondary,
-      marginBottom: 4,
-    },
-    compactTopic: {
-      fontSize: 16,
-      fontWeight: "bold",
-      color: isDark ? "#fff" : colors.textPrimary,
-    },
-    compactMood: {
-      fontSize: 24,
-      marginLeft: 10,
-    },
+  viewToggle: {
+    flexDirection: "row",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 4,
+    gap: 5,
+  },
+  toggleBtn: {
+    padding: 8,
+    borderRadius: 12,
+  },
 
-    monthSummaryCard: {
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 20,
-      height: 160,
-      justifyContent: "space-between",
-    },
-    monthHeaderRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    monthTitle: {
-      fontSize: 22,
-      fontWeight: "bold",
-      color: "#333",
-      opacity: 0.9,
-    },
-    monthCount: { fontSize: 14, color: "#555", fontWeight: "600" },
-    previewContainer: {
-      flexDirection: "row",
-      alignItems: "center",
-      marginTop: 10,
-      paddingLeft: 10,
-    },
-    previewThumb: {
-      width: 50,
-      height: 50,
-      borderRadius: 15,
-      borderWidth: 2,
-      borderColor: "#fff",
-    },
-    tapToView: {
-      fontSize: 12,
-      color: "#555",
-      alignSelf: "flex-end",
-      fontWeight: "bold",
-    },
-    emptyText: {
-      textAlign: "center",
-      marginTop: 50,
-      color: isDark ? "#aaa" : colors.textSecondary,
-    },
-    fab: {
-      position: "absolute",
-      bottom: 30,
-      right: 30,
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: colors.primary,
-      justifyContent: "center",
-      alignItems: "center",
-      elevation: 5,
-    },
-    fabText: { fontSize: 30, color: "#fff" },
-    floatingOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.7)",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    floatingWindow: {
-      width: width * 0.9,
-      height: height * 0.75,
-      backgroundColor: isDark ? "#1e1e1e" : "#fff",
-      borderRadius: 24,
-      overflow: "hidden",
-      elevation: 10,
-    },
-    detailImage: { width: "100%", height: 250, resizeMode: "cover" },
-    detailContent: { padding: 24 },
-    detailMetaRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 10,
-    },
-    detailDate: {
-      color: isDark ? "#aaa" : "#888",
-      fontWeight: "600",
-      fontSize: 14,
-    },
-    detailTag: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
-      marginRight: 6,
-      marginBottom: 5,
-    },
-    detailTagText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
-    detailTopic: {
-      fontSize: 26,
-      fontWeight: "bold",
-      color: isDark ? "#fff" : "#222",
-      marginBottom: 10,
-    },
-    detailBody: {
-      fontSize: 16,
-      lineHeight: 26,
-      color: isDark ? "#ddd" : "#444",
-    },
-    closeFloatBtn: {
-      position: "absolute",
-      top: 15,
-      right: 15,
-      width: 32,
-      height: 32,
-      backgroundColor: "rgba(0,0,0,0.6)",
-      borderRadius: 16,
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 10,
-    },
-    closeFloatText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-    editFloatBtn: {
-      position: "absolute",
-      bottom: 20,
-      right: 20,
-      backgroundColor: colors.primary,
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderRadius: 30,
-      elevation: 5,
-    },
-    editFloatText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  });
+  filterContainer: { marginBottom: 20, paddingHorizontal: 20 },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 10,
+    borderWidth: 1,
+  },
+
+  // Card View
+  card: {
+    borderRadius: 20,
+    marginBottom: 16, // Reduced margin
+    overflow: "hidden",
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  // FIX: Reduced Height for "smaller" cards
+  imageContainer: {
+    height: 140, // Was 180
+    width: "100%",
+    position: "relative",
+  },
+  cardImage: { width: "100%", height: "100%", resizeMode: "cover" },
+  placeholderImage: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dateBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  dateText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
+  cardContent: { padding: 15 },
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  rowStart: { flexDirection: "row", alignItems: "center", marginTop: 5 },
+  topicText: { fontSize: 18, fontWeight: "bold", flex: 1 },
+  locText: { fontSize: 12, marginLeft: 4 },
+  tagRow: { flexDirection: "row", marginTop: 8, gap: 10 },
+  miniTag: { fontSize: 12, fontWeight: "600" },
+
+  // Compact View
+  compactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  compactImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    marginRight: 15,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  compactDate: { fontSize: 10, marginBottom: 2 },
+  compactTopic: { fontSize: 16, fontWeight: "600" },
+
+  // Month Folder View
+  folderCard: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 15,
+    height: 140,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  folderContent: { flex: 1, justifyContent: "space-between" },
+  folderTitle: { color: "#fff", fontSize: 22, fontWeight: "bold" },
+  folderCount: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  folderPreview: { width: 100, height: "100%", position: "relative" },
+  folderThumb: {
+    width: 60,
+    height: 70,
+    borderRadius: 10,
+    position: "absolute",
+    top: 20,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  subHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    marginBottom: 15,
+  },
+  subTitle: { fontSize: 20, fontWeight: "bold" },
+
+  // FAB
+  fab: {
+    position: "absolute",
+    // bottom: 30, // REMOVED: Now handled dynamically
+    right: 30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+
+  // Detail Modal
+  detailOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  detailCard: {
+    borderRadius: 24,
+    height: "80%", // Increased fixed height
+    overflow: "hidden",
+    width: "100%",
+  },
+  detailImage: {
+    width: "100%",
+    height: 350, // Increased image height
+    resizeMode: "cover",
+  },
+  detailBody: { padding: 25 },
+  detailDate: { fontSize: 14, fontWeight: "600", opacity: 0.7 },
+  detailTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  detailText: { fontSize: 18, lineHeight: 28, opacity: 0.9 }, // Larger text
+  closeDetailBtn: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 10,
+    borderRadius: 20,
+  },
+  editDetailBtn: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    backgroundColor: "#2563EB",
+    padding: 15,
+    borderRadius: 30,
+    elevation: 5,
+  },
+});
 
 export default JournalScreen;

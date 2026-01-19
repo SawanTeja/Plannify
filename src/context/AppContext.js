@@ -1,12 +1,20 @@
-import AsyncStorage from "@react-native-async-storage/async-storage"; // <--- Added this
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useEffect, useState } from "react";
-import { Appearance } from "react-native";
+import { Appearance, StatusBar } from "react-native";
+import allColors from "../constants/colors"; // Import the new palette
 import { getData, storeData } from "../utils/storageHelper";
 
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState("dark");
+
+  // This is the magic line. It selects the correct object based on the string 'light' or 'dark'
+  // We merge 'common' colors so they are always available.
+  const activeColors = {
+    ...allColors.common,
+    ...allColors[theme],
+  };
 
   // Unified User Data State
   const [userData, setUserData] = useState({
@@ -52,7 +60,6 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  // Helper for Storage Menu
   const getStorageUsage = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
@@ -71,7 +78,8 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider
       value={{
-        theme,
+        theme, // 'light' or 'dark'
+        colors: activeColors, // The actual color object (hex codes)
         toggleTheme,
         userData,
         updateUserData,
@@ -79,6 +87,13 @@ export const AppProvider = ({ children }) => {
         getStorageUsage,
       }}
     >
+      {/* We update the Status Bar (time/battery icons) to match the theme.
+         If Dark Mode -> Light Content. If Light Mode -> Dark Content.
+      */}
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+        backgroundColor={activeColors.background}
+      />
       {children}
     </AppContext.Provider>
   );

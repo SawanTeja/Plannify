@@ -1,10 +1,11 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import * as Notifications from "expo-notifications";
+// 1. Import Safe Area Insets
 import { useCallback, useContext, useState } from "react";
 import {
   Alert,
   Modal,
-  Platform,
+  // Removed SafeAreaView to use View with manual padding
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -13,35 +14,32 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
 const BudgetScreen = () => {
   const navigation = useNavigation();
-  const { theme } = useContext(AppContext);
-  const isDark = theme === "dark";
+  const { colors, theme } = useContext(AppContext);
+
+  // 2. Calculate Dynamic Spacing
+  const insets = useSafeAreaInsets();
+  const FLOATING_TAB_BAR_HEIGHT = 90; // Height of your bottom nav
+  // This is where the Floating Dock will sit (above the tab bar)
+  const dockPositionBottom = FLOATING_TAB_BAR_HEIGHT + insets.bottom + 10;
 
   const [budget, setBudget] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
+
+  // Modals
+  const [modalVisible, setModalVisible] = useState(false); // Expense
   const [incomeModalVisible, setIncomeModalVisible] = useState(false);
   const [recurringModalVisible, setRecurringModalVisible] = useState(false);
 
+  // Form Inputs
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
   const [selectedCat, setSelectedCat] = useState(null);
   const [payDay, setPayDay] = useState("");
-
-  const containerStyle = {
-    backgroundColor: isDark ? "#121212" : colors.background,
-  };
-  const cardStyle = { backgroundColor: isDark ? "#1e1e1e" : "#fff" };
-  const textStyle = { color: isDark ? "#fff" : colors.textPrimary };
-  const subTextStyle = { color: isDark ? "#aaa" : colors.textSecondary };
-  const inputColor = {
-    color: isDark ? "#fff" : "#000",
-    borderColor: isDark ? "#444" : colors.gray,
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -56,6 +54,7 @@ const BudgetScreen = () => {
       return;
     }
 
+    // Month Reset Logic
     const realMonth = new Date().toLocaleString("default", {
       month: "long",
       year: "numeric",
@@ -68,6 +67,7 @@ const BudgetScreen = () => {
       await storeData("budget_data", data);
     }
 
+    // Auto-Pay Logic
     let autoPaidItems = [];
     const todayDay = new Date().getDate();
 
@@ -92,18 +92,6 @@ const BudgetScreen = () => {
 
     if (autoPaidItems.length > 0) {
       await storeData("budget_data", data);
-      try {
-        await Notifications.scheduleNotificationAsync({
-          content: {
-            title: "⚡ Auto-Pay Executed",
-            body: `Paid: ${autoPaidItems.join(", ")}`,
-            sound: true,
-          },
-          trigger: null,
-        });
-      } catch (e) {
-        console.log("Notification failed (Expo Go limitation)");
-      }
       Alert.alert("⚡ Auto-Pay Executed", `Paid: ${autoPaidItems.join(", ")}`);
     }
 
@@ -135,8 +123,7 @@ const BudgetScreen = () => {
     await storeData("budget_data", newBudget);
     setBudget(newBudget);
     setModalVisible(false);
-    setAmount("");
-    setDesc("");
+    resetForm();
   };
 
   const handleAddIncome = async () => {
@@ -155,8 +142,7 @@ const BudgetScreen = () => {
     await storeData("budget_data", newBudget);
     setBudget(newBudget);
     setIncomeModalVisible(false);
-    setAmount("");
-    setDesc("");
+    resetForm();
   };
 
   const handleAddRecurring = async () => {
@@ -181,14 +167,19 @@ const BudgetScreen = () => {
     await storeData("budget_data", newBudget);
     setBudget(newBudget);
     setRecurringModalVisible(false);
+    resetForm();
+    loadBudget();
+  };
+
+  const resetForm = () => {
     setAmount("");
     setDesc("");
     setPayDay("");
-    loadBudget();
   };
 
   if (!budget) return null;
 
+  // --- CALCULATIONS ---
   const hasCategories = budget.categories && budget.categories.length > 0;
   const totalSpent = hasCategories
     ? budget.categories.reduce((acc, item) => acc + item.spent, 0)
@@ -200,81 +191,268 @@ const BudgetScreen = () => {
     .reduce((acc, item) => acc + item.amount, 0);
   const remaining = budget.totalBudget + totalIncome - totalSpent;
 
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    headerText: { color: colors.textPrimary },
+    subText: { color: colors.textSecondary },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    input: {
+      backgroundColor: colors.background,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+    pillActive: { backgroundColor: colors.primary },
+    pillInactive: {
+      backgroundColor: colors.background,
+      borderColor: colors.border,
+      borderWidth: 1,
+    },
+  };
+
   return (
-    // FIX: Added Padding for Android Status Bar
+    // 3. FIX TOP: Use View with paddingTop from insets
     <View
       style={[
         styles.container,
-        containerStyle,
-        {
-          paddingTop:
-            Platform.OS === "android" ? StatusBar.currentHeight + 20 : 20,
-        },
+        dynamicStyles.container,
+        { paddingTop: insets.top },
       ]}
     >
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
+
+      {/* --- TOP BAR --- */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          style={[styles.actionBtn, cardStyle]}
+          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
           onPress={() => navigation.navigate("BudgetHistory")}
         >
-          <Text style={styles.btnText}>📜 History</Text>
+          <MaterialCommunityIcons
+            name="history"
+            size={24}
+            color={colors.textPrimary}
+          />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, textStyle]}>Budget</Text>
+
+        <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+          My Wallet
+        </Text>
+
         <TouchableOpacity
-          style={[styles.actionBtn, cardStyle]}
+          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
           onPress={() =>
             navigation.navigate("BudgetSetup", { isEditing: true })
           }
         >
-          <Text style={styles.btnText}>⚙️ Edit</Text>
+          <MaterialCommunityIcons
+            name="cog-outline"
+            size={24}
+            color={colors.textPrimary}
+          />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        <View style={styles.headerCard}>
-          <Text style={styles.balanceLabel}>
-            Remaining ({budget.currentMonth})
-          </Text>
-          <Text style={styles.balance}>
-            {budget.currency}
-            {remaining.toFixed(2)}
-          </Text>
-          <View style={{ flexDirection: "row", gap: 15 }}>
-            <Text style={styles.subText}>
-              Limit: {budget.currency}
-              {budget.totalBudget}
-            </Text>
-            <Text style={[styles.subText, { color: "#81ecec" }]}>
-              In: +{totalIncome}
-            </Text>
-            <Text style={[styles.subText, { color: "#ff7675" }]}>
-              Out: -{totalSpent}
-            </Text>
+      <ScrollView
+        // 4. FIX SCROLLING: Add huge bottom padding so content clears the dock AND tab bar
+        contentContainerStyle={{
+          paddingBottom: dockPositionBottom + 100,
+          paddingHorizontal: 20,
+        }}
+      >
+        {/* --- MAIN BALANCE CARD --- */}
+        <View style={[styles.walletCard, { backgroundColor: colors.primary }]}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+            }}
+          >
+            <View>
+              <Text
+                style={{
+                  color: "rgba(255,255,255,0.8)",
+                  fontSize: 14,
+                  fontWeight: "600",
+                }}
+              >
+                Available Balance
+              </Text>
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: 36,
+                  fontWeight: "bold",
+                  marginVertical: 5,
+                }}
+              >
+                {budget.currency}
+                {remaining.toFixed(2)}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12 }}>
+                {budget.currentMonth}
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="contactless-payment"
+              size={32}
+              color="rgba(255,255,255,0.6)"
+            />
+          </View>
+
+          <View style={styles.walletFooter}>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 10 }}>
+                INCOME
+              </Text>
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                }}
+              >
+                +{budget.currency}
+                {totalIncome}
+              </Text>
+            </View>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 10 }}>
+                SPENT
+              </Text>
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                }}
+              >
+                -{budget.currency}
+                {totalSpent}
+              </Text>
+            </View>
+            <View>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 10 }}>
+                LIMIT
+              </Text>
+              <Text
+                style={{
+                  color: colors.white,
+                  fontSize: 14,
+                  fontWeight: "bold",
+                }}
+              >
+                {budget.currency}
+                {budget.totalBudget}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {hasCategories && (
-          <>
-            <Text style={[styles.sectionTitle, textStyle]}>Breakdown</Text>
-            {budget.categories.map((item) => {
-              const percent = item.limit > 0 ? item.spent / item.limit : 0;
-              return (
-                <View key={item.id} style={[styles.catItem, cardStyle]}>
-                  <View style={styles.catHeader}>
-                    <Text style={[styles.catName, textStyle]}>{item.name}</Text>
-                    <Text style={[styles.catVal, subTextStyle]}>
-                      {budget.currency}
-                      {item.spent} / {item.limit}
+        {/* --- AUTO PAY SECTION --- */}
+        {budget.recurringPayments && budget.recurringPayments.length > 0 && (
+          <View style={{ marginBottom: 20 }}>
+            <Text style={[styles.sectionTitle, dynamicStyles.headerText]}>
+              Upcoming Bills
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -20, paddingHorizontal: 20 }}
+            >
+              {budget.recurringPayments.map((rp) => (
+                <View key={rp.id} style={[styles.billChip, dynamicStyles.card]}>
+                  <View
+                    style={[
+                      styles.iconCircle,
+                      { backgroundColor: colors.primary + "20" },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="lightning-bolt"
+                      size={16}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View>
+                    <Text style={[styles.billName, dynamicStyles.headerText]}>
+                      {rp.desc}
+                    </Text>
+                    <Text style={[styles.billDetail, dynamicStyles.subText]}>
+                      Day {rp.day} • {budget.currency}
+                      {rp.amount}
                     </Text>
                   </View>
-                  <View style={styles.progressBarBg}>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* --- BREAKDOWN SECTION --- */}
+        {hasCategories && (
+          <>
+            <Text style={[styles.sectionTitle, dynamicStyles.headerText]}>
+              Spending Breakdown
+            </Text>
+            {budget.categories.map((item) => {
+              const percent = item.limit > 0 ? item.spent / item.limit : 0;
+              const isOver = percent >= 1;
+              return (
+                <View
+                  key={item.id}
+                  style={[styles.categoryRow, dynamicStyles.card]}
+                >
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text style={[styles.catName, dynamicStyles.headerText]}>
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.catVal, dynamicStyles.subText]}>
+                      <Text
+                        style={{
+                          fontWeight: "bold",
+                          color: isOver ? colors.danger : colors.textPrimary,
+                        }}
+                      >
+                        {budget.currency}
+                        {item.spent}
+                      </Text>{" "}
+                      / {budget.currency}
+                      {item.limit}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.progressBarBg,
+                      { backgroundColor: colors.background },
+                    ]}
+                  >
                     <View
                       style={[
                         styles.progressBarFill,
                         {
                           width: `${Math.min(percent * 100, 100)}%`,
-                          backgroundColor:
-                            percent > 1 ? colors.danger : colors.success,
+                          backgroundColor: isOver
+                            ? colors.danger
+                            : colors.success,
                         },
                       ]}
                     />
@@ -285,51 +463,57 @@ const BudgetScreen = () => {
           </>
         )}
 
-        {budget.recurringPayments && budget.recurringPayments.length > 0 && (
-          <View style={{ marginBottom: 20 }}>
-            <Text style={[styles.sectionTitle, textStyle, { marginTop: 20 }]}>
-              Auto-Pay Active ⚡
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {budget.recurringPayments.map((rp) => (
+        {/* --- RECENT TRANSACTIONS --- */}
+        <Text
+          style={[
+            styles.sectionTitle,
+            dynamicStyles.headerText,
+            { marginTop: 20 },
+          ]}
+        >
+          Recent Activity
+        </Text>
+        {budget.transactions && budget.transactions.length > 0 ? (
+          budget.transactions.slice(0, 5).map((tx) => (
+            <View key={tx.id} style={[styles.txRow, dynamicStyles.card]}>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+              >
                 <View
-                  key={rp.id}
                   style={[
-                    styles.chip,
-                    { backgroundColor: cardStyle.backgroundColor },
+                    styles.txIcon,
+                    {
+                      backgroundColor:
+                        tx.type === "credit"
+                          ? colors.success + "20"
+                          : colors.danger + "20",
+                    },
                   ]}
                 >
-                  <Text style={{ color: textStyle.color, fontWeight: "bold" }}>
-                    {rp.desc}
+                  <MaterialCommunityIcons
+                    name={tx.type === "credit" ? "arrow-down" : "arrow-up"}
+                    size={18}
+                    color={
+                      tx.type === "credit" ? colors.success : colors.danger
+                    }
+                  />
+                </View>
+                <View>
+                  <Text style={[styles.txDesc, dynamicStyles.headerText]}>
+                    {tx.desc}
                   </Text>
-                  <Text style={{ color: subTextStyle.color, fontSize: 12 }}>
-                    Day {rp.day} • {budget.currency}
-                    {rp.amount}
+                  <Text style={[styles.txDate, dynamicStyles.subText]}>
+                    {tx.date}
                   </Text>
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        <Text style={[styles.sectionTitle, textStyle]}>Recent</Text>
-        {budget.transactions && budget.transactions.length > 0 ? (
-          budget.transactions.slice(0, 10).map((tx) => (
-            <View key={tx.id} style={[styles.logRow, cardStyle]}>
-              <View>
-                <Text style={[styles.logDesc, textStyle]}>{tx.desc}</Text>
-                <Text style={[styles.logDate, subTextStyle]}>
-                  {tx.date} • {tx.category}
-                </Text>
               </View>
               <Text
-                style={[
-                  styles.logAmount,
-                  {
-                    color:
-                      tx.type === "credit" ? colors.success : colors.danger,
-                  },
-                ]}
+                style={{
+                  fontWeight: "bold",
+                  fontSize: 16,
+                  color:
+                    tx.type === "credit" ? colors.success : colors.textPrimary,
+                }}
               >
                 {tx.type === "credit" ? "+" : "-"}
                 {budget.currency}
@@ -338,58 +522,104 @@ const BudgetScreen = () => {
             </View>
           ))
         ) : (
-          <Text style={[styles.emptyLog, subTextStyle]}>
-            No transactions yet.
-          </Text>
+          <View style={{ alignItems: "center", marginTop: 20, opacity: 0.6 }}>
+            <MaterialCommunityIcons
+              name="receipt"
+              size={40}
+              color={colors.textMuted}
+            />
+            <Text style={{ color: colors.textMuted, marginTop: 5 }}>
+              No transactions yet.
+            </Text>
+          </View>
         )}
       </ScrollView>
 
-      <View style={styles.fabContainer}>
+      {/* --- FLOATING ACTION DOCK --- */}
+      <View
+        style={[
+          styles.dockContainer,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            // 5. FIX BOTTOM: Position the dock dynamically
+            bottom: dockPositionBottom,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: "#a55eea", marginRight: 10 }]}
+          style={styles.dockItem}
           onPress={() => setRecurringModalVisible(true)}
         >
-          <Text style={styles.fabIcon}>⚡</Text>
-          <Text style={styles.fabLabel}>AUTO</Text>
+          <View style={[styles.dockIcon, { backgroundColor: "#A855F7" }]}>
+            <MaterialCommunityIcons
+              name="flash"
+              size={20}
+              color={colors.white}
+            />
+          </View>
+          <Text style={[styles.dockLabel, dynamicStyles.subText]}>
+            Auto-Pay
+          </Text>
         </TouchableOpacity>
+
+        <View style={styles.divider} />
+
         <TouchableOpacity
-          style={[
-            styles.fab,
-            { backgroundColor: colors.success, marginRight: 10 },
-          ]}
+          style={styles.dockItem}
           onPress={() => setIncomeModalVisible(true)}
         >
-          <Text style={styles.fabIcon}>+</Text>
-          <Text style={styles.fabLabel}>INCOME</Text>
+          <View style={[styles.dockIcon, { backgroundColor: colors.success }]}>
+            <MaterialCommunityIcons
+              name="plus"
+              size={20}
+              color={colors.white}
+            />
+          </View>
+          <Text style={[styles.dockLabel, dynamicStyles.subText]}>Income</Text>
         </TouchableOpacity>
+
+        <View style={styles.divider} />
+
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.danger }]}
+          style={styles.dockItem}
           onPress={() => setModalVisible(true)}
         >
-          <Text style={styles.fabIcon}>-</Text>
-          <Text style={styles.fabLabel}>SPEND</Text>
+          <View style={[styles.dockIcon, { backgroundColor: colors.danger }]}>
+            <MaterialCommunityIcons
+              name="minus"
+              size={20}
+              color={colors.white}
+            />
+          </View>
+          <Text style={[styles.dockLabel, dynamicStyles.subText]}>Expense</Text>
         </TouchableOpacity>
       </View>
 
+      {/* --- ADD EXPENSE MODAL --- */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, cardStyle]}>
-            <Text style={[styles.modalTitle, textStyle]}>Add Expense</Text>
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
+              Add Expense
+            </Text>
+
             <TextInput
-              placeholder="Description"
-              placeholderTextColor="#aaa"
-              style={[styles.input, inputColor]}
+              placeholder="Description (e.g. Coffee)"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, dynamicStyles.input]}
               value={desc}
               onChangeText={setDesc}
             />
             <TextInput
               placeholder="Amount"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
-              style={[styles.input, inputColor]}
+              style={[styles.input, dynamicStyles.input]}
               value={amount}
               onChangeText={setAmount}
             />
+
             {hasCategories && (
               <View style={styles.catSelectRow}>
                 {budget.categories.map((cat) => (
@@ -397,15 +627,20 @@ const BudgetScreen = () => {
                     key={cat.id}
                     style={[
                       styles.catChip,
-                      selectedCat === cat.name && styles.catChipActive,
+                      selectedCat === cat.name
+                        ? dynamicStyles.pillActive
+                        : dynamicStyles.pillInactive,
                     ]}
                     onPress={() => setSelectedCat(cat.name)}
                   >
                     <Text
-                      style={[
-                        styles.chipText,
-                        selectedCat === cat.name && styles.chipTextActive,
-                      ]}
+                      style={{
+                        color:
+                          selectedCat === cat.name
+                            ? colors.white
+                            : colors.textSecondary,
+                        fontWeight: "600",
+                      }}
                     >
                       {cat.name}
                     </Text>
@@ -413,130 +648,128 @@ const BudgetScreen = () => {
                 ))}
               </View>
             )}
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: colors.danger }]}
-              onPress={handleAddTransaction}
-            >
-              <Text style={styles.addBtnText}>Add Expense</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text
+                  style={[styles.cancelText, { color: colors.textSecondary }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.danger }]}
+                onPress={handleAddTransaction}
+              >
+                <Text style={styles.saveBtnText}>Add Expense</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
+      {/* --- ADD INCOME MODAL --- */}
       <Modal
         visible={incomeModalVisible}
         animationType="slide"
         transparent={true}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, cardStyle]}>
-            <Text
-              style={[
-                styles.modalTitle,
-                {
-                  color: colors.success,
-                  fontWeight: "bold",
-                  fontSize: 22,
-                  marginBottom: 20,
-                  textAlign: "center",
-                },
-              ]}
-            >
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <Text style={[styles.modalTitle, { color: colors.success }]}>
               Add Income
             </Text>
+
             <TextInput
-              placeholder="Source"
-              placeholderTextColor="#aaa"
-              style={[styles.input, inputColor]}
+              placeholder="Source (e.g. Salary)"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, dynamicStyles.input]}
               value={desc}
               onChangeText={setDesc}
             />
             <TextInput
               placeholder="Amount"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
-              style={[styles.input, inputColor]}
+              style={[styles.input, dynamicStyles.input]}
               value={amount}
               onChangeText={setAmount}
             />
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: colors.success }]}
-              onPress={handleAddIncome}
-            >
-              <Text style={styles.addBtnText}>Add Income</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setIncomeModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setIncomeModalVisible(false)}>
+                <Text
+                  style={[styles.cancelText, { color: colors.textSecondary }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.success }]}
+                onPress={handleAddIncome}
+              >
+                <Text style={styles.saveBtnText}>Add Income</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
+      {/* --- ADD AUTO-PAY MODAL --- */}
       <Modal
         visible={recurringModalVisible}
         animationType="slide"
         transparent={true}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, cardStyle]}>
-            <Text
-              style={[
-                styles.modalTitle,
-                {
-                  color: "#a55eea",
-                  fontWeight: "bold",
-                  fontSize: 22,
-                  marginBottom: 20,
-                  textAlign: "center",
-                },
-              ]}
-            >
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <Text style={[styles.modalTitle, { color: "#A855F7" }]}>
               Setup Auto-Pay
             </Text>
-            <Text
-              style={{
-                color: subTextStyle.color,
-                textAlign: "center",
-                marginBottom: 15,
-              }}
-            >
-              Money will be deducted automatically every month on this date.
+            <Text style={[styles.modalSub, dynamicStyles.subText]}>
+              This will automatically deduct from your budget on the specified
+              day every month.
             </Text>
+
             <TextInput
-              placeholder="Name (e.g. Netflix)"
-              placeholderTextColor="#aaa"
-              style={[styles.input, inputColor]}
+              placeholder="Service Name (e.g. Netflix)"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, dynamicStyles.input]}
               value={desc}
               onChangeText={setDesc}
             />
             <TextInput
               placeholder="Amount"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
-              style={[styles.input, inputColor]}
+              style={[styles.input, dynamicStyles.input]}
               value={amount}
               onChangeText={setAmount}
             />
             <TextInput
               placeholder="Day of Month (1-31)"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
-              style={[styles.input, inputColor]}
+              style={[styles.input, dynamicStyles.input]}
               value={payDay}
               onChangeText={setPayDay}
             />
-            <TouchableOpacity
-              style={[styles.addBtn, { backgroundColor: "#a55eea" }]}
-              onPress={handleAddRecurring}
-            >
-              <Text style={styles.addBtnText}>Save Auto-Pay</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setRecurringModalVisible(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setRecurringModalVisible(false)}>
+                <Text
+                  style={[styles.cancelText, { color: colors.textSecondary }]}
+                >
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: "#A855F7" }]}
+                onPress={handleAddRecurring}
+              >
+                <Text style={styles.saveBtnText}>Save Auto-Pay</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -545,125 +778,169 @@ const BudgetScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  // Note: Padding is now handled dynamically in the inline style of the container
-  container: { flex: 1, paddingHorizontal: 20 },
+  container: { flex: 1 },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingHorizontal: 20,
+    marginTop: 10,
     marginBottom: 20,
   },
-  headerTitle: { fontSize: 20, fontWeight: "bold" },
-  actionBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  headerTitle: { fontSize: 22, fontWeight: "bold" },
+  iconBtn: {
+    padding: 10,
+    borderRadius: 12,
     elevation: 2,
   },
-  btnText: { fontWeight: "bold", color: colors.primary },
-  headerCard: {
-    backgroundColor: colors.primary,
+  walletCard: {
     padding: 25,
-    borderRadius: 20,
-    alignItems: "center",
-    marginBottom: 20,
+    borderRadius: 24,
+    marginBottom: 25,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+    height: 180,
+    justifyContent: "space-between",
   },
-  balanceLabel: { color: "rgba(255,255,255,0.8)", fontSize: 16 },
-  balance: {
-    color: "#fff",
-    fontSize: 36,
-    fontWeight: "bold",
-    marginVertical: 5,
-  },
-  subText: { color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: "600" },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  catItem: { padding: 15, borderRadius: 12, marginBottom: 10 },
-  catHeader: {
+  walletFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.2)",
+    paddingTop: 15,
   },
-  catName: { fontSize: 16, fontWeight: "500" },
-  progressBarBg: {
-    height: 8,
-    backgroundColor: colors.gray,
-    borderRadius: 4,
-    overflow: "hidden",
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
+
+  // Bills
+  billChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 16,
+    marginRight: 10,
+    borderWidth: 1,
+    minWidth: 160,
   },
-  progressBarFill: { height: "100%", borderRadius: 4 },
-  logRow: {
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  billName: { fontWeight: "bold", fontSize: 14 },
+  billDetail: { fontSize: 11 },
+
+  // Categories
+  categoryRow: {
+    padding: 15,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  catName: { fontSize: 15, fontWeight: "600" },
+  catVal: { fontSize: 12 },
+  progressBarBg: { height: 6, borderRadius: 3, overflow: "hidden" },
+  progressBarFill: { height: "100%", borderRadius: 3 },
+
+  // Transactions
+  txRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 15,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+  },
+  txIcon: {
+    width: 36,
+    height: 36,
     borderRadius: 12,
-    marginBottom: 8,
-  },
-  logDesc: { fontSize: 16, fontWeight: "500" },
-  logDate: { fontSize: 12, marginTop: 2 },
-  logAmount: { fontSize: 16, fontWeight: "bold" },
-  emptyLog: { textAlign: "center", marginTop: 10, marginBottom: 20 },
-  chip: { padding: 10, borderRadius: 10, marginRight: 10, minWidth: 120 },
-  fabContainer: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    flexDirection: "row",
-    alignItems: "flex-end",
-  },
-  fab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5,
   },
-  fabIcon: { fontSize: 24, color: "#fff", lineHeight: 28 },
-  fabLabel: { fontSize: 8, color: "#fff", fontWeight: "bold" },
+  txDesc: { fontSize: 15, fontWeight: "600" },
+  txDate: { fontSize: 12, marginTop: 2 },
+
+  // Dock
+  dockContainer: {
+    position: "absolute",
+    // bottom: 30, // REMOVED: Now controlled dynamically
+    alignSelf: "center",
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+    gap: 15,
+  },
+  dockItem: { alignItems: "center", width: 60 },
+  dockIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  dockLabel: { fontSize: 10, fontWeight: "600" },
+  divider: {
+    width: 1,
+    height: "80%",
+    backgroundColor: "#eee",
+    alignSelf: "center",
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     padding: 20,
   },
-  modalContent: { borderRadius: 20, padding: 20 },
+  modalContent: { borderRadius: 24, padding: 25, borderWidth: 1 },
   modalTitle: {
     fontSize: 22,
     fontWeight: "bold",
-    marginBottom: 20,
+    marginBottom: 5,
     textAlign: "center",
   },
+  modalSub: { textAlign: "center", marginBottom: 20, fontSize: 13 },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 15,
     marginBottom: 15,
     fontSize: 16,
   },
   catSelectRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 8,
     marginBottom: 20,
   },
-  catChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: colors.gray,
-  },
-  catChipActive: { backgroundColor: colors.primary },
-  chipText: { color: colors.textPrimary },
-  chipTextActive: { color: "#fff" },
-  addBtn: {
-    padding: 15,
-    borderRadius: 12,
+  catChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
     alignItems: "center",
-    marginBottom: 15,
+    gap: 20,
+    marginTop: 10,
   },
-  addBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  cancelText: { textAlign: "center", color: colors.textSecondary },
+  saveBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
+  saveBtnText: { color: "#fff", fontWeight: "bold" },
+  cancelText: { fontWeight: "600" },
 });
 
 export default BudgetScreen;

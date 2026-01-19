@@ -1,7 +1,10 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+// 1. Safe Area Imports
 import { useContext, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
+  LayoutAnimation,
   Modal,
   Platform,
   ScrollView,
@@ -10,12 +13,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+
+// Enable Animations
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const DAYS = [
   "Sunday",
@@ -47,18 +59,11 @@ const getDayNameFromDateStr = (dateStr) => {
 };
 
 const AttendanceScreen = () => {
-  const { theme } = useContext(AppContext);
-  const isDark = theme === "dark";
+  const { userData, colors, theme } = useContext(AppContext);
 
-  const bg = isDark ? "#121212" : colors.background;
-  const cardBg = isDark ? "#1e1e1e" : "#fff";
-  const text = isDark ? "#fff" : colors.textPrimary;
-  const subText = isDark ? "#aaa" : colors.textSecondary;
-  const inputColor = {
-    color: text,
-    borderColor: isDark ? "#444" : "#ddd",
-    backgroundColor: isDark ? "#2c2c2c" : "#fff",
-  };
+  // 2. Safe Area Constants
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = insets.bottom + 60;
 
   const { dateStr: todayStr, dayName: todayDayName } = getLocalToday();
 
@@ -78,23 +83,24 @@ const AttendanceScreen = () => {
   // Add Subject State
   const [newSubject, setNewSubject] = useState("");
   const [tempSchedule, setTempSchedule] = useState({});
-  const [classesPerDay, setClassesPerDay] = useState("1");
+  const [classCount, setClassCount] = useState("1");
 
   // Manage State
   const [editingDay, setEditingDay] = useState("Monday");
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
-  const [classCount, setClassCount] = useState("1");
 
   useEffect(() => {
     loadData();
   }, []);
+
   useEffect(() => {
     calculateHistoryHeatmap();
-  }, [subjects, selectedHistoryDate]);
+  }, [subjects, selectedHistoryDate, colors]);
 
   const loadData = async () => {
     const s = (await getData("att_subjects")) || [];
     const sch = (await getData("att_schedule")) || {};
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSubjects(s);
     setSchedule(sch);
   };
@@ -123,7 +129,7 @@ const AttendanceScreen = () => {
               borderColor: colors.primary,
               borderRadius: 8,
             },
-            text: { color: text, fontWeight: "bold" },
+            text: { color: colors.textPrimary, fontWeight: "bold" },
           },
         },
       });
@@ -146,18 +152,18 @@ const AttendanceScreen = () => {
         }
       });
 
-      let color = "#ccc";
+      let color = colors.border;
       if (totalClasses > 0) {
         const ratio = totalP / totalClasses;
         if (ratio === 1) color = colors.success;
         else if (ratio === 0) color = colors.danger;
-        else color = "#f1c40f";
+        else color = colors.warning; // Partial
       }
 
       marks[date] = {
         customStyles: {
           container: { backgroundColor: color, borderRadius: 8 },
-          text: { color: "#fff", fontWeight: "bold" },
+          text: { color: colors.white, fontWeight: "bold" },
         },
       };
     });
@@ -174,7 +180,7 @@ const AttendanceScreen = () => {
           borderRadius: 8,
         },
         text: {
-          color: marks[selectedHistoryDate] ? "#fff" : text,
+          color: marks[selectedHistoryDate] ? colors.white : colors.textPrimary,
           fontWeight: "bold",
         },
       },
@@ -225,6 +231,7 @@ const AttendanceScreen = () => {
         text: "Delete",
         style: "destructive",
         onPress: () => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           const updatedSub = subjects.filter((s) => s.id !== id);
           const updatedSch = { ...schedule };
           Object.keys(updatedSch).forEach((day) => {
@@ -249,6 +256,7 @@ const AttendanceScreen = () => {
     );
     if (exists) exists.count = count;
     else newSch[editingDay].push({ subjectId: selectedSubjectId, count });
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     saveData(null, newSch);
     setScheduleModalVisible(false);
   };
@@ -256,6 +264,7 @@ const AttendanceScreen = () => {
   const removeFromSchedule = (day, subjectId) => {
     const newSch = { ...schedule };
     newSch[day] = newSch[day].filter((x) => x.subjectId !== subjectId);
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     saveData(null, newSch);
   };
 
@@ -293,6 +302,7 @@ const AttendanceScreen = () => {
       delete history[dateStr];
       return { ...sub, history };
     });
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     saveData(updatedSubjects, null);
   };
 
@@ -313,8 +323,37 @@ const AttendanceScreen = () => {
       }
       return sub;
     });
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     saveData(updatedSubjects, null);
-    Alert.alert("Done", `Marked all as ${type}.`);
+  };
+
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+    },
+    textPrimary: { color: colors.textPrimary },
+    textSecondary: { color: colors.textSecondary },
+    tabActive: {
+      backgroundColor: colors.surfaceHighlight,
+      borderColor: colors.primary,
+    },
+    tabInactive: {
+      backgroundColor: colors.transparent,
+      borderColor: colors.transparent,
+    },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    input: {
+      backgroundColor: colors.background,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
   };
 
   // --- RENDERERS ---
@@ -327,6 +366,7 @@ const AttendanceScreen = () => {
     };
     const markedCount = record.p + record.a;
     const isDone = markedCount >= item.count;
+
     let totalP = 0,
       totalC = 0;
     if (subject.history) {
@@ -337,87 +377,127 @@ const AttendanceScreen = () => {
     }
     const overallPercent = totalC === 0 ? 0 : (totalP / totalC) * 100;
 
+    let statusColor = colors.success;
+    if (overallPercent < 60) statusColor = colors.danger;
+    else if (overallPercent < 75) statusColor = colors.warning;
+
     return (
-      <View
-        key={item.subjectId}
-        style={[styles.card, { backgroundColor: cardBg }]}
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginBottom: 10,
-          }}
-        >
+      <View key={item.subjectId} style={[styles.card, dynamicStyles.card]}>
+        <View style={styles.cardHeader}>
           <View>
-            <Text style={[styles.subName, { color: text }]}>
+            <Text style={[styles.subName, dynamicStyles.textPrimary]}>
               {subject.name}
             </Text>
-            <Text style={{ color: subText }}>
-              Scheduled: {item.count} Classes
+            <Text style={[styles.subDetail, dynamicStyles.textSecondary]}>
+              Scheduled:{" "}
+              <Text style={{ fontWeight: "bold" }}>{item.count}</Text> Classes
             </Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text
-              style={{
-                fontWeight: "bold",
-                color: overallPercent >= 75 ? colors.success : colors.danger,
-              }}
-            >
-              {overallPercent.toFixed(1)}%
+          <View style={styles.percentBadge}>
+            <Text style={[styles.percentText, { color: statusColor }]}>
+              {overallPercent.toFixed(0)}%
             </Text>
-            <Text style={{ fontSize: 10, color: subText }}>Overall</Text>
+            <Text style={[styles.percentLabel, dynamicStyles.textSecondary]}>
+              Overall
+            </Text>
           </View>
         </View>
-        <View style={styles.todayProgress}>
-          <Text style={{ color: text, fontWeight: "bold", marginBottom: 5 }}>
-            Status: {markedCount} / {item.count}
-          </Text>
-          <View style={{ flexDirection: "row", gap: 5 }}>
+
+        {/* Progress Bar */}
+        <View
+          style={[
+            styles.progressContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginBottom: 6,
+            }}
+          >
+            <Text style={[styles.progressLabel, dynamicStyles.textSecondary]}>
+              Daily Status
+            </Text>
+            <Text style={[styles.progressValue, dynamicStyles.textPrimary]}>
+              {markedCount}/{item.count}
+            </Text>
+          </View>
+          <View style={styles.barRow}>
             {Array.from({ length: item.count }).map((_, i) => {
-              let color = isDark ? "#333" : "#ddd";
+              let color = colors.border; // Empty slot
               if (i < record.p) color = colors.success;
               else if (i < record.p + record.a) color = colors.danger;
+
               return (
                 <View
                   key={i}
-                  style={{
-                    height: 8,
-                    flex: 1,
-                    backgroundColor: color,
-                    borderRadius: 4,
-                  }}
+                  style={[styles.barSegment, { backgroundColor: color }]}
                 />
               );
             })}
           </View>
         </View>
+
         {!isReadOnly && !isDone && (
           <View style={styles.btnRow}>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.success }]}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: colors.success + "20",
+                  borderColor: colors.success,
+                  borderWidth: 1,
+                },
+              ]}
+              activeOpacity={0.7}
               onPress={() =>
                 updateAttendance(subject.id, "present", item.count, dateStr)
               }
             >
-              <Text style={styles.btnText}>Present</Text>
+              <MaterialCommunityIcons
+                name="check"
+                size={20}
+                color={colors.success}
+              />
+              <Text style={{ color: colors.success, fontWeight: "bold" }}>
+                Present
+              </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.danger }]}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: colors.danger + "20",
+                  borderColor: colors.danger,
+                  borderWidth: 1,
+                },
+              ]}
+              activeOpacity={0.7}
               onPress={() =>
                 updateAttendance(subject.id, "absent", item.count, dateStr)
               }
             >
-              <Text style={styles.btnText}>Absent</Text>
+              <MaterialCommunityIcons
+                name="close"
+                size={20}
+                color={colors.danger}
+              />
+              <Text style={{ color: colors.danger, fontWeight: "bold" }}>
+                Absent
+              </Text>
             </TouchableOpacity>
           </View>
         )}
+
         {!isReadOnly && isDone && (
           <TouchableOpacity
             onPress={() => resetDate(subject.id, dateStr)}
-            style={{ marginTop: 10, alignItems: "center" }}
+            style={styles.resetBtn}
           >
-            <Text style={{ color: subText, textDecorationLine: "underline" }}>
+            <Text style={[styles.resetText, { color: colors.textMuted }]}>
               Reset Entry
             </Text>
           </TouchableOpacity>
@@ -427,34 +507,38 @@ const AttendanceScreen = () => {
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: bg,
-          paddingTop:
-            Platform.OS === "android" ? StatusBar.currentHeight + 20 : 20,
-        },
-      ]}
-    >
-      <View style={{ marginBottom: 15 }}>
-        <Text style={[styles.headerTitle, { color: text }]}>Attendance</Text>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      {/* Header Area */}
+      <View style={styles.headerContainer}>
+        <Text style={[styles.headerTitle, dynamicStyles.textPrimary]}>
+          Attendance
+        </Text>
+
+        {/* Custom Segmented Control */}
         <View
-          style={[
-            styles.tabContainer,
-            { backgroundColor: isDark ? "#1e1e1e" : "#e0e0e0" },
-          ]}
+          style={[styles.segmentContainer, { backgroundColor: colors.surface }]}
         >
           {["Today", "History", "Manage"].map((t) => (
             <TouchableOpacity
               key={t}
-              style={[styles.tab, activeTab === t && styles.activeTab]}
-              onPress={() => setActiveTab(t)}
+              style={[
+                styles.segmentBtn,
+                activeTab === t ? { backgroundColor: colors.primary } : null,
+              ]}
+              onPress={() => {
+                LayoutAnimation.configureNext(
+                  LayoutAnimation.Presets.easeInEaseOut,
+                );
+                setActiveTab(t);
+              }}
             >
               <Text
                 style={[
-                  styles.tabText,
-                  activeTab === t ? { color: "#000" } : { color: "#888" },
+                  styles.segmentText,
+                  {
+                    color:
+                      activeTab === t ? colors.white : colors.textSecondary,
+                  },
                 ]}
               >
                 {t}
@@ -464,100 +548,121 @@ const AttendanceScreen = () => {
         </View>
       </View>
 
-      {/* --- TODAY --- */}
+      {/* --- TODAY TAB --- */}
       {activeTab === "Today" && (
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              color: colors.primary,
-              fontWeight: "bold",
-              marginBottom: 10,
-              textAlign: "center",
-            }}
-          >
+        <View style={{ flex: 1, paddingHorizontal: 20 }}>
+          <Text style={[styles.dateHeader, { color: colors.primary }]}>
             {todayDayName}, {todayStr}
           </Text>
-          <View style={styles.globalRow}>
+
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
             <TouchableOpacity
-              style={[styles.globalBtn, { backgroundColor: colors.success }]}
+              style={[
+                styles.quickBtn,
+                {
+                  borderColor: colors.success,
+                  backgroundColor: colors.success + "10",
+                },
+              ]}
               onPress={() => markAllToday("present")}
             >
-              <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                All Present
+              <Text style={{ color: colors.success, fontWeight: "bold" }}>
+                Mark All Present
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.globalBtn, { backgroundColor: colors.danger }]}
+              style={[
+                styles.quickBtn,
+                {
+                  borderColor: colors.danger,
+                  backgroundColor: colors.danger + "10",
+                },
+              ]}
               onPress={() => markAllToday("absent")}
             >
-              <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                All Absent
+              <Text style={{ color: colors.danger, fontWeight: "bold" }}>
+                Mark All Absent
               </Text>
             </TouchableOpacity>
           </View>
+
           <FlatList
             data={schedule[todayDayName] || []}
             keyExtractor={(item) => item.subjectId}
             renderItem={({ item }) => renderClassCard(item, todayStr)}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight + 40 }}
+            showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <View style={{ alignItems: "center", marginTop: 50 }}>
-                <Text style={{ fontSize: 40 }}>💤</Text>
-                <Text style={{ color: subText, marginTop: 10 }}>
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="sleep"
+                  size={48}
+                  color={colors.textMuted}
+                />
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
                   No classes today.
                 </Text>
               </View>
             }
           />
+
           <TouchableOpacity
-            style={styles.fab}
+            style={[
+              styles.fab,
+              {
+                backgroundColor: colors.primary,
+                shadowColor: colors.primary,
+                bottom: tabBarHeight + 20,
+              },
+            ]}
             onPress={() => setModalVisible(true)}
+            activeOpacity={0.8}
           >
-            <Text style={styles.fabText}>+</Text>
+            <MaterialCommunityIcons
+              name="plus"
+              size={32}
+              color={colors.white}
+            />
           </TouchableOpacity>
         </View>
       )}
 
-      {/* --- HISTORY --- */}
+      {/* --- HISTORY TAB --- */}
       {activeTab === "History" && (
-        <ScrollView style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
           <Calendar
             current={selectedHistoryDate}
-            key={selectedHistoryDate}
+            key={`${selectedHistoryDate}-${theme}`}
             onDayPress={(day) => setSelectedHistoryDate(day.dateString)}
             markingType={"custom"}
             markedDates={markedDates}
             theme={{
-              calendarBackground: cardBg,
-              dayTextColor: text,
-              monthTextColor: text,
+              calendarBackground: colors.surface,
+              dayTextColor: colors.textPrimary,
+              monthTextColor: colors.textPrimary,
               arrowColor: colors.primary,
-              textDisabledColor: "#444",
-              todayTextColor: colors.primary,
+              textDisabledColor: colors.textMuted,
+              todayTextColor: colors.secondary,
+              selectedDayBackgroundColor: colors.primary,
             }}
-            style={{ borderRadius: 16, marginBottom: 20 }}
+            style={[styles.calendar, { borderRadius: 16 }]}
           />
-          <Text
-            style={[styles.sectionTitle, { color: text, marginBottom: 10 }]}
-          >
+          <Text style={[styles.sectionTitle, dynamicStyles.textPrimary]}>
             Log for {selectedHistoryDate}
           </Text>
+
           {(() => {
             const dayName = getDayNameFromDateStr(selectedHistoryDate);
-            // FIX: Combine Schedule AND existing History
-            // This ensures that even if you removed a subject from the schedule, its history record still shows up here so you can delete it.
-
             const scheduledItems = schedule[dayName] || [];
             const historyItems = [];
 
             subjects.forEach((sub) => {
-              // Check if subject has history for this date but is NOT in schedule
               if (sub.history && sub.history[selectedHistoryDate]) {
                 const isScheduled = scheduledItems.some(
                   (item) => item.subjectId === sub.id,
                 );
                 if (!isScheduled) {
-                  // Recover the count from history or default to 1 just to show the card
                   const rec = sub.history[selectedHistoryDate];
                   const count = rec.p + rec.a || 1;
                   historyItems.push({ subjectId: sub.id, count });
@@ -569,16 +674,11 @@ const AttendanceScreen = () => {
 
             if (combinedList.length === 0)
               return (
-                <Text
-                  style={{
-                    color: subText,
-                    fontStyle: "italic",
-                    textAlign: "center",
-                    marginTop: 20,
-                  }}
-                >
-                  No classes or history for {dayName}.
-                </Text>
+                <View style={styles.emptyState}>
+                  <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                    No classes found for this date.
+                  </Text>
+                </View>
               );
 
             return combinedList.map((item) =>
@@ -589,93 +689,80 @@ const AttendanceScreen = () => {
               ),
             );
           })()}
-          <View style={{ height: 100 }} />
+          <View style={{ height: tabBarHeight + 20 }} />
         </ScrollView>
       )}
 
-      {/* --- MANAGE --- */}
+      {/* --- MANAGE TAB --- */}
       {activeTab === "Manage" && (
-        <ScrollView style={{ flex: 1 }}>
-          <View style={[styles.sectionBox, { backgroundColor: cardBg }]}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 10,
-              }}
-            >
-              <Text style={[styles.sectionTitle, { color: text }]}>
+        <ScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
+          {/* Subject List */}
+          <View style={[styles.manageCard, dynamicStyles.card]}>
+            <View style={styles.manageHeader}>
+              <Text style={[styles.sectionTitle, dynamicStyles.textPrimary]}>
                 My Subjects
               </Text>
               <TouchableOpacity onPress={() => setModalVisible(true)}>
-                <Text style={{ color: colors.primary, fontSize: 24 }}>+</Text>
+                <MaterialCommunityIcons
+                  name="plus-circle"
+                  size={28}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
             </View>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+
+            <View style={styles.tagCloud}>
               {subjects.map((sub) => (
                 <View
                   key={sub.id}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    backgroundColor: isDark ? "#333" : "#eee",
-                    borderRadius: 20,
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
+                  style={[
+                    styles.tag,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                  ]}
                 >
-                  <Text
-                    style={{ color: text, marginRight: 8, fontWeight: "600" }}
-                  >
+                  <Text style={[styles.tagText, dynamicStyles.textPrimary]}>
                     {sub.name}
                   </Text>
-                  <TouchableOpacity
-                    onPress={() => deleteSubject(sub.id)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text
-                      style={{
-                        color: "#ff5555",
-                        fontSize: 16,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      ✕
-                    </Text>
+                  <TouchableOpacity onPress={() => deleteSubject(sub.id)}>
+                    <MaterialCommunityIcons
+                      name="close-circle"
+                      size={18}
+                      color={colors.danger}
+                    />
                   </TouchableOpacity>
                 </View>
               ))}
               {subjects.length === 0 && (
-                <Text style={{ color: subText }}>No subjects yet.</Text>
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  No subjects added yet.
+                </Text>
               )}
             </View>
           </View>
 
+          {/* Weekly Schedule */}
           <View
-            style={[
-              styles.sectionBox,
-              { backgroundColor: cardBg, marginTop: 20 },
-            ]}
+            style={[styles.manageCard, dynamicStyles.card, { marginTop: 20 }]}
           >
             <Text
-              style={[styles.sectionTitle, { color: text, marginBottom: 15 }]}
+              style={[
+                styles.sectionTitle,
+                { marginBottom: 15 },
+                dynamicStyles.textPrimary,
+              ]}
             >
               Weekly Timetable
             </Text>
             {DAYS.map((day) => (
-              <View key={day} style={{ marginBottom: 20 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderBottomWidth: 1,
-                    borderBottomColor: "#333",
-                    paddingBottom: 5,
-                  }}
-                >
-                  <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+              <View
+                key={day}
+                style={[styles.dayRow, { borderBottomColor: colors.border }]}
+              >
+                <View style={styles.dayHeader}>
+                  <Text style={[styles.dayTitle, { color: colors.primary }]}>
                     {day}
                   </Text>
                   <TouchableOpacity
@@ -684,72 +771,98 @@ const AttendanceScreen = () => {
                       setScheduleModalVisible(true);
                     }}
                   >
-                    <Text style={{ color: subText, fontSize: 12 }}>
+                    <Text
+                      style={[styles.addLink, { color: colors.textSecondary }]}
+                    >
                       + Add Class
                     </Text>
                   </TouchableOpacity>
                 </View>
-                <View style={{ marginTop: 5 }}>
+
+                <View style={styles.classList}>
                   {(schedule[day] || []).map((item, idx) => {
                     const sub = subjects.find((s) => s.id === item.subjectId);
                     return (
-                      <View
-                        key={idx}
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          marginTop: 5,
-                        }}
-                      >
-                        <Text style={{ color: text }}>
+                      <View key={idx} style={styles.classItem}>
+                        <Text
+                          style={[styles.classText, dynamicStyles.textPrimary]}
+                        >
                           • {sub ? sub.name : "Unknown"}
                         </Text>
-                        <View style={{ flexDirection: "row", gap: 10 }}>
-                          <Text style={{ color: subText }}>{item.count}x</Text>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.countBadge,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            {item.count}x
+                          </Text>
                           <TouchableOpacity
                             onPress={() =>
                               removeFromSchedule(day, item.subjectId)
                             }
                           >
-                            <Text style={{ color: colors.danger }}>✕</Text>
+                            <MaterialCommunityIcons
+                              name="trash-can-outline"
+                              size={16}
+                              color={colors.textMuted}
+                            />
                           </TouchableOpacity>
                         </View>
                       </View>
                     );
                   })}
+                  {(!schedule[day] || schedule[day].length === 0) && (
+                    <Text
+                      style={{
+                        color: colors.textMuted,
+                        fontSize: 12,
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Free Day
+                    </Text>
+                  )}
                 </View>
               </View>
             ))}
           </View>
-          <View style={{ height: 100 }} />
+          <View style={{ height: tabBarHeight + 20 }} />
         </ScrollView>
       )}
 
-      {/* --- ADD SUBJECT MODAL --- */}
-      <Modal visible={modalVisible} transparent={true} animationType="fade">
+      {/* --- MODAL: ADD SUBJECT --- */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-            <Text style={[styles.modalTitle, { color: text }]}>
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
               Add Subject
             </Text>
+
             <TextInput
-              style={[styles.input, inputColor]}
+              style={[styles.input, dynamicStyles.input]}
               placeholder="Subject Name"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               value={newSubject}
               onChangeText={setNewSubject}
             />
 
-            <Text style={{ color: subText, marginBottom: 10 }}>
-              Weekly Schedule (Tap Days):
+            <Text style={[styles.label, dynamicStyles.textSecondary]}>
+              Weekly Schedule (Optional)
             </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginBottom: 15,
-              }}
-            >
+            <View style={styles.weekSelector}>
               {DAYS.map((day, idx) => {
                 const count = tempSchedule[day] || 0;
                 const isSelected = count > 0;
@@ -757,25 +870,21 @@ const AttendanceScreen = () => {
                   <TouchableOpacity
                     key={day}
                     onPress={() => toggleDaySelection(day)}
-                    style={{
-                      width: 35,
-                      height: 35,
-                      borderRadius: 18,
-                      backgroundColor: isSelected
-                        ? colors.primary
-                        : "transparent",
-                      borderWidth: 1,
-                      borderColor: isSelected ? colors.primary : "#555",
-                      justifyContent: "center",
-                      alignItems: "center",
-                    }}
+                    style={[
+                      styles.dayCircle,
+                      { borderColor: colors.border },
+                      isSelected && {
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                      },
+                    ]}
                   >
                     <Text
-                      style={{
-                        color: isSelected ? "#fff" : subText,
-                        fontSize: 12,
-                        fontWeight: "bold",
-                      }}
+                      style={[
+                        styles.dayCircleText,
+                        { color: colors.textSecondary },
+                        isSelected && { color: colors.white },
+                      ]}
                     >
                       {SHORT_DAYS[idx]}
                     </Text>
@@ -784,72 +893,62 @@ const AttendanceScreen = () => {
               })}
             </View>
 
+            {/* Day Counter Controls - CHANGED TO SCROLLVIEW */}
             {Object.keys(tempSchedule).length > 0 && (
-              <View style={{ maxHeight: 150, marginBottom: 15 }}>
-                <ScrollView>
-                  {Object.keys(tempSchedule).map((day) => (
-                    <View
-                      key={day}
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: 10,
-                        paddingHorizontal: 5,
-                      }}
-                    >
-                      <Text style={{ color: text }}>{day}</Text>
-                      <View
+              <ScrollView
+                style={styles.counterList}
+                showsVerticalScrollIndicator={true}
+              >
+                {Object.keys(tempSchedule).map((day) => (
+                  <View key={day} style={styles.counterRow}>
+                    <Text style={{ color: colors.textPrimary, flex: 1 }}>
+                      {day}
+                    </Text>
+                    <View style={styles.counterControls}>
+                      <TouchableOpacity
+                        onPress={() => adjustDayCount(day, -1)}
+                        style={[
+                          styles.counterBtn,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <Text style={{ color: colors.textPrimary }}>-</Text>
+                      </TouchableOpacity>
+                      <Text
                         style={{
-                          flexDirection: "row",
-                          alignItems: "center",
-                          gap: 10,
+                          color: colors.textPrimary,
+                          fontWeight: "bold",
                         }}
                       >
-                        <TouchableOpacity
-                          onPress={() => adjustDayCount(day, -1)}
-                          style={{
-                            padding: 5,
-                            backgroundColor: "#333",
-                            borderRadius: 5,
-                          }}
-                        >
-                          <Text style={{ color: "#fff" }}>-</Text>
-                        </TouchableOpacity>
-                        <Text
-                          style={{
-                            color: text,
-                            fontWeight: "bold",
-                            width: 20,
-                            textAlign: "center",
-                          }}
-                        >
-                          {tempSchedule[day]}
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => adjustDayCount(day, 1)}
-                          style={{
-                            padding: 5,
-                            backgroundColor: "#333",
-                            borderRadius: 5,
-                          }}
-                        >
-                          <Text style={{ color: "#fff" }}>+</Text>
-                        </TouchableOpacity>
-                      </View>
+                        {tempSchedule[day]}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => adjustDayCount(day, 1)}
+                        style={[
+                          styles.counterBtn,
+                          { backgroundColor: colors.background },
+                        ]}
+                      >
+                        <Text style={{ color: colors.textPrimary }}>+</Text>
+                      </TouchableOpacity>
                     </View>
-                  ))}
-                </ScrollView>
-              </View>
+                  </View>
+                ))}
+              </ScrollView>
             )}
 
-            <View style={styles.modalBtns}>
+            <View style={styles.modalActions}>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={{ color: subText }}>Cancel</Text>
+                <Text style={[styles.cancelText, { color: colors.textMuted }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={addSubject}>
-                <Text style={{ color: colors.primary, fontWeight: "bold" }}>
-                  Save
+              <TouchableOpacity
+                onPress={addSubject}
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.saveBtnText, { color: colors.white }]}>
+                  Save Subject
                 </Text>
               </TouchableOpacity>
             </View>
@@ -857,69 +956,83 @@ const AttendanceScreen = () => {
         </View>
       </Modal>
 
-      {/* --- SCHEDULE MODAL --- */}
+      {/* --- MODAL: ADD TO SCHEDULE --- */}
       <Modal
         visible={scheduleModalVisible}
         transparent={true}
         animationType="slide"
+        onRequestClose={() => setScheduleModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-            <Text style={[styles.modalTitle, { color: text }]}>
-              Add to {editingDay}
+          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+              Add Class to {editingDay}
             </Text>
-            <Text style={{ color: subText, marginBottom: 5 }}>
-              Select Subject:
+
+            <Text style={[styles.label, dynamicStyles.textSecondary]}>
+              Select Subject
             </Text>
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 10,
-                marginBottom: 20,
-              }}
-            >
+            <View style={styles.tagCloud}>
               {subjects.map((sub) => (
                 <TouchableOpacity
                   key={sub.id}
-                  style={{
-                    padding: 10,
-                    borderRadius: 8,
-                    backgroundColor:
-                      selectedSubjectId === sub.id
-                        ? colors.primary
-                        : isDark
-                          ? "#333"
-                          : "#eee",
-                  }}
+                  style={[
+                    styles.tag,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                    },
+                    selectedSubjectId === sub.id && {
+                      backgroundColor: colors.primary,
+                      borderColor: colors.primary,
+                    },
+                  ]}
                   onPress={() => setSelectedSubjectId(sub.id)}
                 >
                   <Text
-                    style={{
-                      color: selectedSubjectId === sub.id ? "#fff" : text,
-                    }}
+                    style={[
+                      styles.tagText,
+                      { color: colors.textPrimary },
+                      selectedSubjectId === sub.id && {
+                        color: colors.white,
+                        fontWeight: "bold",
+                      },
+                    ]}
                   >
                     {sub.name}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={{ color: subText, marginBottom: 5 }}>
-              Number of Classes:
+
+            <Text
+              style={[
+                styles.label,
+                { marginTop: 15 },
+                dynamicStyles.textSecondary,
+              ]}
+            >
+              Classes per day
             </Text>
             <TextInput
-              style={[styles.input, inputColor]}
+              style={[styles.input, dynamicStyles.input]}
               keyboardType="numeric"
               value={classCount}
               onChangeText={setClassCount}
             />
-            <View style={styles.modalBtns}>
+
+            <View style={styles.modalActions}>
               <TouchableOpacity onPress={() => setScheduleModalVisible(false)}>
-                <Text style={{ color: subText }}>Cancel</Text>
+                <Text style={[styles.cancelText, { color: colors.textMuted }]}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={addToSchedule}>
-                <Text style={{ color: colors.primary, fontWeight: "bold" }}>
-                  Add
+              <TouchableOpacity
+                onPress={addToSchedule}
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              >
+                <Text style={[styles.saveBtnText, { color: colors.white }]}>
+                  Add to Schedule
                 </Text>
               </TouchableOpacity>
             </View>
@@ -931,77 +1044,316 @@ const AttendanceScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "bold" },
-  tabContainer: {
+  screen: {
+    flex: 1,
+  },
+
+  // Header
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 20,
+    paddingBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 15,
+  },
+  segmentContainer: {
     flexDirection: "row",
-    borderRadius: 12,
+    borderRadius: 30, // Rounded pill shape
     padding: 4,
-    height: 45,
   },
-  tab: {
+  segmentBtn: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 10,
-  },
-  activeTab: { backgroundColor: "#fff", elevation: 2 },
-  tabText: { fontWeight: "700" },
-  globalRow: { flexDirection: "row", gap: 10, marginBottom: 20 },
-  globalBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    elevation: 2,
-  },
-  card: { padding: 20, borderRadius: 16, marginBottom: 15, elevation: 2 },
-  subName: { fontSize: 18, fontWeight: "bold" },
-  todayProgress: {
-    marginVertical: 15,
-    padding: 10,
-    backgroundColor: "rgba(0,0,0,0.2)",
-    borderRadius: 8,
-  },
-  btnRow: { flexDirection: "row", gap: 10 },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 25,
     alignItems: "center",
   },
-  btnText: { fontWeight: "bold", color: "#fff" },
-  sectionBox: { padding: 15, borderRadius: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold" },
+  segmentText: {
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  // Common
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  emptyState: {
+    alignItems: "center",
+    marginTop: 40,
+    opacity: 0.7,
+  },
+  emptyText: {
+    fontSize: 14,
+    marginTop: 10,
+  },
   fab: {
     position: "absolute",
-    bottom: 30,
-    right: 30,
+    // Bottom handled dynamically now
+    right: 20,
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
     elevation: 5,
+    shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 4 },
   },
-  fabText: { fontSize: 30, color: "#fff" },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    padding: 30,
-  },
-  modalContent: { padding: 25, borderRadius: 16 },
-  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 15 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
+
+  // Today Tab
+  dateHeader: {
+    textAlign: "center",
+    marginBottom: 15,
+    fontWeight: "bold",
     fontSize: 16,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: 12,
     marginBottom: 20,
   },
-  modalBtns: { flexDirection: "row", justifyContent: "flex-end", gap: 20 },
+  quickBtn: {
+    flex: 1,
+    borderWidth: 1,
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+
+  // Card Styles
+  card: {
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 15,
+  },
+  subName: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  subDetail: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  percentBadge: {
+    alignItems: "flex-end",
+  },
+  percentText: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  percentLabel: {
+    fontSize: 10,
+  },
+  progressContainer: {
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 15,
+  },
+  progressLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  progressValue: {
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  barRow: {
+    flexDirection: "row",
+    gap: 4,
+    height: 6,
+    marginTop: 8,
+  },
+  barSegment: {
+    flex: 1,
+    borderRadius: 4,
+  },
+  btnRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 16,
+    gap: 8,
+  },
+  resetBtn: {
+    alignSelf: "center",
+    marginTop: 10,
+  },
+  resetText: {
+    textDecorationLine: "underline",
+    fontSize: 12,
+  },
+
+  // Manage Tab
+  manageCard: {
+    borderRadius: 24,
+    padding: 20,
+  },
+  manageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  tagCloud: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    gap: 8,
+    borderWidth: 1,
+  },
+  tagText: {
+    fontWeight: "500",
+  },
+  dayRow: {
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    paddingBottom: 10,
+  },
+  dayHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  dayTitle: {
+    fontWeight: "bold",
+  },
+  addLink: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  classList: {
+    paddingLeft: 10,
+  },
+  classItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 5,
+  },
+  classText: {
+    fontSize: 14,
+  },
+  countBadge: {
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)", // Glass dark
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  input: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  label: {
+    marginBottom: 10,
+    fontWeight: "600",
+  },
+  weekSelector: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  dayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dayCircleText: {
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  counterList: {
+    maxHeight: 150,
+    marginBottom: 20,
+  },
+  counterRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    paddingHorizontal: 5,
+  },
+  counterControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  counterBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 20,
+    marginTop: 10,
+  },
+  saveBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  saveBtnText: {
+    fontWeight: "bold",
+  },
+  cancelText: {
+    fontWeight: "600",
+  },
+  calendar: {
+    marginBottom: 20,
+  },
 });
 
 export default AttendanceScreen;

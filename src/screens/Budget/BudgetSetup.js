@@ -1,8 +1,13 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  // 1. Removed SafeAreaView from react-native (we will use a View with manual padding)
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -10,27 +15,26 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
 const BudgetSetup = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { theme } = useContext(AppContext);
+  const { colors, theme } = useContext(AppContext);
   const isEditing = route.params?.isEditing;
-  const isDark = theme === "dark";
 
-  const containerStyle = {
-    backgroundColor: isDark ? "#121212" : colors.background,
-  };
-  const cardStyle = { backgroundColor: isDark ? "#1e1e1e" : "#fff" };
-  const textStyle = { color: isDark ? "#fff" : colors.textPrimary };
-  const inputStyle = {
-    color: isDark ? "#fff" : "#000",
-    borderColor: isDark ? "#444" : colors.gray,
-    backgroundColor: isDark ? "#121212" : "#fff",
-  };
+  const insets = useSafeAreaInsets();
+  const FLOATING_TAB_BAR_HEIGHT = 100;
+  const bottomPadding = FLOATING_TAB_BAR_HEIGHT + insets.bottom;
+
+  // Hide the default navigation header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   const [currency, setCurrency] = useState("$");
   const [totalBudget, setTotalBudget] = useState("");
@@ -62,8 +66,10 @@ const BudgetSetup = () => {
 
   const addCategory = () =>
     setCategories([...categories, { id: Date.now(), name: "", limit: "" }]);
+
   const removeCategory = (id) =>
     setCategories(categories.filter((c) => c.id !== id));
+
   const updateCategory = (id, field, value) =>
     setCategories(
       categories.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
@@ -124,185 +130,357 @@ const BudgetSetup = () => {
     };
 
     await storeData("budget_data", finalData);
-
-    // FIX: Navigate to the correct internal screen name
     navigation.navigate("BudgetMain");
   };
 
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    headerText: { color: colors.textPrimary },
+    subText: { color: colors.textSecondary },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+    },
+    input: {
+      backgroundColor: colors.background,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+    currencyBtnActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    currencyBtnInactive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    textActive: { color: colors.white },
+    textInactive: { color: colors.textSecondary },
+  };
+
   return (
-    <ScrollView style={[styles.container, containerStyle]}>
-      <Text style={[styles.headerTitle, textStyle]}>
-        {isEditing ? "Edit Budget" : "Plan Your Budget"}
-      </Text>
+    // 2. Replaced SafeAreaView with View and applied manual padding
+    <View
+      style={[
+        styles.screen,
+        dynamicStyles.container,
+        { paddingTop: insets.top }, // Pushes content down below status bar
+      ]}
+    >
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent
+      />
 
-      <View style={[styles.card, cardStyle]}>
-        <Text style={[styles.label, textStyle]}>Currency</Text>
-        <View style={styles.row}>
-          {["$", "₹", "€", "£"].map((sym) => (
-            <TouchableOpacity
-              key={sym}
-              style={[
-                styles.currBtn,
-                currency === sym && styles.currBtnActive,
-                { borderColor: isDark ? "#444" : colors.gray },
-              ]}
-              onPress={() => setCurrency(sym)}
-            >
-              <Text
-                style={[
-                  styles.currText,
-                  textStyle,
-                  currency === sym && { color: "#fff" },
-                ]}
-              >
-                {sym}
+      <View style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: bottomPadding + 100 },
+            ]}
+          >
+            {/* Header */}
+            <View style={styles.headerContainer}>
+              {isEditing && (
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={styles.backBtn}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-left"
+                    size={24}
+                    color={colors.textPrimary}
+                  />
+                </TouchableOpacity>
+              )}
+
+              <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+                {isEditing ? "Edit Budget" : "Budget Setup"}
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            </View>
 
-        <Text style={[styles.label, textStyle, { marginTop: 20 }]}>
-          Total Monthly Budget
-        </Text>
-        <TextInput
-          style={[styles.input, inputStyle]}
-          keyboardType="numeric"
-          placeholder="e.g. 5000"
-          placeholderTextColor="#aaa"
-          value={totalBudget}
-          onChangeText={setTotalBudget}
-        />
+            {/* Currency Section */}
+            <View style={[styles.card, dynamicStyles.card]}>
+              <Text style={[styles.label, dynamicStyles.subText]}>
+                Select Currency
+              </Text>
+              <View style={styles.currencyRow}>
+                {["$", "₹", "€", "£"].map((sym) => {
+                  const isActive = currency === sym;
+                  return (
+                    <TouchableOpacity
+                      key={sym}
+                      style={[
+                        styles.currencyBtn,
+                        isActive
+                          ? dynamicStyles.currencyBtnActive
+                          : dynamicStyles.currencyBtnInactive,
+                      ]}
+                      onPress={() => setCurrency(sym)}
+                    >
+                      <Text
+                        style={[
+                          styles.currencyText,
+                          isActive
+                            ? dynamicStyles.textActive
+                            : dynamicStyles.textInactive,
+                        ]}
+                      >
+                        {sym}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text
+                style={[styles.label, dynamicStyles.subText, { marginTop: 20 }]}
+              >
+                Total Monthly Budget
+              </Text>
+              <View style={[styles.inputContainer, dynamicStyles.input]}>
+                <Text style={[styles.inputPrefix, dynamicStyles.headerText]}>
+                  {currency}
+                </Text>
+                <TextInput
+                  style={[styles.mainInput, { color: colors.textPrimary }]}
+                  keyboardType="numeric"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.textMuted}
+                  value={totalBudget}
+                  onChangeText={setTotalBudget}
+                />
+              </View>
+            </View>
+
+            {/* Category Toggle */}
+            <View style={[styles.card, dynamicStyles.card, styles.toggleCard]}>
+              <View>
+                <Text style={[styles.toggleTitle, dynamicStyles.headerText]}>
+                  Category Breakdown
+                </Text>
+                <Text style={[styles.toggleSub, dynamicStyles.subText]}>
+                  Allocate budget to specific needs
+                </Text>
+              </View>
+              <Switch
+                value={useCategories}
+                onValueChange={setUseCategories}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
+              />
+            </View>
+
+            {/* Category List */}
+            {useCategories && (
+              <View style={styles.categoriesContainer}>
+                <Text style={[styles.sectionTitle, dynamicStyles.headerText]}>
+                  Allocations
+                </Text>
+
+                {categories.map((cat, index) => (
+                  <View
+                    key={cat.id}
+                    style={[styles.catCard, dynamicStyles.card]}
+                  >
+                    <View style={styles.catInputWrapper}>
+                      <Text style={[styles.inputLabel, dynamicStyles.subText]}>
+                        Name
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.catInput,
+                          {
+                            color: colors.textPrimary,
+                            borderBottomColor: colors.border,
+                          },
+                        ]}
+                        placeholder="e.g. Food"
+                        placeholderTextColor={colors.textMuted}
+                        value={cat.name}
+                        onChangeText={(t) => updateCategory(cat.id, "name", t)}
+                      />
+                    </View>
+
+                    <View style={styles.catInputWrapper}>
+                      <Text style={[styles.inputLabel, dynamicStyles.subText]}>
+                        Limit ({currency})
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.catInput,
+                          {
+                            color: colors.textPrimary,
+                            borderBottomColor: colors.border,
+                          },
+                        ]}
+                        placeholder="0"
+                        keyboardType="numeric"
+                        placeholderTextColor={colors.textMuted}
+                        value={cat.limit}
+                        onChangeText={(t) => updateCategory(cat.id, "limit", t)}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => removeCategory(cat.id)}
+                      style={styles.deleteBtn}
+                    >
+                      <MaterialCommunityIcons
+                        name="trash-can-outline"
+                        size={20}
+                        color={colors.danger}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                <TouchableOpacity
+                  style={[
+                    styles.addBtn,
+                    { borderColor: colors.primary, borderStyle: "dashed" },
+                  ]}
+                  onPress={addCategory}
+                >
+                  <MaterialCommunityIcons
+                    name="plus"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={[styles.addBtnText, { color: colors.primary }]}>
+                    Add Category
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <View
           style={[
-            styles.row,
-            { justifyContent: "space-between", marginTop: 20 },
+            styles.footer,
+            {
+              backgroundColor: colors.background,
+              borderTopColor: colors.border,
+              paddingBottom: bottomPadding,
+            },
           ]}
         >
-          <Text style={[styles.label, { marginBottom: 0 }, textStyle]}>
-            Category Breakdown?
-          </Text>
-          <Switch
-            value={useCategories}
-            onValueChange={setUseCategories}
-            trackColor={{ false: "#767577", true: colors.primary }}
-          />
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            onPress={handleSave}
+          >
+            <Text style={styles.saveBtnText}>Save Budget</Text>
+          </TouchableOpacity>
         </View>
       </View>
-
-      {useCategories && (
-        <>
-          <Text style={[styles.subHeader, textStyle]}>Categories</Text>
-          {categories.map((cat) => (
-            <View key={cat.id} style={[styles.catRow, cardStyle]}>
-              <View style={{ flex: 1, marginRight: 10 }}>
-                <TextInput
-                  style={[
-                    styles.smallInput,
-                    inputStyle,
-                    { textAlign: "left", width: "100%" },
-                  ]}
-                  placeholder="Name"
-                  placeholderTextColor="#aaa"
-                  value={cat.name}
-                  onChangeText={(t) => updateCategory(cat.id, "name", t)}
-                />
-              </View>
-              <TextInput
-                style={[styles.smallInput, inputStyle]}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor="#aaa"
-                value={cat.limit}
-                onChangeText={(t) => updateCategory(cat.id, "limit", t)}
-              />
-              <TouchableOpacity
-                onPress={() => removeCategory(cat.id)}
-                style={{ marginLeft: 10 }}
-              >
-                <Text style={{ fontSize: 20 }}>🗑</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity
-            style={[styles.addCatBtn, { borderColor: colors.primary }]}
-            onPress={addCategory}
-          >
-            <Text style={{ color: colors.primary, fontWeight: "bold" }}>
-              + Add Category
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-        <Text style={styles.saveBtnText}>Save Budget</Text>
-      </TouchableOpacity>
-      <View style={{ height: 50 }} />
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "bold", marginBottom: 20 },
-  subHeader: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  card: { padding: 20, borderRadius: 12, marginBottom: 10 },
-  label: { fontSize: 16, marginBottom: 10 },
-  row: { flexDirection: "row", gap: 10, alignItems: "center" },
-  currBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  currBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  currText: { fontSize: 18 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 18,
-    marginTop: 5,
-  },
-  catRow: {
+  screen: { flex: 1 },
+  scrollContent: { padding: 20 },
+  headerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 25,
+    marginTop: 10, // Added slight extra top margin for breathing room
   },
-  smallInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 8,
-    width: 80,
-    textAlign: "center",
-  },
-  addCatBtn: {
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
+  backBtn: { padding: 8, marginRight: 10 },
+  headerTitle: { fontSize: 28, fontWeight: "bold" },
+
+  card: { padding: 20, borderRadius: 20, marginBottom: 15, borderWidth: 1 },
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
+
+  currencyRow: { flexDirection: "row", gap: 12 },
+  currencyBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 10,
+    borderWidth: 1,
+  },
+  currencyText: { fontSize: 20, fontWeight: "bold" },
+
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    height: 55,
+  },
+  inputPrefix: { fontSize: 20, fontWeight: "bold", marginRight: 10 },
+  mainInput: { flex: 1, fontSize: 20, fontWeight: "bold", height: "100%" },
+
+  toggleCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  toggleTitle: { fontSize: 16, fontWeight: "bold" },
+  toggleSub: { fontSize: 12, marginTop: 4 },
+
+  categoriesContainer: { marginTop: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
+  catCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    gap: 15,
+  },
+  catInputWrapper: { flex: 1 },
+  inputLabel: { fontSize: 10, marginBottom: 4 },
+  catInput: {
+    fontSize: 16,
+    fontWeight: "600",
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+  },
+  deleteBtn: { padding: 8 },
+
+  addBtn: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+  },
+  addBtnText: { fontWeight: "bold" },
+
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 20,
   },
   saveBtn: {
-    backgroundColor: colors.primary,
-    padding: 18,
-    borderRadius: 12,
+    height: 55,
+    borderRadius: 16,
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 30,
   },
   saveBtnText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });

@@ -1,8 +1,11 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+// 1. Import Safe Area Insets
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
+  LayoutAnimation,
   Modal,
   Platform,
   StatusBar,
@@ -10,10 +13,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
@@ -30,8 +34,16 @@ import {
   XP_PER_STREAK_DAY,
   checkNewBadges,
   getXpForCategory,
-} from "./gamification/gamificationUtils";
+} from "./gamification/gamificationConfig";
 import LevelProgress from "./gamification/LevelProgress";
+
+// Enable Animations
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const CATEGORIES = [
   "General ⚡",
@@ -43,8 +55,11 @@ const CATEGORIES = [
 ];
 
 const HabitScreen = () => {
-  const { theme } = useContext(AppContext);
-  const isDark = theme === "dark";
+  const { colors, theme } = useContext(AppContext);
+
+  // 2. Calculate dynamic bottom height
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = insets.bottom + 60;
 
   const getLocalToday = () => {
     const d = new Date();
@@ -76,15 +91,6 @@ const HabitScreen = () => {
   const [minutes, setMinutes] = useState("");
   const [category, setCategory] = useState("General ⚡");
 
-  const bg = isDark ? "#121212" : colors.background;
-  const text = isDark ? "#fff" : colors.textPrimary;
-  const cardBg = isDark ? "#1e1e1e" : "#fff";
-  const inputColor = {
-    color: text,
-    borderColor: isDark ? "#444" : "#ddd",
-    backgroundColor: isDark ? "#2c2c2c" : "#fff",
-  };
-
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -93,7 +99,7 @@ const HabitScreen = () => {
 
   useEffect(() => {
     generateHeatmap();
-  }, [habits, isDark, selectedDate]);
+  }, [habits, theme, selectedDate]);
 
   const loadData = async () => {
     const h = await getData("habits_data");
@@ -107,10 +113,7 @@ const HabitScreen = () => {
   // --- STREAK LOGIC ---
   const calculateStreakForHabit = (history, targetDate) => {
     let streak = 0;
-    // We start checking from the targetDate backwards
     let d = new Date(targetDate);
-
-    // Safety check for invalid date
     if (isNaN(d.getTime())) return 0;
 
     while (true) {
@@ -128,7 +131,7 @@ const HabitScreen = () => {
     return streak;
   };
 
-  // --- CORE GAMIFICATION LOGIC (FIXED) ---
+  // --- GAMIFICATION LOGIC ---
   const processGamification = async (
     isCompleting,
     habitId,
@@ -136,29 +139,20 @@ const HabitScreen = () => {
     category,
   ) => {
     let newStats = { ...userStats };
-
-    // 1. Calculate the XP Value for this specific action
     const baseXp = getXpForCategory(category);
     const streakBonus = streakCount * XP_PER_STREAK_DAY;
     const totalActionXp = baseXp + streakBonus;
 
     if (isCompleting) {
-      // ADD XP
       newStats.xp += totalActionXp;
       newStats.totalCompleted += 1;
     } else {
-      // REMOVE XP (Exact same amount we would have given)
-      // Prevent negative XP
       newStats.xp = Math.max(0, newStats.xp - totalActionXp);
       newStats.totalCompleted = Math.max(0, newStats.totalCompleted - 1);
     }
 
-    // 2. IDEMPOTENT LEVEL CALCULATION
-    // This fixes the infinite level bug. Level is always derived directly from Total XP.
-    // Level 1 = 0-99 XP, Level 2 = 100-199 XP, etc.
     const calculatedLevel = Math.floor(newStats.xp / XP_PER_LEVEL) + 1;
 
-    // Check if we ACTUALLY leveled up (to show modal)
     if (calculatedLevel > newStats.level) {
       setTimeout(() => {
         setAchievementData({
@@ -169,10 +163,8 @@ const HabitScreen = () => {
       }, 500);
     }
 
-    // Update level to the calculated one (handles downgrades too automatically)
     newStats.level = calculatedLevel;
 
-    // 3. BADGE LOGIC
     if (isCompleting) {
       const unlockedIds = checkNewBadges(newStats, streakCount);
       if (unlockedIds.length > 0) {
@@ -193,28 +185,23 @@ const HabitScreen = () => {
   };
 
   const toggleHabit = async (id) => {
-    // 1. DATE CHECKS
     if (selectedDate > today) {
-      Alert.alert(
-        "Future Date",
-        "You cannot complete habits for future dates.",
-      );
+      Alert.alert("Future Date", "Cannot complete habits for future dates.");
       return;
     }
 
-    // 2-Day Restriction (Anti-Cheese)
     const d1 = new Date(selectedDate);
     const d2 = new Date(today);
     const diffTime = Math.abs(d2 - d1);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays > 2) {
-      Alert.alert(
-        "Too Late",
-        "You can only edit habits from the last 2 days to maintain integrity.",
-      );
+      Alert.alert("Too Late", "You can only edit habits from the last 2 days");
       return;
     }
+
+    // Animate change
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const updated = habits.map((h) => {
       if (h.id === id) {
@@ -222,28 +209,15 @@ const HabitScreen = () => {
         const newHistory = { ...h.history };
 
         if (isDone) {
-          // --- UNDOING A HABIT ---
-          // 1. Calculate what the streak WAS when it was active.
-          // Since it is currently 'true' in history, calculating streak normally returns the value including today.
           const streakWas = calculateStreakForHabit(newHistory, selectedDate);
-
-          // 2. Remove from history
           delete newHistory[selectedDate];
-
-          // 3. Remove XP based on that streak
           processGamification(false, id, streakWas, h.category);
         } else {
-          // --- COMPLETING A HABIT ---
-          // 1. Add to history temporarily to calculate projected streak
           newHistory[selectedDate] = true;
-
-          // 2. Calculate what the streak IS now with this new check
           const currentStreak = calculateStreakForHabit(
             newHistory,
             selectedDate,
           );
-
-          // 3. Add XP based on this new streak
           processGamification(true, id, currentStreak, h.category);
         }
         return { ...h, history: newHistory };
@@ -255,36 +229,24 @@ const HabitScreen = () => {
     await storeData("habits_data", updated);
   };
 
-  // --- HEATMAP GENERATION (Standard) ---
+  // --- HEATMAP GENERATION ---
   const generateHeatmap = () => {
     const marks = {};
     if (!habits || habits.length === 0) {
-      // Just mark selected date
       marks[selectedDate] = {
         customStyles: {
           container: { borderWidth: 2, borderColor: colors.primary },
-          text: { color: text },
+          text: { color: colors.textPrimary },
         },
       };
       setMarkedDates(marks);
       return;
     }
 
-    let startTimestamp = Date.now();
-    habits.forEach((h) => {
-      if (h.id < startTimestamp) startTimestamp = h.id;
-      if (h.history) {
-        Object.keys(h.history).forEach((d) => {
-          const ts = new Date(d).getTime();
-          if (ts < startTimestamp) startTimestamp = ts;
-        });
-      }
-    });
-
-    const startDate = new Date(startTimestamp);
-    const endDate = new Date();
-    startDate.setHours(0, 0, 0, 0);
-    endDate.setHours(0, 0, 0, 0);
+    // Find range (naive approach: last 90 days to today)
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 90);
+    const endDate = new Date(); // Today
 
     for (
       let d = new Date(startDate);
@@ -299,40 +261,34 @@ const HabitScreen = () => {
       habits.forEach((h) => {
         if (h.history && h.history[dateStr]) completedCount++;
       });
+
       const ratio = habits.length > 0 ? completedCount / habits.length : 0;
 
-      let color = isDark ? "#222" : "#f0f0f0";
-      let textColor = isDark ? "#aaa" : "#888";
+      // Dynamic Colors based on theme
+      let bg = colors.surfaceHighlight; // Empty day
+      let txt = colors.textMuted;
 
       if (completedCount > 0) {
-        if (ratio === 1) {
-          color = colors.success;
-          textColor = "#fff";
-        } else {
-          color = "#f1c40f";
-          textColor = "#fff";
-        }
+        txt = colors.white;
+        if (ratio === 1)
+          bg = colors.success; // All done
+        else if (ratio > 0.5)
+          bg = colors.primary; // Most done
+        else bg = colors.secondary; // Some done
       } else if (dateStr === today) {
-        color = isDark ? "#374151" : "#D1D5DB";
-        textColor = isDark ? "#fff" : "#000";
-      } else if (dateStr < today) {
-        color = "#e74c3c";
-        textColor = "#fff";
+        bg = colors.surface;
+        txt = colors.textPrimary;
       }
 
       marks[dateStr] = {
         customStyles: {
-          container: {
-            backgroundColor: color,
-            borderRadius: 8,
-            justifyContent: "center",
-            alignItems: "center",
-          },
-          text: { color: textColor, fontWeight: "bold" },
+          container: { backgroundColor: bg, borderRadius: 6 },
+          text: { color: txt, fontWeight: "bold" },
         },
       };
     }
 
+    // Highlight Selected
     if (!marks[selectedDate])
       marks[selectedDate] = { customStyles: { container: {}, text: {} } };
     if (!marks[selectedDate].customStyles)
@@ -379,6 +335,7 @@ const HabitScreen = () => {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           const updated = habits.filter((h) => h.id !== id);
           setHabits(updated);
           await storeData("habits_data", updated);
@@ -387,68 +344,63 @@ const HabitScreen = () => {
     ]);
   };
 
-  const openCalendarModal = () => {
-    setTempSelectedDate(selectedDate);
-    setCalendarVisible(true);
-  };
-  const handleGoToDate = () => {
-    setSelectedDate(tempSelectedDate);
-    setCalendarVisible(false);
-  };
-
-  const getModalMarks = () => {
-    const modalMarks = JSON.parse(JSON.stringify(markedDates));
-    if (modalMarks[selectedDate] && selectedDate !== tempSelectedDate) {
-      modalMarks[selectedDate].customStyles.container.borderWidth = 0;
-    }
-    if (!modalMarks[tempSelectedDate])
-      modalMarks[tempSelectedDate] = {
-        customStyles: { container: {}, text: {} },
-      };
-    if (!modalMarks[tempSelectedDate].customStyles)
-      modalMarks[tempSelectedDate].customStyles = { container: {}, text: {} };
-
-    modalMarks[tempSelectedDate].customStyles.container.borderWidth = 2;
-    modalMarks[tempSelectedDate].customStyles.container.borderColor =
-      colors.primary;
-    return modalMarks;
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    screen: { backgroundColor: colors.background },
+    textPrimary: { color: colors.textPrimary },
+    modalContent: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    input: {
+      backgroundColor: colors.background,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+    fab: { backgroundColor: colors.primary, shadowColor: colors.primary },
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <View
-        style={{
-          flex: 1,
-          paddingHorizontal: 20,
-          paddingTop:
-            Platform.OS === "android" ? StatusBar.currentHeight + 20 : 20,
-        }}
-      >
+    <View style={[styles.screen, dynamicStyles.screen]}>
+      <View style={styles.container}>
+        {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={[styles.title, { color: text }]}>Habit Tracker</Text>
-          <TouchableOpacity onPress={openCalendarModal}>
-            <Text style={{ fontSize: 24 }}>📅</Text>
+          <Text style={[styles.title, dynamicStyles.textPrimary]}>
+            Habit Tracker
+          </Text>
+          <TouchableOpacity
+            onPress={() => {
+              setTempSelectedDate(selectedDate);
+              setCalendarVisible(true);
+            }}
+          >
+            <MaterialCommunityIcons
+              name="calendar-month"
+              size={28}
+              color={colors.primary}
+            />
           </TouchableOpacity>
         </View>
 
-        <LevelProgress stats={userStats} isDark={isDark} />
+        {/* HUD */}
+        <LevelProgress stats={userStats} />
 
-        <WeeklyStrip
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          isDark={isDark}
-        />
+        {/* Date Strip */}
+        <View style={{ marginBottom: 15 }}>
+          <WeeklyStrip
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            isDark={theme === "dark"}
+          />
+        </View>
 
         <FlatList
           data={habits}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          // 3. Apply Dynamic Padding
+          contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
           renderItem={({ item }) => {
-            // Calculate streak for display purposes (assuming today is part of it if marked)
             const streak = calculateStreakForHabit(item.history, today);
-            // Calculate potential bonus for display logic
-            // If done, bonus is already in streak. If not done, it would be (streak+1)*5?
-            // To keep it simple in UI, we just show base streak bonus
             const bonus = streak * XP_PER_STREAK_DAY;
 
             return (
@@ -458,7 +410,7 @@ const HabitScreen = () => {
                     item={{ ...item, streak: streak }}
                     isDone={item.history[selectedDate]}
                     onToggle={() => toggleHabit(item.id)}
-                    isDark={isDark}
+                    isDark={theme === "dark"}
                     streakBonus={bonus}
                   />
                 </View>
@@ -466,26 +418,45 @@ const HabitScreen = () => {
                   onPress={() => deleteHabit(item.id)}
                   style={styles.deleteBtn}
                 >
-                  <Text style={{ fontSize: 20 }}>🗑️</Text>
+                  <MaterialCommunityIcons
+                    name="trash-can-outline"
+                    size={20}
+                    color={colors.textMuted}
+                  />
                 </TouchableOpacity>
               </View>
             );
           }}
           ListEmptyComponent={
-            <Text style={{ textAlign: "center", marginTop: 50, color: "#aaa" }}>
-              No habits yet. Start today!
-            </Text>
+            <View style={{ alignItems: "center", marginTop: 50 }}>
+              <MaterialCommunityIcons
+                name="rocket-launch-outline"
+                size={50}
+                color={colors.textMuted}
+              />
+              <Text
+                style={{
+                  textAlign: "center",
+                  marginTop: 10,
+                  color: colors.textMuted,
+                }}
+              >
+                No habits yet. Start your journey today!
+              </Text>
+            </View>
           }
         />
 
         <TouchableOpacity
-          style={styles.fab}
+          // 4. Position FAB Dynamically above Tab Bar
+          style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
           onPress={() => setAddVisible(true)}
+          activeOpacity={0.8}
         >
-          <Text style={styles.fabText}>+</Text>
+          <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
         </TouchableOpacity>
 
-        {/* MODALS */}
+        {/* CALENDAR MODAL */}
         <Modal
           visible={calendarVisible}
           animationType="fade"
@@ -495,127 +466,125 @@ const HabitScreen = () => {
             <View
               style={[
                 styles.modalContent,
-                { backgroundColor: cardBg, width: "90%", alignItems: "center" },
+                dynamicStyles.modalContent,
+                { width: "90%" },
               ]}
             >
-              <Text
-                style={[styles.modalTitle, { color: text, marginBottom: 15 }]}
-              >
-                Performance Heatmap
+              <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+                Consistency Heatmap
               </Text>
+
               <Calendar
                 current={tempSelectedDate}
                 onDayPress={(day) => setTempSelectedDate(day.dateString)}
                 markingType={"custom"}
-                markedDates={getModalMarks()}
-                style={{ width: 300, borderRadius: 10 }}
+                markedDates={markedDates}
+                style={{ borderRadius: 10, marginBottom: 20 }}
                 theme={{
-                  calendarBackground: cardBg,
-                  dayTextColor: text,
-                  monthTextColor: text,
+                  calendarBackground: colors.surface,
+                  dayTextColor: colors.textPrimary,
+                  monthTextColor: colors.textPrimary,
                   arrowColor: colors.primary,
-                  textDisabledColor: "#444",
+                  textDisabledColor: colors.textMuted,
+                  todayTextColor: colors.secondary,
                 }}
               />
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  width: "100%",
-                  marginTop: 20,
-                  paddingHorizontal: 10,
-                }}
-              >
+
+              <View style={styles.modalActions}>
                 <TouchableOpacity onPress={() => setCalendarVisible(false)}>
-                  <Text style={{ color: "#aaa", fontSize: 16 }}>Close</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleGoToDate}>
                   <Text
-                    style={{
-                      color: colors.primary,
-                      fontWeight: "bold",
-                      fontSize: 16,
-                    }}
+                    style={[styles.cancelText, { color: colors.textSecondary }]}
                   >
-                    Go To Date
+                    Close
                   </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    setSelectedDate(tempSelectedDate);
+                    setCalendarVisible(false);
+                  }}
+                >
+                  <Text style={styles.saveBtnText}>Go To Date</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
 
+        {/* ADD HABIT MODAL */}
         <Modal visible={addVisible} transparent={true} animationType="slide">
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-              <Text style={[styles.modalTitle, { color: text }]}>
+            <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+              <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
                 New Habit
               </Text>
-              <Text style={{ color: text, marginBottom: 5, fontWeight: "600" }}>
+
+              <Text style={[styles.label, dynamicStyles.textPrimary]}>
                 Title
               </Text>
               <TextInput
-                style={[styles.input, inputColor]}
+                style={[styles.input, dynamicStyles.input]}
                 placeholder="e.g. Drink Water"
-                placeholderTextColor="#888"
+                placeholderTextColor={colors.textMuted}
                 value={title}
                 onChangeText={setTitle}
               />
 
-              <Text style={{ color: text, marginBottom: 5, fontWeight: "600" }}>
-                Goal Duration
+              <Text style={[styles.label, dynamicStyles.textPrimary]}>
+                Duration (Optional)
               </Text>
               <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
-                <View style={{ flex: 1 }}>
-                  <TextInput
-                    style={[styles.input, inputColor, { marginBottom: 0 }]}
-                    placeholder="Hours"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={hours}
-                    onChangeText={setHours}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <TextInput
-                    style={[styles.input, inputColor, { marginBottom: 0 }]}
-                    placeholder="Mins"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={minutes}
-                    onChangeText={setMinutes}
-                  />
-                </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    dynamicStyles.input,
+                    { flex: 1, marginBottom: 0 },
+                  ]}
+                  placeholder="Hours"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                  value={hours}
+                  onChangeText={setHours}
+                />
+                <TextInput
+                  style={[
+                    styles.input,
+                    dynamicStyles.input,
+                    { flex: 1, marginBottom: 0 },
+                  ]}
+                  placeholder="Mins"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="numeric"
+                  value={minutes}
+                  onChangeText={setMinutes}
+                />
               </View>
 
-              <Text style={{ color: text, marginBottom: 5, fontWeight: "600" }}>
+              <Text style={[styles.label, dynamicStyles.textPrimary]}>
                 Category
               </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 5,
-                  marginBottom: 15,
-                }}
-              >
+              <View style={styles.catCloud}>
                 {CATEGORIES.map((c) => (
                   <TouchableOpacity
                     key={c}
                     onPress={() => setCategory(c)}
-                    style={{
-                      padding: 6,
-                      borderWidth: 1,
-                      borderColor: category === c ? colors.primary : "#ddd",
-                      borderRadius: 8,
-                      backgroundColor:
-                        category === c ? colors.primary : "transparent",
-                    }}
+                    style={[
+                      styles.catChip,
+                      {
+                        backgroundColor:
+                          category === c ? colors.primary : colors.background,
+                        borderColor:
+                          category === c ? colors.primary : colors.border,
+                      },
+                    ]}
                   >
                     <Text
                       style={{
-                        color: category === c ? "#fff" : "#888",
+                        color:
+                          category === c ? colors.white : colors.textSecondary,
                         fontSize: 12,
+                        fontWeight: "600",
                       }}
                     >
                       {c}
@@ -624,12 +593,21 @@ const HabitScreen = () => {
                 ))}
               </View>
 
-              <TouchableOpacity style={styles.saveBtn} onPress={handleAddHabit}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                <TouchableOpacity onPress={() => setAddVisible(false)}>
+                  <Text
+                    style={[styles.cancelText, { color: colors.textSecondary }]}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleAddHabit}
+                >
+                  <Text style={styles.saveBtnText}>Create Habit</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -638,7 +616,6 @@ const HabitScreen = () => {
           visible={achievementData.visible}
           type={achievementData.type}
           data={achievementData.data}
-          isDark={isDark}
           onClose={() =>
             setAchievementData({ ...achievementData, visible: false })
           }
@@ -649,6 +626,12 @@ const HabitScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 20,
+  },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -656,40 +639,69 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   title: { fontSize: 28, fontWeight: "bold" },
-  habitRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+  habitRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   deleteBtn: { padding: 10, marginLeft: 5, justifyContent: "center" },
+
   fab: {
     position: "absolute",
-    bottom: 30,
-    right: 30,
+    // bottom: 30, // Removed, handled dynamically
+    right: 25,
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5,
+    elevation: 10,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
   },
-  fabText: { fontSize: 30, color: "#fff" },
+
+  // Modals
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
+    // 5. Center content horizontally
     alignItems: "center",
     padding: 20,
   },
-  modalContent: { padding: 25, borderRadius: 20 },
-  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
-  input: { borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 15 },
-  saveBtn: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 15,
+  modalContent: {
+    padding: 25,
+    borderRadius: 24,
+    borderWidth: 1,
   },
+  modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
+  label: { marginBottom: 8, fontWeight: "600", fontSize: 14 },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  catCloud: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 25,
+  },
+  catChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 20,
+  },
+  saveBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
   saveBtnText: { color: "#fff", fontWeight: "bold" },
-  cancelText: { textAlign: "center", color: "#888" },
+  cancelText: { fontWeight: "600" },
 });
 
 export default HabitScreen;

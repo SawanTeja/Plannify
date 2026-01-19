@@ -1,33 +1,57 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useContext, useState } from "react";
 import {
+  LayoutAnimation,
   Modal,
   Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import SideMenu from "../../components/SideMenu";
-import colors from "../../constants/colors";
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";
 
-// --- CONFIG: AVAILABLE FEATURES FOR QUICK ACCESS ---
+// Enable LayoutAnimation for Android
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// --- CONFIG ---
 const ALL_FEATURES = [
-  { id: "journal", name: "Journal", icon: "📖", route: "Journal" },
-  { id: "bucket", name: "Bucket List", icon: "✨", route: "BucketList" },
-  { id: "habits", name: "Habits", icon: "🔥", route: "Habits" },
-  { id: "tasks", name: "Tasks", icon: "📅", route: "Tasks" },
-  { id: "budget", name: "Budget", icon: "💰", route: "BudgetTab" },
+  {
+    id: "journal",
+    name: "Journal",
+    icon: "notebook-outline",
+    route: "Journal",
+  },
+  {
+    id: "bucket",
+    name: "Bucket List",
+    icon: "star-four-points-outline",
+    route: "BucketList",
+  },
+  { id: "habits", name: "Habits", icon: "fire", route: "Habits" },
+  {
+    id: "tasks",
+    name: "Tasks",
+    icon: "checkbox-marked-circle-outline",
+    route: "Tasks",
+  },
+  { id: "budget", name: "Budget", icon: "wallet-outline", route: "BudgetTab" },
   {
     id: "attendance",
     name: "Attendance",
-    icon: "🎓",
+    icon: "school-outline",
     route: "Attendance",
     studentOnly: true,
   },
@@ -35,10 +59,10 @@ const ALL_FEATURES = [
 
 const SummaryDashboard = () => {
   const navigation = useNavigation();
-  const { theme, userData } = useContext(AppContext);
-  const isDark = theme === "dark";
+  // We now get 'colors' from the context!
+  const { userData, colors, theme } = useContext(AppContext);
 
-  // --- STATE: Existing Summary Data ---
+  // --- STATE ---
   const [globalStreak, setGlobalStreak] = useState(0);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [attendanceAvg, setAttendanceAvg] = useState(null);
@@ -47,30 +71,22 @@ const SummaryDashboard = () => {
     limit: 0,
     currency: "$",
   });
-
-  // --- STATE: UI & Editing ---
   const [refreshing, setRefreshing] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-
-  // Default shortcuts (Journal & Bucket List)
   const [activeShortcutIds, setActiveShortcutIds] = useState([
     "journal",
     "bucket",
   ]);
 
-  const bg = isDark ? "#121212" : "#f8f9fa";
-  const cardBg = isDark ? "#1e1e1e" : "#fff";
-  const text = isDark ? "#fff" : colors.textPrimary;
-  const subText = isDark ? "#aaa" : colors.textSecondary;
-
   useFocusEffect(
     useCallback(() => {
       loadSummaries();
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }, []),
   );
 
-  // --- LOGIC: Quick Access Filter ---
+  // --- LOGIC ---
   const activeFeatures = ALL_FEATURES.filter((f) => {
     if (!activeShortcutIds.includes(f.id)) return false;
     if (f.studentOnly && userData.userType !== "student") return false;
@@ -78,13 +94,13 @@ const SummaryDashboard = () => {
   });
 
   const toggleShortcut = (id) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setActiveShortcutIds((prev) => {
       if (prev.includes(id)) return prev.filter((item) => item !== id);
       return [...prev, id];
     });
   };
 
-  // --- LOGIC: Summaries (Unchanged) ---
   const calculatePerfectStreak = (habits) => {
     if (!habits || habits.length === 0) return 0;
     let streak = 0;
@@ -153,338 +169,489 @@ const SummaryDashboard = () => {
     }
   };
 
+  // --- STYLES GENERATOR (Since colors change) ---
+  const dynamicStyles = {
+    screen: {
+      flex: 1,
+      backgroundColor: colors.background,
+      paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    },
+    headerText: { color: colors.textPrimary },
+    subText: { color: colors.textSecondary },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 28,
+      padding: 20,
+      justifyContent: "space-between",
+      // Soft modern shadow
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    iconCircle: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    quickBtn: {
+      backgroundColor: colors.surfaceHighlight,
+      borderRadius: 24,
+      padding: 15,
+      alignItems: "center",
+      justifyContent: "center",
+      width: "30%",
+      aspectRatio: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+  };
+
+  // --- RENDERERS ---
+  const renderHeader = () => (
+    <View style={styles.headerRow}>
+      <View>
+        <Text style={[styles.greetingText, dynamicStyles.subText]}>
+          Good Morning,
+        </Text>
+        <Text style={[styles.nameText, dynamicStyles.headerText]}>
+          {userData.name}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={[
+          styles.menuBtn,
+          {
+            backgroundColor: colors.surfaceHighlight,
+            borderColor: colors.border,
+          },
+        ]}
+        onPress={() => setMenuVisible(true)}
+      >
+        <MaterialCommunityIcons
+          name="menu-open"
+          size={28}
+          color={colors.textPrimary}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: bg,
-        paddingTop:
-          Platform.OS === "android" ? StatusBar.currentHeight + 20 : 20,
-      }}
-    >
+    <View style={dynamicStyles.screen}>
       <ScrollView
-        style={styles.container}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadSummaries} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={loadSummaries}
+            tintColor={colors.primary}
+          />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.menuBtn}
-            onPress={() => setMenuVisible(true)}
-          >
-            <Text style={[styles.menuIcon, { color: text }]}>☰</Text>
-          </TouchableOpacity>
-          <View>
-            <Text style={[styles.greeting, { color: subText }]}>
-              Welcome back,
-            </Text>
-            <Text style={[styles.title, { color: text }]}>{userData.name}</Text>
+        {renderHeader()}
+
+        {/* --- BENTO GRID --- */}
+        <View style={styles.bentoContainer}>
+          {/* COLUMN 1: Habits (Big Vertical) */}
+          <View style={{ flex: 1, gap: 15 }}>
+            <TouchableOpacity
+              style={[
+                dynamicStyles.card,
+                { flex: 1, backgroundColor: colors.surface },
+              ]}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate("Habits")}
+            >
+              <View
+                style={[
+                  dynamicStyles.iconCircle,
+                  { backgroundColor: colors.primary + "20" },
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="fire"
+                  size={30}
+                  color={colors.primary}
+                />
+              </View>
+              <View>
+                <Text style={[styles.cardValue, { color: colors.textPrimary }]}>
+                  {globalStreak}
+                </Text>
+                <Text
+                  style={[styles.cardLabel, { color: colors.textSecondary }]}
+                >
+                  Day Streak
+                </Text>
+                <View style={{ flexDirection: "row", marginTop: 5 }}>
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      color: colors.success,
+                      fontWeight: "bold",
+                    }}
+                  >
+                    +12%{" "}
+                  </Text>
+                  <Text style={{ fontSize: 10, color: colors.textMuted }}>
+                    this week
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* COLUMN 2: Tasks & Budget (Stacked) */}
+          <View style={{ flex: 1, gap: 15 }}>
+            {/* TASKS */}
+            <TouchableOpacity
+              style={dynamicStyles.card}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate("Tasks")}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginBottom: 10,
+                }}
+              >
+                <View
+                  style={[
+                    dynamicStyles.iconCircle,
+                    {
+                      width: 36,
+                      height: 36,
+                      backgroundColor: colors.secondary + "20",
+                      marginBottom: 0,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="check-circle-outline"
+                    size={20}
+                    color={colors.secondary}
+                  />
+                </View>
+                <Text
+                  style={[styles.cardValueSmall, { color: colors.textPrimary }]}
+                >
+                  {pendingTasks}
+                </Text>
+              </View>
+              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
+                Tasks Pending
+              </Text>
+            </TouchableOpacity>
+
+            {/* BUDGET */}
+            <TouchableOpacity
+              style={dynamicStyles.card}
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate("BudgetTab")}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginBottom: 10,
+                }}
+              >
+                <View
+                  style={[
+                    dynamicStyles.iconCircle,
+                    {
+                      width: 36,
+                      height: 36,
+                      backgroundColor: colors.accent + "20",
+                      marginBottom: 0,
+                    },
+                  ]}
+                >
+                  <MaterialCommunityIcons
+                    name="chart-pie"
+                    size={20}
+                    color={colors.accent}
+                  />
+                </View>
+              </View>
+              <Text
+                style={[
+                  styles.cardValueSmall,
+                  { fontSize: 20, color: colors.textPrimary },
+                ]}
+              >
+                {budgetStatus.currency}
+                {budgetStatus.spent}
+              </Text>
+
+              {/* Modern Progress Bar */}
+              <View
+                style={{
+                  height: 4,
+                  backgroundColor: colors.border,
+                  borderRadius: 2,
+                  marginVertical: 8,
+                  overflow: "hidden",
+                }}
+              >
+                <View
+                  style={{
+                    height: "100%",
+                    backgroundColor:
+                      budgetStatus.spent > budgetStatus.limit
+                        ? colors.danger
+                        : colors.accent,
+                    width: `${Math.min((budgetStatus.spent / (budgetStatus.limit || 1)) * 100, 100)}%`,
+                  }}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.cardLabel,
+                  { color: colors.textSecondary, fontSize: 11 },
+                ]}
+              >
+                of {budgetStatus.currency}
+                {budgetStatus.limit} limit
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* --- MAIN WIDGETS (Stats) --- */}
-        <TouchableOpacity
-          style={[styles.widget, { backgroundColor: cardBg }]}
-          onPress={() => navigation.navigate("Habits")}
-        >
-          <View style={styles.iconBox}>
-            <Text style={{ fontSize: 24 }}>🔥</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.widgetTitle, { color: text }]}>
-              Perfect Streak
-            </Text>
-            <Text
-              style={{ color: globalStreak > 0 ? colors.success : subText }}
-            >
-              {globalStreak > 0
-                ? `${globalStreak} Day Streak Active!`
-                : "Complete all habits to start"}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.widget, { backgroundColor: cardBg }]}
-          onPress={() => navigation.navigate("Tasks")}
-        >
-          <View style={styles.iconBox}>
-            <Text style={{ fontSize: 24 }}>📅</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.widgetTitle, { color: text }]}>
-              Pending Tasks
-            </Text>
-            <Text style={{ color: pendingTasks > 5 ? "#e74c3c" : subText }}>
-              {pendingTasks} tasks upcoming.
-            </Text>
-          </View>
-        </TouchableOpacity>
-
+        {/* --- ATTENDANCE (Wide Card) --- */}
         {userData.userType === "student" && (
           <TouchableOpacity
-            style={[styles.widget, { backgroundColor: cardBg }]}
+            style={[
+              dynamicStyles.card,
+              {
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 15,
+                paddingVertical: 25,
+              },
+            ]}
+            activeOpacity={0.9}
             onPress={() => navigation.navigate("Attendance")}
           >
-            <View style={styles.iconBox}>
-              <Text style={{ fontSize: 24 }}>🎓</Text>
-            </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.widgetTitle, { color: text }]}>
-                Attendance
+              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
+                Attendance Rate
               </Text>
-              {attendanceAvg !== null ? (
-                <Text
-                  style={{
-                    color: attendanceAvg >= 75 ? colors.success : "#e74c3c",
-                    fontWeight: "bold",
-                  }}
-                >
-                  {attendanceAvg.toFixed(1)}% (
-                  {attendanceAvg >= 75 ? "Safe" : "Low"})
-                </Text>
-              ) : (
-                <Text style={{ color: subText }}>No data yet.</Text>
-              )}
+              <Text
+                style={[
+                  styles.cardValue,
+                  { fontSize: 32, color: colors.textPrimary },
+                ]}
+              >
+                {attendanceAvg ? `${attendanceAvg.toFixed(0)}%` : "--"}
+              </Text>
+              <Text
+                style={{
+                  color: attendanceAvg >= 75 ? colors.success : colors.danger,
+                  fontSize: 12,
+                  marginTop: 4,
+                  fontWeight: "600",
+                }}
+              >
+                {attendanceAvg >= 75
+                  ? "Excellent Status"
+                  : "Warning: Low Attendance"}
+              </Text>
+            </View>
+
+            {/* Circular Indicator Placeholder */}
+            <View
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: 30,
+                borderWidth: 4,
+                borderColor: colors.surfaceHighlight,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <MaterialCommunityIcons
+                name="school"
+                size={24}
+                color={colors.textMuted}
+              />
             </View>
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          style={[styles.widget, { backgroundColor: cardBg }]}
-          onPress={() => navigation.navigate("BudgetTab")}
-        >
-          <View style={styles.iconBox}>
-            <Text style={{ fontSize: 24 }}>💰</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.widgetTitle, { color: text }]}>
-              Monthly Budget
-            </Text>
-            <View style={styles.barBg}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: `${Math.min((budgetStatus.spent / (budgetStatus.limit || 1)) * 100, 100)}%`,
-                    backgroundColor:
-                      budgetStatus.spent > budgetStatus.limit
-                        ? "#e74c3c"
-                        : colors.primary,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={{ color: subText, fontSize: 12, marginTop: 4 }}>
-              {budgetStatus.currency}
-              {budgetStatus.spent} / {budgetStatus.currency}
-              {budgetStatus.limit}
-            </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* --- CUSTOMIZABLE QUICK ACCESS SECTION --- */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: text }]}>
-            Quick Access
-          </Text>
-          <TouchableOpacity onPress={() => setEditModalVisible(true)}>
-            <Text style={{ color: colors.primary, fontWeight: "bold" }}>
-              Edit
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.grid}>
-          {activeFeatures.map((feature) => (
-            <TouchableOpacity
-              key={feature.id}
-              style={[styles.miniCard, { backgroundColor: cardBg }]}
-              onPress={() => navigation.navigate(feature.route)}
+        {/* --- QUICK ACTIONS --- */}
+        <View style={{ marginTop: 30 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 15,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: colors.textPrimary,
+              }}
             >
-              <Text style={{ fontSize: 24, marginBottom: 5 }}>
-                {feature.icon}
-              </Text>
-              <Text style={[styles.miniText, { color: text }]}>
-                {feature.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          {/* Invisible filler to keep alignment if needed, or empty state */}
-          {activeFeatures.length === 0 && (
-            <Text style={{ color: subText, fontStyle: "italic", padding: 10 }}>
-              No shortcuts added.
+              Shortcuts
             </Text>
-          )}
+            <TouchableOpacity onPress={() => setEditModalVisible(true)}>
+              <MaterialCommunityIcons
+                name="pencil-circle"
+                size={24}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+            {activeFeatures.map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                style={dynamicStyles.quickBtn}
+                onPress={() => navigation.navigate(f.route)}
+              >
+                <MaterialCommunityIcons
+                  name={f.icon}
+                  size={28}
+                  color={colors.primary}
+                />
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: "600",
+                    color: colors.textSecondary,
+                    marginTop: 8,
+                  }}
+                >
+                  {f.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-
-        <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* --- MODAL: EDIT SHORTCUTS --- */}
+      {/* --- SIDE MENU --- */}
+      <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} />
+
+      {/* --- EDIT MODAL (Simple Styling for now) --- */}
       <Modal
         animationType="slide"
         transparent={true}
         visible={editModalVisible}
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-            <Text style={[styles.modalTitle, { color: text }]}>
-              Manage Shortcuts
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            justifyContent: "flex-end",
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 30,
+              borderTopRightRadius: 30,
+              padding: 25,
+              maxHeight: "60%",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                color: colors.textPrimary,
+                marginBottom: 20,
+              }}
+            >
+              Edit Shortcuts
             </Text>
-            <Text style={{ color: subText, marginBottom: 20 }}>
-              Select items for Quick Access
-            </Text>
-
             <ScrollView>
-              {ALL_FEATURES.map((feature) => {
-                if (feature.studentOnly && userData.userType !== "student")
+              {ALL_FEATURES.map((f) => {
+                if (f.studentOnly && userData.userType !== "student")
                   return null;
-                const isActive = activeShortcutIds.includes(feature.id);
+                const active = activeShortcutIds.includes(f.id);
                 return (
                   <TouchableOpacity
-                    key={feature.id}
-                    style={[
-                      styles.optionRow,
-                      isDark
-                        ? { borderBottomColor: "#333" }
-                        : { borderBottomColor: "#eee" },
-                    ]}
-                    onPress={() => toggleShortcut(feature.id)}
+                    key={f.id}
+                    onPress={() => toggleShortcut(f.id)}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      paddingVertical: 15,
+                      borderBottomWidth: 1,
+                      borderColor: colors.border,
+                    }}
                   >
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
-                      <Text style={{ fontSize: 24, marginRight: 15 }}>
-                        {feature.icon}
-                      </Text>
-                      <Text style={[styles.optionText, { color: text }]}>
-                        {feature.name}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={isActive}
-                      onValueChange={() => toggleShortcut(feature.id)}
-                      trackColor={{ false: "#767577", true: colors.primary }}
+                    <MaterialCommunityIcons
+                      name={
+                        active ? "checkbox-marked-circle" : "circle-outline"
+                      }
+                      size={24}
+                      color={active ? colors.primary : colors.textMuted}
                     />
+                    <Text
+                      style={{
+                        marginLeft: 15,
+                        fontSize: 16,
+                        color: colors.textPrimary,
+                      }}
+                    >
+                      {f.name}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
-
             <TouchableOpacity
-              style={styles.closeBtn}
+              style={{
+                backgroundColor: colors.primary,
+                padding: 15,
+                borderRadius: 15,
+                alignItems: "center",
+                marginTop: 20,
+              }}
               onPress={() => setEditModalVisible(false)}
             >
-              <Text style={styles.closeBtnText}>Done</Text>
+              <Text style={{ color: colors.white, fontWeight: "bold" }}>
+                Done
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
-      {/* --- SIDE MENU (UNCONDITIONALLY RENDERED) --- */}
-      {/* We removed {menuVisible && ...} so animations work properly */}
-      <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20 },
-  header: {
-    marginTop: 10,
-    marginBottom: 20,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  menuBtn: { marginRight: 15, padding: 5 },
-  menuIcon: { fontSize: 28, fontWeight: "bold" },
-  greeting: { fontSize: 16 },
-  title: { fontSize: 28, fontWeight: "bold" },
-
-  // Widget Styles
-  widget: {
-    flexDirection: "row",
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 15,
-    alignItems: "center",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  iconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "rgba(0,0,0,0.05)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  widgetTitle: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
-  barBg: {
-    height: 6,
-    backgroundColor: "#eee",
-    borderRadius: 3,
-    width: "100%",
-    marginTop: 5,
-  },
-  barFill: { height: "100%", borderRadius: 3 },
-
-  // Quick Access Section
-  sectionHeader: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 25,
     marginTop: 10,
-    marginBottom: 15,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold" },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  miniCard: {
-    width: "31%", // Fits 3 in a row comfortably with gap
-    paddingVertical: 15,
-    borderRadius: 16,
-    alignItems: "center",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    marginBottom: 5,
-  },
-  miniText: { fontSize: 12, fontWeight: "600" },
-
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalContent: { borderRadius: 20, padding: 20, maxHeight: "80%" },
-  modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 5 },
-  optionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-  },
-  optionText: { fontSize: 16, fontWeight: "600" },
-  closeBtn: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  closeBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  greetingText: { fontSize: 16, fontWeight: "500" },
+  nameText: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  menuBtn: { padding: 8, borderRadius: 12, borderWidth: 1 },
+  bentoContainer: { flexDirection: "row", gap: 15 },
+  cardValue: { fontSize: 32, fontWeight: "800" },
+  cardValueSmall: { fontSize: 22, fontWeight: "800" },
+  cardLabel: { fontSize: 13, fontWeight: "600", marginTop: 2 },
 });
 
 export default SummaryDashboard;

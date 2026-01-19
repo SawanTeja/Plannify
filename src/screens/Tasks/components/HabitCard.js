@@ -1,77 +1,93 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useContext } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import colors from "../../../constants/colors";
+import { AppContext } from "../../../context/AppContext";
+import { getXpForCategory } from "../../Habits/gamification/gamificationConfig";
 
-// FIXED IMPORT: navigates back to 'screens' then into 'Habits/gamification'
-import { XP_PER_HABIT } from "../../Habits/gamification/gamificationUtils";
+const HabitCard = ({ item, isDone, onToggle, streakBonus = 0 }) => {
+  const { colors } = useContext(AppContext);
 
-const HabitCard = ({ item, isDone, onToggle, isDark, streakBonus }) => {
-  // Pastel colors for icons based on category
-  const getIconColor = (cat) => {
-    switch (cat) {
-      case "Health 💪":
-        return "#e0f2f1";
-      case "Work 💼":
-        return "#e3f2fd";
-      case "Study 📚":
-        return "#f3e5f5";
-      default:
-        return "#fff3e0";
-    }
+  // 1. Icon Logic
+  const getIconName = (cat) => {
+    const catName = typeof cat === "string" ? cat : cat?.label || "";
+    if (catName.includes("Health")) return "heart-pulse";
+    if (catName.includes("Work")) return "briefcase-outline";
+    if (catName.includes("Study")) return "book-open-variant";
+    if (catName.includes("Mind")) return "leaf";
+    if (catName.includes("Skill")) return "palette-outline";
+    return "flash-outline";
   };
 
-  const bgColor = isDark ? "#1e1e1e" : "#fff";
-  const textColor = isDark ? "#fff" : "#333";
-  const subText = isDark ? "#aaa" : "#888";
+  const iconName = getIconName(item.category);
 
-  // Calculate potential XP display
-  const potentialXp = XP_PER_HABIT + (streakBonus || 0);
+  // 2. XP Calculation
+  const baseXp = getXpForCategory(item.category);
+  const potentialXp = baseXp + streakBonus;
+
+  // 3. Dynamic Styles
+  const cardStyle = {
+    backgroundColor: isDone ? colors.success + "15" : colors.surface,
+    borderColor: isDone ? colors.success : colors.border,
+    borderWidth: 1,
+    // FIX: Remove shadow and elevation when Done to prevent the "dark box" artifact
+    shadowColor: isDone ? "transparent" : colors.shadow,
+    elevation: isDone ? 0 : 3,
+    shadowOpacity: isDone ? 0 : 0.15,
+  };
+
+  const iconBg = isDone ? colors.success + "20" : colors.primary + "15";
+  const iconColor = isDone ? colors.success : colors.primary;
+  const titleColor = isDone ? colors.textMuted : colors.textPrimary;
 
   return (
     <TouchableOpacity
-      activeOpacity={0.9}
+      activeOpacity={0.7}
       onPress={onToggle}
-      style={[styles.card, { backgroundColor: bgColor }]}
+      style={[styles.card, cardStyle]}
     >
       <View style={styles.row}>
         {/* Icon Circle */}
-        <View
-          style={[
-            styles.iconCircle,
-            { backgroundColor: isDark ? "#333" : getIconColor(item.category) },
-          ]}
-        >
-          <Text style={styles.icon}>
-            {item.category ? item.category.slice(-2) : "📝"}
-          </Text>
+        <View style={[styles.iconCircle, { backgroundColor: iconBg }]}>
+          <MaterialCommunityIcons name={iconName} size={24} color={iconColor} />
         </View>
 
-        {/* Text Info */}
+        {/* Info Section */}
         <View style={styles.info}>
-          <Text style={[styles.title, { color: textColor }]}>{item.title}</Text>
+          <Text
+            style={[
+              styles.title,
+              {
+                color: titleColor,
+                textDecorationLine: isDone ? "line-through" : "none",
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+
           <View style={styles.metaRow}>
-            <Text
-              style={[
-                styles.stats,
-                { color: colors.primary, fontWeight: "bold" },
-              ]}
+            {/* Streak Badge */}
+            <View
+              style={[styles.badge, { backgroundColor: colors.background }]}
             >
-              🔥 {item.streak || 0}
-            </Text>
-            {/* Gamification Cue */}
-            {!isDone && (
-              <Text
-                style={[styles.stats, { color: "#f1c40f", marginLeft: 10 }]}
-              >
+              <MaterialCommunityIcons
+                name="fire"
+                size={12}
+                color={colors.warning}
+              />
+              <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
+                {item.streak || 0}
+              </Text>
+            </View>
+
+            {/* XP / Status */}
+            {!isDone ? (
+              <Text style={[styles.xpText, { color: colors.primary }]}>
                 +{potentialXp} XP
               </Text>
-            )}
-            {isDone && (
-              <Text
-                style={[
-                  styles.stats,
-                  { color: colors.success, marginLeft: 10 },
-                ]}
-              >
+            ) : (
+              <Text style={[styles.doneText, { color: colors.success }]}>
                 Done
               </Text>
             )}
@@ -79,8 +95,22 @@ const HabitCard = ({ item, isDone, onToggle, isDark, streakBonus }) => {
         </View>
 
         {/* Custom Checkbox */}
-        <View style={[styles.checkboxBase, isDone && styles.checkboxChecked]}>
-          {isDone && <Text style={styles.checkIcon}>✓</Text>}
+        <View
+          style={[
+            styles.checkboxBase,
+            {
+              borderColor: isDone ? colors.success : colors.textMuted,
+              backgroundColor: isDone ? colors.success : "transparent",
+            },
+          ]}
+        >
+          {isDone && (
+            <MaterialCommunityIcons
+              name="check"
+              size={18}
+              color={colors.white}
+            />
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -91,39 +121,62 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
     borderRadius: 20,
-    padding: 15,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
+    padding: 16,
+    // Soft shadow for depth
+    shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
   },
-  row: { flexDirection: "row", alignItems: "center" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   iconCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15,
+    marginRight: 16,
   },
-  icon: { fontSize: 24 },
   info: { flex: 1 },
-  title: { fontSize: 16, fontWeight: "bold", marginBottom: 4 },
-  metaRow: { flexDirection: "row", alignItems: "center" },
-  stats: { fontSize: 12 },
+  title: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 4,
+  },
+  badgeText: {
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  xpText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  doneText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
   checkboxBase: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.primary,
+    width: 28,
+    height: 28,
+    borderRadius: 14, // Circular
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
   },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
-  },
-  checkIcon: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });
 
 export default HabitCard;

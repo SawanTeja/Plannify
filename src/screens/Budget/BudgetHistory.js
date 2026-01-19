@@ -1,33 +1,27 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
 import {
   FlatList,
   Modal,
+  SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import colors from "../../constants/colors";
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";
 
 const BudgetHistory = () => {
-  const { theme } = useContext(AppContext);
+  const { colors, theme } = useContext(AppContext);
   const [history, setHistory] = useState([]);
   const [currency, setCurrency] = useState("$");
 
   // Modal State
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(null);
-
-  const isDark = theme === "dark";
-  const containerStyle = {
-    backgroundColor: isDark ? "#121212" : colors.background,
-  };
-  const cardStyle = { backgroundColor: isDark ? "#1e1e1e" : "#fff" };
-  const textStyle = { color: isDark ? "#fff" : colors.textPrimary };
-  const subTextStyle = { color: isDark ? "#aaa" : colors.textSecondary };
 
   useEffect(() => {
     loadHistory();
@@ -66,24 +60,56 @@ const BudgetHistory = () => {
     setDetailsVisible(true);
   };
 
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    headerText: { color: colors.textPrimary },
+    subText: { color: colors.textSecondary },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+      borderWidth: 1,
+      shadowColor: colors.shadow,
+    },
+    modalContainer: { backgroundColor: colors.background },
+    txCard: { backgroundColor: colors.surface, borderColor: colors.border },
+  };
+
   const renderMonth = ({ item }) => {
     const isOver = item.totalSpent > item.totalBudget;
+    const percentage = Math.min(
+      (item.totalSpent / (item.totalBudget || 1)) * 100,
+      100,
+    );
+
     return (
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={() => openDetails(item)}
         style={[
           styles.card,
-          cardStyle,
-          item.isCurrent && { borderWidth: 1, borderColor: colors.primary },
+          dynamicStyles.card,
+          item.isCurrent && { borderColor: colors.primary, borderWidth: 1.5 },
         ]}
       >
         <View style={styles.header}>
-          <Text style={[styles.monthTitle, textStyle]}>{item.month}</Text>
+          <View>
+            <Text style={[styles.monthTitle, dynamicStyles.headerText]}>
+              {item.month}
+            </Text>
+            <Text style={[styles.subDate, dynamicStyles.subText]}>
+              {item.transactions ? item.transactions.length : 0} Transactions
+            </Text>
+          </View>
+
           <View
             style={[
               styles.badge,
-              { backgroundColor: isOver ? "#ffebee" : "#e0f2f1" },
+              {
+                backgroundColor: isOver
+                  ? colors.danger + "20"
+                  : colors.success + "20",
+              },
             ]}
           >
             <Text
@@ -92,36 +118,78 @@ const BudgetHistory = () => {
                 { color: isOver ? colors.danger : colors.success },
               ]}
             >
-              {isOver ? "Over Budget" : "Under Budget"}
+              {isOver ? "Over Budget" : "On Track"}
             </Text>
           </View>
         </View>
 
-        <View style={[styles.stats, { borderColor: isDark ? "#333" : "#eee" }]}>
-          <Text style={[styles.statText, subTextStyle]}>
-            Limit: {currency}
-            {item.totalBudget}
-          </Text>
-          <Text
-            style={[
-              styles.statText,
-              {
-                fontWeight: "bold",
-                color: isDark ? "#fff" : colors.textPrimary,
-              },
-            ]}
+        {/* Progress Bar Visual */}
+        <View style={{ marginTop: 15 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginBottom: 5,
+            }}
           >
-            Spent: {currency}
-            {item.totalSpent}
+            <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+              Spent
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                color: colors.textPrimary,
+                fontWeight: "bold",
+              }}
+            >
+              {Math.round(percentage)}%
+            </Text>
+          </View>
+          <View
+            style={{
+              height: 8,
+              backgroundColor: colors.background,
+              borderRadius: 4,
+              overflow: "hidden",
+            }}
+          >
+            <View
+              style={{
+                height: "100%",
+                width: `${percentage}%`,
+                backgroundColor: isOver ? colors.danger : colors.primary,
+              }}
+            />
+          </View>
+        </View>
+
+        <View style={[styles.stats, { borderTopColor: colors.border }]}>
+          <Text style={[styles.statText, dynamicStyles.subText]}>
+            Limit:{" "}
+            <Text style={{ fontWeight: "bold", color: colors.textPrimary }}>
+              {currency}
+              {item.totalBudget}
+            </Text>
+          </Text>
+          <Text style={[styles.statText, dynamicStyles.subText]}>
+            Spent:{" "}
+            <Text
+              style={{
+                fontWeight: "bold",
+                color: isOver ? colors.danger : colors.textPrimary,
+              }}
+            >
+              {currency}
+              {item.totalSpent}
+            </Text>
           </Text>
         </View>
 
         <View style={styles.miniLog}>
-          <Text style={[styles.miniLogTitle, subTextStyle]}>
-            Tap to view full details
-          </Text>
-          <Text style={{ color: colors.primary, fontSize: 12, marginTop: 5 }}>
-            View All Transactions →
+          <Text
+            style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}
+          >
+            View Breakdown →
           </Text>
         </View>
       </TouchableOpacity>
@@ -129,83 +197,153 @@ const BudgetHistory = () => {
   };
 
   return (
-    <View style={[styles.container, containerStyle]}>
-      <FlatList
-        data={history}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={renderMonth}
-        ListEmptyComponent={
-          <Text style={[styles.empty, subTextStyle]}>No history yet.</Text>
-        }
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
       />
+
+      <View style={styles.listContainer}>
+        <FlatList
+          data={history}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={renderMonth}
+          contentContainerStyle={{ paddingBottom: 50 }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons
+                name="history"
+                size={48}
+                color={colors.textMuted}
+              />
+              <Text style={[styles.empty, dynamicStyles.subText]}>
+                No budget history yet.
+              </Text>
+            </View>
+          }
+        />
+      </View>
 
       {/* --- FULL DETAILS MODAL --- */}
       <Modal
         visible={detailsVisible}
         animationType="slide"
         onRequestClose={() => setDetailsVisible(false)}
+        presentationStyle="pageSheet" // Looks better on iOS
       >
-        <View style={[styles.modalContainer, containerStyle]}>
+        <View style={[styles.modalContainer, dynamicStyles.modalContainer]}>
           {selectedMonth && (
             <>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity
-                  onPress={() => setDetailsVisible(false)}
-                  style={styles.closeBtn}
-                >
-                  <Text style={{ fontSize: 24, color: textStyle.color }}>
-                    ✕
-                  </Text>
-                </TouchableOpacity>
-                <Text style={[styles.modalTitle, textStyle]}>
+              {/* Modal Header */}
+              <View
+                style={[
+                  styles.modalHeader,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
                   {selectedMonth.month}
                 </Text>
-                <View style={{ width: 30 }} />
-              </View>
-
-              <View style={[styles.summaryBox, cardStyle]}>
-                <Text style={[styles.statText, subTextStyle]}>
-                  Total Limit: {currency}
-                  {selectedMonth.totalBudget}
-                </Text>
-
-                {/* DYNAMIC LABEL: Overbudget vs Underbudget */}
-                <Text
-                  style={[
-                    styles.bigSpent,
-                    {
-                      color:
-                        selectedMonth.totalSpent > selectedMonth.totalBudget
-                          ? colors.danger
-                          : colors.success,
-                    },
-                  ]}
+                <TouchableOpacity
+                  onPress={() => setDetailsVisible(false)}
+                  style={[styles.closeBtn, { backgroundColor: colors.surface }]}
                 >
-                  {selectedMonth.totalSpent > selectedMonth.totalBudget
-                    ? "Overbudget"
-                    : "Underbudget"}
-                  : {currency}
-                  {selectedMonth.totalSpent}
-                </Text>
+                  <MaterialCommunityIcons
+                    name="close"
+                    size={20}
+                    color={colors.textPrimary}
+                  />
+                </TouchableOpacity>
               </View>
 
-              <Text style={[styles.sectionHeader, subTextStyle]}>
-                Transaction History
-              </Text>
+              <ScrollView contentContainerStyle={{ padding: 20 }}>
+                {/* Summary Card */}
+                <View style={[styles.summaryBox, dynamicStyles.card]}>
+                  <Text style={[styles.statText, dynamicStyles.subText]}>
+                    Total Spent vs Limit
+                  </Text>
 
-              <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
+                  <Text
+                    style={[
+                      styles.bigSpent,
+                      {
+                        color:
+                          selectedMonth.totalSpent > selectedMonth.totalBudget
+                            ? colors.danger
+                            : colors.success,
+                      },
+                    ]}
+                  >
+                    {currency}
+                    {selectedMonth.totalSpent}
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: colors.textSecondary,
+                        fontWeight: "normal",
+                      }}
+                    >
+                      {" "}
+                      / {currency}
+                      {selectedMonth.totalBudget}
+                    </Text>
+                  </Text>
+                </View>
+
+                <Text style={[styles.sectionHeader, dynamicStyles.subText]}>
+                  Transaction History
+                </Text>
+
                 {selectedMonth.transactions &&
                 selectedMonth.transactions.length > 0 ? (
                   selectedMonth.transactions.map((tx, index) => (
-                    <View key={index} style={[styles.txRow, cardStyle]}>
-                      <View>
-                        <Text style={[styles.txDesc, textStyle]}>
-                          {tx.desc}
-                        </Text>
-                        <Text style={[styles.txDate, subTextStyle]}>
-                          {tx.date} • {tx.category}
-                        </Text>
+                    <View
+                      key={index}
+                      style={[styles.txRow, dynamicStyles.txCard]}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <View
+                          style={[
+                            styles.iconBox,
+                            {
+                              backgroundColor:
+                                tx.type === "credit"
+                                  ? colors.success + "20"
+                                  : colors.danger + "20",
+                            },
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={
+                              tx.type === "credit"
+                                ? "arrow-down-left"
+                                : "arrow-up-right"
+                            }
+                            size={20}
+                            color={
+                              tx.type === "credit"
+                                ? colors.success
+                                : colors.danger
+                            }
+                          />
+                        </View>
+                        <View>
+                          <Text
+                            style={[styles.txDesc, dynamicStyles.headerText]}
+                          >
+                            {tx.desc}
+                          </Text>
+                          <Text style={[styles.txDate, dynamicStyles.subText]}>
+                            {tx.date} • {tx.category || "General"}
+                          </Text>
+                        </View>
                       </View>
+
                       <Text
                         style={[
                           styles.txAmount,
@@ -213,19 +351,18 @@ const BudgetHistory = () => {
                             color:
                               tx.type === "credit"
                                 ? colors.success
-                                : colors.danger,
+                                : colors.textPrimary,
                           },
                         ]}
                       >
-                        {tx.type === "credit" ? "+" : "-"}
-                        {currency}
+                        {tx.type === "credit" ? "+" : "-"} {currency}
                         {tx.amount}
                       </Text>
                     </View>
                   ))
                 ) : (
-                  <Text style={[styles.empty, subTextStyle]}>
-                    No transactions found for this month.
+                  <Text style={[styles.empty, dynamicStyles.subText]}>
+                    No transactions recorded.
                   </Text>
                 )}
               </ScrollView>
@@ -233,69 +370,80 @@ const BudgetHistory = () => {
           )}
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  card: { padding: 15, borderRadius: 12, marginBottom: 15, elevation: 2 },
+  container: { flex: 1 },
+  listContainer: { padding: 20 },
+  card: { padding: 20, borderRadius: 24, marginBottom: 15 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
+    alignItems: "flex-start",
   },
   monthTitle: { fontSize: 18, fontWeight: "bold" },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  badgeText: { fontWeight: "bold", fontSize: 12 },
+  subDate: { fontSize: 12, marginTop: 2 },
+  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  badgeText: { fontWeight: "bold", fontSize: 11, textTransform: "uppercase" },
   stats: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    paddingBottom: 10,
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
   },
   statText: { fontSize: 14 },
-  miniLog: { marginTop: 5 },
-  miniLogTitle: { fontSize: 12, fontWeight: "bold", marginBottom: 4 },
-  empty: { textAlign: "center", marginTop: 50 },
+  miniLog: { marginTop: 15, alignItems: "flex-end" },
+  emptyContainer: { alignItems: "center", marginTop: 50 },
+  empty: { textAlign: "center", marginTop: 10 },
 
   // Modal Styles
-  modalContainer: { flex: 1, padding: 20 },
+  modalContainer: { flex: 1 },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    padding: 20,
+    borderBottomWidth: 1,
   },
-  closeBtn: { padding: 5 },
+  closeBtn: { padding: 8, borderRadius: 20 },
   modalTitle: { fontSize: 20, fontWeight: "bold" },
   summaryBox: {
-    padding: 20,
-    borderRadius: 12,
+    padding: 24,
+    borderRadius: 24,
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 25,
+    borderWidth: 1,
   },
-  bigSpent: { fontSize: 24, fontWeight: "bold", marginTop: 5 },
+  bigSpent: { fontSize: 32, fontWeight: "bold", marginTop: 5 },
   sectionHeader: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-    marginLeft: 5,
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 15,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
 
   txRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 15,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
     marginBottom: 10,
-    elevation: 1,
+    borderWidth: 1,
   },
-  txDesc: { fontSize: 16, fontWeight: "500" },
-  txDate: { fontSize: 12, marginTop: 4 },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  txDesc: { fontSize: 16, fontWeight: "600" },
+  txDate: { fontSize: 12, marginTop: 2 },
   txAmount: { fontSize: 16, fontWeight: "bold" },
 });
 

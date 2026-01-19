@@ -1,5 +1,7 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useState } from "react";
 import {
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -12,20 +14,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import colors from "../../constants/colors";
 import { AppContext } from "../../context/AppContext";
 
+const { width } = Dimensions.get("window");
+
 const SetupScreen = () => {
-  const { updateUserData } = useContext(AppContext);
+  const { updateUserData, colors, theme } = useContext(AppContext);
+
   const [name, setName] = useState("");
   const [role, setRole] = useState("student");
   const [notify, setNotify] = useState(true);
 
   const handleFinish = () => {
-    // FIX: Removed the validation check.
-    // If name is empty, we default to "Guest"
     const finalName = name.trim().length > 0 ? name : "Guest";
-
     updateUserData({
       name: finalName,
       userType: role,
@@ -34,33 +35,70 @@ const SetupScreen = () => {
     });
   };
 
+  // Dynamic Styles
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    textPrimary: { color: colors.textPrimary },
+    textSecondary: { color: colors.textSecondary },
+    input: {
+      backgroundColor: colors.surface,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    cardActive: {
+      backgroundColor: colors.surfaceHighlight,
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+    },
+    button: { backgroundColor: colors.primary, shadowColor: colors.primary },
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+      <StatusBar
+        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome</Text>
-            <Text style={styles.subtitle}>Let's get to know you.</Text>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: colors.surfaceHighlight },
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="hand-wave"
+                size={40}
+                color={colors.primary}
+              />
+            </View>
+            <Text style={[styles.title, dynamicStyles.textPrimary]}>
+              Welcome
+            </Text>
+            <Text style={[styles.subtitle, dynamicStyles.textSecondary]}>
+              Let's set up your personal workspace.
+            </Text>
           </View>
 
-          {/* 1. Name Input (Optional) */}
+          {/* 1. Name Input */}
           <View style={styles.section}>
-            <Text style={styles.label}>
-              What should we call you?{" "}
-              <Text
-                style={{ fontWeight: "normal", fontSize: 14, color: "#999" }}
-              >
-                (Optional)
-              </Text>
+            <Text style={[styles.label, dynamicStyles.textPrimary]}>
+              What should we call you?
             </Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, dynamicStyles.input]}
               placeholder="Enter your name"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={setName}
             />
@@ -68,30 +106,65 @@ const SetupScreen = () => {
 
           {/* 2. Role Selection */}
           <View style={styles.section}>
-            <Text style={styles.label}>What do you do currently?</Text>
+            <Text style={[styles.label, dynamicStyles.textPrimary]}>
+              Which describes you best?
+            </Text>
             <View style={styles.row}>
               <TouchableOpacity
-                style={[styles.card, role === "student" && styles.activeCard]}
+                activeOpacity={0.8}
+                style={[
+                  styles.card,
+                  dynamicStyles.card,
+                  role === "student" && dynamicStyles.cardActive,
+                ]}
                 onPress={() => setRole("student")}
               >
+                <MaterialCommunityIcons
+                  name="school-outline"
+                  size={32}
+                  color={
+                    role === "student" ? colors.primary : colors.textSecondary
+                  }
+                />
                 <Text
                   style={[
                     styles.cardText,
-                    role === "student" && styles.activeText,
+                    {
+                      color:
+                        role === "student"
+                          ? colors.primary
+                          : colors.textSecondary,
+                    },
                   ]}
                 >
-                  🎓 Student
+                  Student
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.card, role === "job" && styles.activeCard]}
+                activeOpacity={0.8}
+                style={[
+                  styles.card,
+                  dynamicStyles.card,
+                  role === "job" && dynamicStyles.cardActive,
+                ]}
                 onPress={() => setRole("job")}
               >
+                <MaterialCommunityIcons
+                  name="briefcase-outline"
+                  size={32}
+                  color={role === "job" ? colors.primary : colors.textSecondary}
+                />
                 <Text
-                  style={[styles.cardText, role === "job" && styles.activeText]}
+                  style={[
+                    styles.cardText,
+                    {
+                      color:
+                        role === "job" ? colors.primary : colors.textSecondary,
+                    },
+                  ]}
                 >
-                  💼 Job / Work
+                  Professional
                 </Text>
               </TouchableOpacity>
             </View>
@@ -99,23 +172,40 @@ const SetupScreen = () => {
 
           {/* 3. Notification Toggle */}
           <View style={styles.section}>
-            <View style={styles.toggleRow}>
-              <Text style={styles.label}>Enable Reminders?</Text>
+            <View
+              style={[
+                styles.toggleContainer,
+                { backgroundColor: colors.surface },
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.toggleLabel, dynamicStyles.textPrimary]}>
+                  Enable Daily Reminders
+                </Text>
+                <Text style={[styles.toggleSub, dynamicStyles.textSecondary]}>
+                  Get notified about tasks & habits.
+                </Text>
+              </View>
               <Switch
-                trackColor={{ false: "#767577", true: colors.primary }}
-                thumbColor={notify ? "#fff" : "#f4f3f4"}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
                 onValueChange={() => setNotify(!notify)}
                 value={notify}
               />
             </View>
-            <Text style={styles.hint}>
-              We'll remind you about budget limits and daily tasks.
-            </Text>
           </View>
 
+          {/* Spacer */}
+          <View style={{ height: 20 }} />
+
           {/* Next Button */}
-          <TouchableOpacity style={styles.button} onPress={handleFinish}>
+          <TouchableOpacity
+            style={[styles.button, dynamicStyles.button]}
+            onPress={handleFinish}
+            activeOpacity={0.8}
+          >
             <Text style={styles.buttonText}>Get Started</Text>
+            <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -124,74 +214,92 @@ const SetupScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1 },
   scrollContent: {
     padding: 24,
     paddingBottom: 50,
+    justifyContent: "center",
+    minHeight: "100%",
   },
-  header: { marginBottom: 30, marginTop: 20 },
+  header: {
+    alignItems: "center",
+    marginBottom: 40,
+    marginTop: 20,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   title: {
     fontSize: 32,
-    fontWeight: "bold",
-    color: colors.textPrimary,
+    fontWeight: "800",
     marginBottom: 8,
+    textAlign: "center",
   },
-  subtitle: { fontSize: 16, color: colors.textSecondary },
-  section: { marginBottom: 30 },
+  subtitle: {
+    fontSize: 16,
+    textAlign: "center",
+    maxWidth: "80%",
+  },
+  section: { marginBottom: 25 },
   label: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    color: colors.textPrimary,
     marginBottom: 15,
+    marginLeft: 4,
   },
   input: {
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: "#ddd",
-    color: "#333",
   },
   row: { flexDirection: "row", gap: 15 },
-  toggleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  hint: { fontSize: 14, color: colors.textSecondary, marginTop: 5 },
   card: {
     flex: 1,
-    backgroundColor: colors.cardBg,
     padding: 20,
-    borderRadius: 16,
+    borderRadius: 20,
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#000",
+    justifyContent: "center",
+    height: 120,
+    // Base shadow
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  activeCard: { borderColor: colors.primary, backgroundColor: "#E3F2FD" },
-  cardText: { fontSize: 16, fontWeight: "600", color: colors.textSecondary },
-  activeText: { color: colors.primary },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: "center",
+  cardText: {
+    fontSize: 14,
+    fontWeight: "bold",
     marginTop: 10,
-    shadowColor: colors.primary,
+  },
+
+  toggleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 16,
+    justifyContent: "space-between",
+  },
+  toggleLabel: { fontSize: 16, fontWeight: "bold" },
+  toggleSub: { fontSize: 12, marginTop: 2 },
+
+  button: {
+    paddingVertical: 18,
+    borderRadius: 20,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
 });

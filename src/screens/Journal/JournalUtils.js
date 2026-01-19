@@ -1,34 +1,23 @@
-import colors from "../../constants/colors";
+// A vibrant palette that works well with both Dark (Midnight) and Light (Clean) themes
+const MONTH_COLORS = [
+  "#3B82F6", // January - Blue
+  "#8B5CF6", // February - Violet
+  "#EC4899", // March - Pink
+  "#F43F5E", // April - Rose
+  "#10B981", // May - Emerald
+  "#F59E0B", // June - Amber
+  "#EF4444", // July - Red
+  "#F97316", // August - Orange
+  "#EAB308", // September - Yellow
+  "#14B8A6", // October - Teal
+  "#6366F1", // November - Indigo
+  "#06B6D4", // December - Cyan
+];
 
 export const getMonthColor = (monthIndex) => {
-  // monthIndex is 0 (Jan) to 11 (Dec)
-
-  // November (10), December (11), January (0), February (1) -> Frosted Blue
-  if (
-    monthIndex === 10 ||
-    monthIndex === 11 ||
-    monthIndex === 0 ||
-    monthIndex === 1
-  ) {
-    return colors.seasonWinter;
-  }
-
-  // March (2), April (3) -> Light Pink
-  if (monthIndex === 2 || monthIndex === 3) {
-    return colors.seasonSpring;
-  }
-
-  // May (4), June (5), July (6) -> Summer Yellow
-  if (monthIndex === 4 || monthIndex === 5 || monthIndex === 6) {
-    return colors.seasonSummer;
-  }
-
-  // August (7), September (8), October (9) -> Light Blue
-  if (monthIndex >= 7 && monthIndex <= 9) {
-    return colors.seasonAutumn;
-  }
-
-  return colors.cardBg;
+  // Ensure the index is within bounds (0-11)
+  const safeIndex = Math.abs(monthIndex) % 12;
+  return MONTH_COLORS[safeIndex];
 };
 
 export const getMonthName = (monthIndex) => {
@@ -46,5 +35,5 @@ export const getMonthName = (monthIndex) => {
     "November",
     "December",
   ];
-  return months[monthIndex];
+  return months[monthIndex] || "Unknown";
 };

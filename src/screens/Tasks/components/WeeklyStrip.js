@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   ScrollView,
@@ -7,50 +7,66 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import colors from "../../../constants/colors";
+import { AppContext } from "../../../context/AppContext";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
+const ITEM_WIDTH = 60; // Fixed width for calculations
 
 const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
+  const { colors } = useContext(AppContext);
   const [weekDates, setWeekDates] = useState([]);
   const scrollViewRef = useRef(null);
 
-  // Generate a 2-week window surrounding the selected date
+  // 1. Generate Strip centered on TODAY (Fixed Anchor)
+  // This prevents the list from "walking away" into old dates when you tap.
   useEffect(() => {
-    generateStrip(selectedDate);
-  }, [selectedDate]);
-
-  const generateStrip = (baseDateStr) => {
-    const baseDate = new Date(baseDateStr);
+    const today = new Date();
     const dates = [];
-
-    // Generate range: 7 days before to 7 days after the selected date
-    for (let i = -7; i <= 7; i++) {
-      const d = new Date(baseDate);
-      d.setDate(baseDate.getDate() + i);
+    // Generate 14 days back and 14 days forward (wider range)
+    for (let i = -14; i <= 14; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
       dates.push(d);
     }
     setWeekDates(dates);
+  }, []);
 
-    // Scroll to center (Index 7 is our selected date)
-    setTimeout(() => {
-      if (scrollViewRef.current) {
-        // Formula: (ItemWidth * Index) - (HalfScreen) + (HalfItem)
+  // 2. Scroll to the selected date whenever it changes
+  useEffect(() => {
+    if (weekDates.length > 0 && selectedDate) {
+      const index = weekDates.findIndex(
+        (d) => d.toISOString().split("T")[0] === selectedDate,
+      );
+
+      if (index !== -1 && scrollViewRef.current) {
+        // Center the selected item
+        const xPos = index * ITEM_WIDTH - SCREEN_WIDTH / 2 + ITEM_WIDTH / 2;
         scrollViewRef.current.scrollTo({
-          x: 60 * 7 - SCREEN_WIDTH / 2 + 30,
+          x: xPos,
           animated: true,
         });
       }
-    }, 100);
+    }
+  }, [selectedDate, weekDates]);
+
+  const isToday = (date) => {
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
   };
 
   return (
-    <View style={{ marginBottom: 15 }}>
+    <View style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 10 }}
+        contentContainerStyle={{
+          paddingHorizontal: (SCREEN_WIDTH - ITEM_WIDTH) / 2,
+        }}
       >
         {weekDates.map((date, index) => {
           const dateStr = date.toISOString().split("T")[0];
@@ -60,38 +76,39 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
             weekday: "short",
           });
 
+          // Dynamic Styles
+          const boxStyle = {
+            backgroundColor: isSelected ? colors.primary : colors.surface,
+            borderColor: isSelected ? colors.primary : colors.border,
+            borderWidth: isSelected ? 0 : 1,
+            shadowColor: isSelected ? colors.primary : colors.shadow,
+          };
+
+          const nameColor = isSelected ? colors.white : colors.textSecondary;
+          const numColor = isSelected ? colors.white : colors.textPrimary;
+
           return (
             <TouchableOpacity
               key={index}
               onPress={() => onSelectDate(dateStr)}
+              activeOpacity={0.7}
               style={[
                 styles.dateBox,
+                boxStyle,
                 isSelected && styles.selectedBox,
-                {
-                  backgroundColor: isSelected
-                    ? colors.primary
-                    : isDark
-                      ? "#333"
-                      : "#eee",
-                },
               ]}
             >
-              <Text
-                style={[
-                  styles.dayName,
-                  { color: isSelected ? "#fff" : isDark ? "#aaa" : "#888" },
-                ]}
-              >
+              <Text style={[styles.dayName, { color: nameColor }]}>
                 {dayName}
               </Text>
-              <Text
-                style={[
-                  styles.dayNum,
-                  { color: isSelected ? "#fff" : isDark ? "#fff" : "#000" },
-                ]}
-              >
-                {dayNum}
-              </Text>
+              <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
+
+              {/* Dot for Today */}
+              {isToday(date) && !isSelected && (
+                <View
+                  style={[styles.todayDot, { backgroundColor: colors.primary }]}
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -101,25 +118,41 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 20,
+    height: 80,
+  },
   dateBox: {
-    width: 50,
-    height: 70,
+    width: ITEM_WIDTH - 10, // Slight gap
+    height: 75,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 25,
+    borderRadius: 25, // Capsule shape
     marginRight: 10,
   },
   selectedBox: {
-    elevation: 5,
+    // Glow Effect
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    transform: [{ scale: 1.05 }], // Pop up slightly
   },
   dayName: {
-    fontSize: 12,
+    fontSize: 11,
     marginBottom: 4,
     fontWeight: "600",
+    textTransform: "uppercase",
   },
   dayNum: {
     fontSize: 18,
     fontWeight: "bold",
+  },
+  todayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 4,
   },
 });
 

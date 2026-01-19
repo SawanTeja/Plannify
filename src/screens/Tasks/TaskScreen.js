@@ -1,7 +1,10 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   SectionList,
@@ -10,20 +13,34 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import colors from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import colors from "../../constants/colors"; // Fallback if context is missing
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
 // Components
-// Removed PomodoroModal import
 import PriorityMatrix from "./components/PriorityMatrix";
 
+// Enable Animations
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const TaskScreen = () => {
-  const { theme } = useContext(AppContext);
+  // Grab theme and dynamic colors from context
+  const { theme, colors } = useContext(AppContext);
   const isDark = theme === "dark";
+
+  // Dynamic Spacing
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = insets.bottom + 60;
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -33,29 +50,14 @@ const TaskScreen = () => {
   const [sections, setSections] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
 
-  // Selection & Navigation
   const [selectedDate, setSelectedDate] = useState(today);
   const [currentMonth, setCurrentMonth] = useState(today);
 
-  // Modals
   const [addVisible, setAddVisible] = useState(false);
-  // Removed pomodoroVisible state
 
-  // Form Inputs
   const [title, setTitle] = useState("");
   const [duration, setDuration] = useState("");
   const [priority, setPriority] = useState("Medium");
-
-  // Styles
-  const bg = isDark ? "#121212" : colors.background;
-  const text = isDark ? "#fff" : colors.textPrimary;
-  const subText = isDark ? "#aaa" : colors.textSecondary;
-  const cardBg = isDark ? "#1e1e1e" : "#fff";
-  const inputColor = {
-    color: text,
-    borderColor: isDark ? "#444" : "#ddd",
-    backgroundColor: isDark ? "#2c2c2c" : "#fff",
-  };
 
   useFocusEffect(
     useCallback(() => {
@@ -70,7 +72,10 @@ const TaskScreen = () => {
 
   const loadTasks = async () => {
     const t = await getData("tasks_data");
-    if (t) setTasks(t);
+    if (t) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setTasks(t);
+    }
   };
 
   const getAllPendingTasks = () => {
@@ -100,7 +105,7 @@ const TaskScreen = () => {
     });
     if (pastTasks.length > 0)
       newSections.push({
-        title: "Past / Overdue",
+        title: "Overdue",
         data: pastTasks,
         isOverdue: true,
       });
@@ -132,7 +137,6 @@ const TaskScreen = () => {
 
   const generateCalendarMarks = () => {
     const marks = {};
-
     Object.keys(tasks).forEach((date) => {
       const activeCount = tasks[date].filter((t) => !t.completed).length;
       if (activeCount > 0) {
@@ -144,7 +148,7 @@ const TaskScreen = () => {
       ...(marks[selectedDate] || {}),
       selected: true,
       selectedColor: colors.primary,
-      selectedTextColor: "#ffffff",
+      selectedTextColor: "#FFFFFF",
     };
 
     if (selectedDate !== today) {
@@ -155,11 +159,11 @@ const TaskScreen = () => {
         },
       };
     }
-
     setMarkedDates(marks);
   };
 
   const handleDayPress = (day) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSelectedDate(day.dateString);
     setCurrentMonth(day.dateString);
   };
@@ -185,6 +189,7 @@ const TaskScreen = () => {
     if (!updated[selectedDate]) updated[selectedDate] = [];
     updated[selectedDate].push(newTask);
 
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     setTasks(updated);
     await storeData("tasks_data", updated);
     setTitle("");
@@ -214,7 +219,7 @@ const TaskScreen = () => {
 
   const deleteTask = (id, date) => {
     Alert.alert("Delete Task", "Remove this task?", [
-      { text: "Cancel" },
+      { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
@@ -227,6 +232,9 @@ const TaskScreen = () => {
             });
 
           if (updated[targetDate]) {
+            LayoutAnimation.configureNext(
+              LayoutAnimation.Presets.easeInEaseOut,
+            );
             updated[targetDate] = updated[targetDate].filter(
               (t) => t.id !== id,
             );
@@ -240,11 +248,13 @@ const TaskScreen = () => {
   };
 
   const renderSectionHeader = ({ section: { title, isOverdue } }) => (
-    <View style={styles.sectionHeaderBox}>
+    <View
+      style={[styles.sectionHeaderBox, { backgroundColor: colors.background }]}
+    >
       <Text
         style={[
           styles.sectionTitle,
-          { color: isOverdue ? colors.danger : colors.primary },
+          { color: isOverdue ? colors.danger : colors.textSecondary },
         ]}
       >
         {title}
@@ -254,6 +264,10 @@ const TaskScreen = () => {
 
   const renderTaskItem = ({ item, section }) => {
     const isDone = item.completed;
+    let priorityColor = colors.success;
+    if (item.priority === "High") priorityColor = colors.danger;
+    if (item.priority === "Medium") priorityColor = colors.primary;
+
     return (
       <TouchableOpacity
         onPress={() =>
@@ -262,70 +276,67 @@ const TaskScreen = () => {
         onLongPress={() =>
           deleteTask(item.id, section.realDate || item.dateLabel || today)
         }
-        style={[
-          styles.taskRow,
-          { borderBottomColor: isDark ? "#333" : "#eee" },
-        ]}
+        activeOpacity={0.7}
+        style={[styles.taskRow, { backgroundColor: colors.surface }]}
       >
-        <View
-          style={[
-            styles.checkbox,
-            isDone && {
-              backgroundColor: colors.primary,
-              borderColor: colors.primary,
-            },
-          ]}
+        <TouchableOpacity
+          onPress={() =>
+            toggleTask(item.id, section.realDate || item.dateLabel || today)
+          }
         >
-          {isDone && (
-            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "bold" }}>
-              ✓
-            </Text>
-          )}
-        </View>
+          <MaterialCommunityIcons
+            name={
+              isDone
+                ? "checkbox-marked-circle"
+                : "checkbox-blank-circle-outline"
+            }
+            size={24}
+            color={isDone ? colors.success : colors.textMuted}
+          />
+        </TouchableOpacity>
+
         <View style={{ flex: 1, marginLeft: 15 }}>
           <Text
             style={[
               styles.taskText,
               {
-                color: text,
+                color: isDone ? colors.textMuted : colors.textPrimary,
                 textDecorationLine: isDone ? "line-through" : "none",
-                opacity: isDone ? 0.5 : 1,
               },
             ]}
           >
             {item.title}
           </Text>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginTop: 4,
-              opacity: isDone ? 0.5 : 1,
-            }}
-          >
-            {item.priority === "High" && (
-              <Text
-                style={{
-                  color: colors.danger,
-                  fontSize: 11,
-                  fontWeight: "bold",
-                  marginRight: 8,
-                }}
-              >
-                High Priority
+
+          <View style={styles.metaRow}>
+            <View
+              style={[styles.priorityBadge, { borderColor: priorityColor }]}
+            >
+              <View
+                style={[styles.priorityDot, { backgroundColor: priorityColor }]}
+              />
+              <Text style={[styles.priorityText, { color: priorityColor }]}>
+                {item.priority}
               </Text>
-            )}
+            </View>
+
             {item.duration ? (
-              <Text style={{ color: subText, fontSize: 11 }}>
-                ⏳ {item.duration}
-              </Text>
+              <View style={styles.metaItem}>
+                <MaterialCommunityIcons
+                  name="clock-outline"
+                  size={12}
+                  color={colors.textSecondary}
+                />
+                <Text
+                  style={[styles.metaText, { color: colors.textSecondary }]}
+                >
+                  {item.duration}
+                </Text>
+              </View>
             ) : null}
+
             {item.dateLabel && (
-              <Text
-                style={{ color: colors.danger, fontSize: 11, marginLeft: 8 }}
-              >
-                {item.dateLabel}
-              </Text>
+              <Text style={styles.overdueText}>{item.dateLabel}</Text>
             )}
           </View>
         </View>
@@ -333,65 +344,101 @@ const TaskScreen = () => {
     );
   };
 
+  // --- DYNAMIC STYLES ---
+  const dynamicStyles = {
+    // 1. Dynamic Text Colors for Theme
+    textColor: isDark ? "#FFFFFF" : "#000000",
+    subTextColor: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)",
+    // 2. Dynamic Input Background for Modal
+    inputBg: isDark ? "#2C2C2E" : "#F2F2F7",
+    modalBg: isDark ? "#1C1C1E" : "#FFFFFF",
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: bg }}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop:
-              Platform.OS === "android" ? StatusBar.currentHeight + 10 : 20,
-          },
-        ]}
-      >
+    <View
+      style={[
+        styles.screen,
+        { backgroundColor: colors.background, paddingTop: insets.top },
+      ]}
+    >
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor="transparent"
+        translucent
+      />
+
+      {/* Header */}
+      <View style={styles.header}>
         <View>
-          <Text style={[styles.headerTitle, { color: text }]}>My Tasks</Text>
-          <Text style={{ color: subText, fontSize: 12 }}>
-            {viewMode === "List" ? "Timeline View" : "Priority Matrix"}
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+            Tasks
+          </Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
+            {viewMode === "List" ? "Timeline" : "Matrix View"}
           </Text>
         </View>
-        <View style={{ flexDirection: "row", gap: 15 }}>
-          {/* REMOVED: Stopwatch Icon and TouchableOpacity */}
-
-          <TouchableOpacity
-            onPress={() => setViewMode(viewMode === "List" ? "Matrix" : "List")}
-          >
-            <Text style={{ fontSize: 24 }}>
-              {viewMode === "List" ? "📰" : "📝"}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
+          onPress={() => setViewMode(viewMode === "List" ? "Matrix" : "List")}
+        >
+          <MaterialCommunityIcons
+            name={
+              viewMode === "List" ? "view-grid-outline" : "format-list-bulleted"
+            }
+            size={24}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
-      {viewMode === "List" && (
-        <View style={styles.calendarContainer}>
-          <Calendar
-            current={currentMonth}
-            key={isDark ? "dark" : "light"}
-            onDayPress={handleDayPress}
-            onMonthChange={(month) => setCurrentMonth(month.dateString)}
-            markedDates={markedDates}
-            enableSwipeMonths={true}
-            theme={{
-              calendarBackground: bg,
-              textSectionTitleColor: subText,
-              dayTextColor: text,
-              todayTextColor: colors.primary,
-              todayFontWeight: "bold",
-              selectedDayBackgroundColor: colors.primary,
-              selectedDayTextColor: "#ffffff",
-              monthTextColor: text,
-              arrowColor: colors.primary,
-              dotColor: colors.primary,
-              selectedDotColor: "#ffffff",
-            }}
-          />
-        </View>
-      )}
-
+      {/* Main Content */}
       <View style={{ flex: 1 }}>
+        {viewMode === "List" && (
+          <View
+            style={[
+              styles.calendarContainer,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <Calendar
+              current={currentMonth}
+              // Force re-render on theme change
+              key={theme}
+              onDayPress={handleDayPress}
+              onMonthChange={(month) => setCurrentMonth(month.dateString)}
+              markedDates={markedDates}
+              enableSwipeMonths={true}
+              theme={{
+                // 3. FIX: Fully Dynamic Calendar Theme
+                backgroundColor: "transparent",
+                calendarBackground: "transparent",
+                textSectionTitleColor: dynamicStyles.subTextColor,
+                selectedDayBackgroundColor: colors.primary,
+                selectedDayTextColor: "#FFFFFF", // Always white on blue
+                todayTextColor: colors.primary,
+                dayTextColor: dynamicStyles.textColor, // Adapts to theme
+                textDisabledColor: isDark ? "#444" : "#CCC",
+                dotColor: colors.primary,
+                selectedDotColor: "#FFFFFF",
+                arrowColor: colors.primary,
+                monthTextColor: dynamicStyles.textColor, // Adapts to theme
+                indicatorColor: colors.primary,
+                textDayFontWeight: "400",
+                textMonthFontWeight: "bold",
+                textDayHeaderFontWeight: "600",
+              }}
+            />
+          </View>
+        )}
+
         {viewMode === "Matrix" ? (
-          <View style={{ flex: 1, paddingHorizontal: 20 }}>
+          <View
+            style={{
+              flex: 1,
+              paddingHorizontal: 20,
+              paddingBottom: tabBarHeight,
+            }}
+          >
             <PriorityMatrix tasks={getAllPendingTasks()} isDark={isDark} />
           </View>
         ) : (
@@ -400,192 +447,346 @@ const TaskScreen = () => {
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderTaskItem}
             renderSectionHeader={renderSectionHeader}
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-              paddingBottom: 100,
-            }}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: tabBarHeight + 20 },
+            ]}
+            showsVerticalScrollIndicator={false}
+            stickySectionHeadersEnabled={false}
             ListEmptyComponent={
-              <View style={{ alignItems: "center", marginTop: 50 }}>
-                <Text style={{ fontSize: 30 }}>☕</Text>
-                <Text style={{ color: subText, marginTop: 10 }}>
-                  No upcoming tasks.
+              <View style={styles.emptyState}>
+                <MaterialCommunityIcons
+                  name="coffee-outline"
+                  size={48}
+                  color={colors.textMuted}
+                />
+                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                  No tasks for this day.
                 </Text>
               </View>
             }
           />
         )}
 
+        {/* FAB */}
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: colors.primary }]}
+          style={[
+            styles.fab,
+            { bottom: tabBarHeight + 20, backgroundColor: "#2563EB" },
+          ]}
           onPress={openAddModal}
+          activeOpacity={0.8}
         >
-          <Text style={styles.fabText}>+</Text>
+          <MaterialCommunityIcons name="plus" size={32} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      <Modal visible={addVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-            <Text style={[styles.modalTitle, { color: text }]}>
-              New Task for {selectedDate}
+      {/* Add Task Modal */}
+      <Modal
+        visible={addVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAddVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+        >
+          {/* 4. FIX: Dynamic Background for Modal Content */}
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: dynamicStyles.modalBg,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                New Task
+              </Text>
+              <TouchableOpacity onPress={() => setAddVisible(false)}>
+                <MaterialCommunityIcons
+                  name="close"
+                  size={24}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
+              {selectedDate}
             </Text>
 
-            <Text style={{ color: text, marginBottom: 5, fontWeight: "600" }}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>
               Title
             </Text>
+            {/* 5. FIX: Dynamic Input Backgrounds */}
             <TextInput
-              style={[styles.input, inputColor]}
-              placeholder="Task Title"
-              placeholderTextColor="#888"
+              style={[
+                styles.input,
+                {
+                  backgroundColor: dynamicStyles.inputBg,
+                  color: colors.textPrimary,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholder="What needs to be done?"
+              placeholderTextColor={colors.textMuted}
               value={title}
               onChangeText={setTitle}
               autoFocus
             />
 
-            <View
-              style={{ flexDirection: "row", justifyContent: "space-between" }}
-            >
+            <View style={styles.row}>
               <View style={{ flex: 1, marginRight: 10 }}>
-                <Text
-                  style={{ color: text, marginBottom: 5, fontWeight: "600" }}
-                >
-                  Duration
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
+                  Duration (min)
                 </Text>
                 <TextInput
-                  style={[styles.input, inputColor]}
-                  placeholder="Mins"
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: dynamicStyles.inputBg,
+                      color: colors.textPrimary,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                  placeholder="30"
                   keyboardType="numeric"
-                  placeholderTextColor="#888"
+                  placeholderTextColor={colors.textMuted}
                   value={duration}
                   onChangeText={setDuration}
                 />
               </View>
-
               <View style={{ flex: 2 }}>
-                <Text
-                  style={{ color: text, marginBottom: 5, fontWeight: "600" }}
-                >
+                <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Priority
                 </Text>
-                <View
-                  style={{ flexDirection: "row", gap: 5, alignItems: "center" }}
-                >
-                  {["High", "Med", "Low"].map((p) => (
+                <View style={styles.prioritySelector}>
+                  {["High", "Medium", "Low"].map((p) => (
                     <TouchableOpacity
                       key={p}
-                      onPress={() => setPriority(p === "Med" ? "Medium" : p)}
-                      style={{
-                        padding: 12,
-                        borderRadius: 6,
-                        backgroundColor:
-                          priority.startsWith(p) ||
-                          (p === "Med" && priority === "Medium")
-                            ? colors.primary
-                            : "#333",
-                      }}
+                      onPress={() => setPriority(p)}
+                      style={[
+                        styles.priorityOption,
+                        { borderColor: colors.border },
+                        priority === p && {
+                          backgroundColor: colors.primary,
+                          borderColor: colors.primary,
+                        },
+                      ]}
                     >
-                      <Text style={{ color: "#fff", fontSize: 10 }}>{p}</Text>
+                      <Text
+                        style={[
+                          styles.priorityOptionText,
+                          { color: colors.textSecondary },
+                          priority === p && {
+                            color: "#FFFFFF", // White text on selected pill
+                            fontWeight: "bold",
+                          },
+                        ]}
+                      >
+                        {p}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </View>
             </View>
 
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "flex-end",
-                marginTop: 10,
-                gap: 15,
-              }}
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              onPress={handleAddTask}
             >
-              <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <Text style={{ color: subText, fontSize: 16 }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddTask}>
-                <Text
-                  style={{
-                    color: colors.primary,
-                    fontWeight: "bold",
-                    fontSize: 16,
-                  }}
-                >
-                  Save
-                </Text>
-              </TouchableOpacity>
-            </View>
+              <Text style={styles.saveBtnText}>Save Task</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
-      {/* REMOVED: PomodoroModal Component */}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 10,
+    paddingTop: 10,
+    paddingBottom: 15,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  headerTitle: { fontSize: 26, fontWeight: "bold" },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  headerSub: {
+    fontSize: 14,
+  },
+  iconBtn: {
+    padding: 8,
+    borderRadius: 12,
+  },
   calendarContainer: {
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#333",
     paddingBottom: 10,
   },
-  sectionHeaderBox: { paddingVertical: 15, backgroundColor: "transparent" },
+  listContent: {
+    paddingHorizontal: 20,
+  },
+  sectionHeaderBox: {
+    paddingVertical: 12,
+    marginTop: 10,
+  },
   sectionTitle: {
     fontSize: 14,
     fontWeight: "bold",
     textTransform: "uppercase",
     letterSpacing: 1,
   },
+  emptyState: {
+    alignItems: "center",
+    marginTop: 60,
+    opacity: 0.7,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+  },
   taskRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: "#aaa",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
+    padding: 16,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  taskText: { fontSize: 16, fontWeight: "500" },
+  taskText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 6,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 12,
+  },
+  priorityBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 4,
+  },
+  priorityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  priorityText: {
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  overdueText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
   fab: {
     position: "absolute",
-    bottom: 30,
     right: 30,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
   },
-  fabText: { fontSize: 30, color: "#fff", marginTop: -2 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.7)", // Slightly darker for better focus
     justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
-  modalContent: { padding: 20, borderRadius: 16 },
-  modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
-  input: {
+  modalContent: {
+    width: "100%",
+    borderRadius: 24,
+    padding: 24,
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 15,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  modalSub: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  input: {
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+  },
+  row: {
+    flexDirection: "row",
+  },
+  prioritySelector: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  priorityOption: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: "center",
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  priorityOptionText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  saveBtn: {
+    padding: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  saveBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
     fontSize: 16,
   },
 });
