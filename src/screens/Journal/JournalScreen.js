@@ -7,7 +7,7 @@ import {
   FlatList,
   Image,
   LayoutAnimation,
-  Modal,
+  // Modal, // REMOVED Standard Modal
   Platform,
   ScrollView,
   StatusBar,
@@ -17,6 +17,8 @@ import {
   UIManager,
   View,
 } from "react-native";
+// 1. IMPORT ENHANCED MODAL
+import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
@@ -198,6 +200,7 @@ const JournalScreen = () => {
     },
     modalContent: { backgroundColor: colors.surface },
     fab: { backgroundColor: colors.primary, shadowColor: colors.primary },
+    dragHandle: { backgroundColor: colors.border },
   };
 
   // --- RENDERERS ---
@@ -524,112 +527,124 @@ const JournalScreen = () => {
         initialData={entryToEdit}
       />
 
-      {/* Detail Modal Overlay */}
+      {/* Detail Modal Overlay - NOW SWIPEABLE */}
       {detailEntry && (
         <Modal
-          visible={true}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setDetailEntry(null)}
+          isVisible={true}
+          onSwipeComplete={() => setDetailEntry(null)}
+          swipeDirection={["down"]}
+          onBackdropPress={() => setDetailEntry(null)}
+          style={styles.detailModal}
+          backdropOpacity={0.8}
+          propagateSwipe={true}
         >
-          <View style={styles.detailOverlay}>
-            <View style={[styles.detailCard, dynamicStyles.modalContent]}>
-              <ScrollView>
-                {detailEntry.image && (
-                  <Image
-                    source={{ uri: detailEntry.image }}
-                    style={styles.detailImage}
-                  />
-                )}
-                <View style={styles.detailBody}>
-                  <View style={styles.rowBetween}>
-                    <Text style={[styles.detailDate, dynamicStyles.subText]}>
-                      {detailEntry.date}
-                    </Text>
-                    {detailEntry.mood && (
-                      <Text style={{ fontSize: 28 }}>{detailEntry.mood}</Text>
-                    )}
-                  </View>
+          <View style={[styles.detailCard, dynamicStyles.modalContent]}>
+            {/* Drag Handle for Detail View */}
+            <View style={styles.dragHandleContainer}>
+              <View style={[styles.dragHandle, dynamicStyles.dragHandle]} />
+            </View>
 
-                  <Text style={[styles.detailTitle, dynamicStyles.headerText]}>
-                    {detailEntry.topic}
+            <ScrollView>
+              {detailEntry.image && (
+                <Image
+                  source={{ uri: detailEntry.image }}
+                  style={styles.detailImage}
+                />
+              )}
+              <View style={styles.detailBody}>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.detailDate, dynamicStyles.subText]}>
+                    {detailEntry.date}
                   </Text>
-
-                  {detailEntry.location && (
-                    <View style={[styles.rowStart, { marginVertical: 10 }]}>
-                      <MaterialCommunityIcons
-                        name="map-marker"
-                        size={16}
-                        color={colors.primary}
-                      />
-                      <Text
-                        style={{ color: colors.textSecondary, marginLeft: 5 }}
-                      >
-                        {detailEntry.location}
-                      </Text>
-                    </View>
+                  {detailEntry.mood && (
+                    <Text style={{ fontSize: 28 }}>{detailEntry.mood}</Text>
                   )}
+                </View>
 
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      marginVertical: 10,
-                    }}
-                  >
-                    {detailEntry.tags &&
-                      detailEntry.tags.map((t, i) => (
-                        <View
-                          key={i}
+                <Text style={[styles.detailTitle, dynamicStyles.headerText]}>
+                  {detailEntry.topic}
+                </Text>
+
+                {detailEntry.location && (
+                  <View style={[styles.rowStart, { marginVertical: 10 }]}>
+                    <MaterialCommunityIcons
+                      name="map-marker"
+                      size={16}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={{
+                        color: colors.textSecondary,
+                        marginLeft: 5,
+                      }}
+                    >
+                      {detailEntry.location}
+                    </Text>
+                  </View>
+                )}
+
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    marginVertical: 10,
+                  }}
+                >
+                  {detailEntry.tags &&
+                    detailEntry.tags.map((t, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          backgroundColor: colors.surfaceHighlight,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderRadius: 8,
+                        }}
+                      >
+                        <Text
                           style={{
-                            backgroundColor: colors.surfaceHighlight,
-                            paddingHorizontal: 10,
-                            paddingVertical: 4,
-                            borderRadius: 8,
+                            color: colors.textPrimary,
+                            fontSize: 12,
                           }}
                         >
-                          <Text
-                            style={{ color: colors.textPrimary, fontSize: 12 }}
-                          >
-                            #{t}
-                          </Text>
-                        </View>
-                      ))}
-                  </View>
-
-                  <Text style={[styles.detailText, dynamicStyles.headerText]}>
-                    {detailEntry.text}
-                  </Text>
+                          #{t}
+                        </Text>
+                      </View>
+                    ))}
                 </View>
-              </ScrollView>
 
-              <TouchableOpacity
-                style={styles.closeDetailBtn}
-                onPress={() => setDetailEntry(null)}
-              >
-                <MaterialCommunityIcons
-                  name="close"
-                  size={24}
-                  color={colors.white}
-                />
-              </TouchableOpacity>
+                <Text style={[styles.detailText, dynamicStyles.headerText]}>
+                  {detailEntry.text}
+                </Text>
+              </View>
+            </ScrollView>
 
-              <TouchableOpacity
-                style={styles.editDetailBtn}
-                onPress={() => {
-                  setEntryToEdit(detailEntry);
-                  setDetailEntry(null);
-                  setModalVisible(true);
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="pencil"
-                  size={24}
-                  color={colors.white}
-                />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.closeDetailBtn}
+              onPress={() => setDetailEntry(null)}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={24}
+                color={colors.white}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.editDetailBtn}
+              onPress={() => {
+                setEntryToEdit(detailEntry);
+                setDetailEntry(null);
+                setModalVisible(true);
+              }}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={24}
+                color={colors.white}
+              />
+            </TouchableOpacity>
           </View>
         </Modal>
       )}
@@ -776,7 +791,6 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: "absolute",
-    // bottom: 30, // REMOVED: Now handled dynamically
     right: 30,
     width: 60,
     height: 60,
@@ -789,25 +803,34 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  // Detail Modal
-  detailOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)",
-    justifyContent: "center",
-    padding: 20,
+  // Detail Modal Styles
+  detailModal: {
+    justifyContent: "flex-end",
+    margin: 0,
   },
   detailCard: {
-    borderRadius: 24,
-    height: "80%", // Increased fixed height
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: "90%", // Increased fixed height for sheet feel
     overflow: "hidden",
     width: "100%",
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
   },
   detailImage: {
     width: "100%",
     height: 350, // Increased image height
     resizeMode: "cover",
   },
-  detailBody: { padding: 25 },
+  detailBody: { padding: 25, paddingBottom: 60 },
   detailDate: { fontSize: 14, fontWeight: "600", opacity: 0.7 },
   detailTitle: {
     fontSize: 28,

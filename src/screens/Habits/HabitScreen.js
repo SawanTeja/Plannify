@@ -1,12 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-// 1. Import Safe Area Insets
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
   LayoutAnimation,
-  Modal,
   Platform,
   StatusBar,
   StyleSheet,
@@ -16,6 +14,9 @@ import {
   UIManager,
   View,
 } from "react-native";
+// 1. Import the enhanced Modal
+import Modal from "react-native-modal";
+
 import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
@@ -56,8 +57,6 @@ const CATEGORIES = [
 
 const HabitScreen = () => {
   const { colors, theme } = useContext(AppContext);
-
-  // 2. Calculate dynamic bottom height
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -200,7 +199,6 @@ const HabitScreen = () => {
       return;
     }
 
-    // Animate change
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 
     const updated = habits.map((h) => {
@@ -243,10 +241,9 @@ const HabitScreen = () => {
       return;
     }
 
-    // Find range (naive approach: last 90 days to today)
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 90);
-    const endDate = new Date(); // Today
+    const endDate = new Date();
 
     for (
       let d = new Date(startDate);
@@ -264,17 +261,14 @@ const HabitScreen = () => {
 
       const ratio = habits.length > 0 ? completedCount / habits.length : 0;
 
-      // Dynamic Colors based on theme
-      let bg = colors.surfaceHighlight; // Empty day
+      let bg = colors.surfaceHighlight;
       let txt = colors.textMuted;
 
       if (completedCount > 0) {
         txt = colors.white;
-        if (ratio === 1)
-          bg = colors.success; // All done
-        else if (ratio > 0.5)
-          bg = colors.primary; // Most done
-        else bg = colors.secondary; // Some done
+        if (ratio === 1) bg = colors.success;
+        else if (ratio > 0.5) bg = colors.primary;
+        else bg = colors.secondary;
       } else if (dateStr === today) {
         bg = colors.surface;
         txt = colors.textPrimary;
@@ -288,7 +282,6 @@ const HabitScreen = () => {
       };
     }
 
-    // Highlight Selected
     if (!marks[selectedDate])
       marks[selectedDate] = { customStyles: { container: {}, text: {} } };
     if (!marks[selectedDate].customStyles)
@@ -344,7 +337,6 @@ const HabitScreen = () => {
     ]);
   };
 
-  // --- DYNAMIC STYLES ---
   const dynamicStyles = {
     screen: { backgroundColor: colors.background },
     textPrimary: { color: colors.textPrimary },
@@ -397,7 +389,6 @@ const HabitScreen = () => {
         <FlatList
           data={habits}
           keyExtractor={(item) => item.id.toString()}
-          // 3. Apply Dynamic Padding
           contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
           renderItem={({ item }) => {
             const streak = calculateStreakForHabit(item.history, today);
@@ -448,7 +439,6 @@ const HabitScreen = () => {
         />
 
         <TouchableOpacity
-          // 4. Position FAB Dynamically above Tab Bar
           style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
           onPress={() => setAddVisible(true)}
           activeOpacity={0.8}
@@ -456,158 +446,172 @@ const HabitScreen = () => {
           <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
         </TouchableOpacity>
 
-        {/* CALENDAR MODAL */}
+        {/* --- CALENDAR MODAL (Updated to react-native-modal for consistency) --- */}
         <Modal
-          visible={calendarVisible}
-          animationType="fade"
-          transparent={true}
+          isVisible={calendarVisible}
+          onBackdropPress={() => setCalendarVisible(false)}
+          animationIn="fadeIn"
+          animationOut="fadeOut"
+          backdropOpacity={0.7}
         >
-          <View style={styles.modalOverlay}>
-            <View
-              style={[
-                styles.modalContent,
-                dynamicStyles.modalContent,
-                { width: "90%" },
-              ]}
-            >
-              <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
-                Consistency Heatmap
-              </Text>
+          <View
+            style={[
+              styles.modalContent,
+              dynamicStyles.modalContent,
+              // Keep Calendar rounded and centered
+              { borderRadius: 24 },
+            ]}
+          >
+            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+              Consistency Heatmap
+            </Text>
 
-              <Calendar
-                current={tempSelectedDate}
-                onDayPress={(day) => setTempSelectedDate(day.dateString)}
-                markingType={"custom"}
-                markedDates={markedDates}
-                style={{ borderRadius: 10, marginBottom: 20 }}
-                theme={{
-                  calendarBackground: colors.surface,
-                  dayTextColor: colors.textPrimary,
-                  monthTextColor: colors.textPrimary,
-                  arrowColor: colors.primary,
-                  textDisabledColor: colors.textMuted,
-                  todayTextColor: colors.secondary,
-                }}
-              />
+            <Calendar
+              current={tempSelectedDate}
+              onDayPress={(day) => setTempSelectedDate(day.dateString)}
+              markingType={"custom"}
+              markedDates={markedDates}
+              style={{ borderRadius: 10, marginBottom: 20 }}
+              theme={{
+                calendarBackground: colors.surface,
+                dayTextColor: colors.textPrimary,
+                monthTextColor: colors.textPrimary,
+                arrowColor: colors.primary,
+                textDisabledColor: colors.textMuted,
+                todayTextColor: colors.secondary,
+              }}
+            />
 
-              <View style={styles.modalActions}>
-                <TouchableOpacity onPress={() => setCalendarVisible(false)}>
-                  <Text
-                    style={[styles.cancelText, { color: colors.textSecondary }]}
-                  >
-                    Close
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                  onPress={() => {
-                    setSelectedDate(tempSelectedDate);
-                    setCalendarVisible(false);
-                  }}
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setCalendarVisible(false)}>
+                <Text
+                  style={[styles.cancelText, { color: colors.textSecondary }]}
                 >
-                  <Text style={styles.saveBtnText}>Go To Date</Text>
-                </TouchableOpacity>
-              </View>
+                  Close
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setSelectedDate(tempSelectedDate);
+                  setCalendarVisible(false);
+                }}
+              >
+                <Text style={styles.saveBtnText}>Go To Date</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        {/* ADD HABIT MODAL */}
-        <Modal visible={addVisible} transparent={true} animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-              <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
-                New Habit
-              </Text>
-
-              <Text style={[styles.label, dynamicStyles.textPrimary]}>
-                Title
-              </Text>
-              <TextInput
-                style={[styles.input, dynamicStyles.input]}
-                placeholder="e.g. Drink Water"
-                placeholderTextColor={colors.textMuted}
-                value={title}
-                onChangeText={setTitle}
+        {/* --- ADD HABIT MODAL (Floating Slide-up Window) --- */}
+        <Modal
+          isVisible={addVisible}
+          // 2. ENABLE SLIDE TO CLOSE
+          onSwipeComplete={() => setAddVisible(false)}
+          swipeDirection={["down"]}
+          onBackdropPress={() => setAddVisible(false)}
+          style={styles.bottomModal} // 3. BOTTOM POSITIONING
+          avoidKeyboard={true}
+          backdropOpacity={0.7}
+        >
+          <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+            {/* 4. DRAG HANDLE */}
+            <View style={styles.dragHandleContainer}>
+              <View
+                style={[styles.dragHandle, { backgroundColor: colors.border }]}
               />
+            </View>
 
-              <Text style={[styles.label, dynamicStyles.textPrimary]}>
-                Duration (Optional)
-              </Text>
-              <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
-                <TextInput
+            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+              New Habit
+            </Text>
+
+            <Text style={[styles.label, dynamicStyles.textPrimary]}>Title</Text>
+            <TextInput
+              style={[styles.input, dynamicStyles.input]}
+              placeholder="e.g. Drink Water"
+              placeholderTextColor={colors.textMuted}
+              value={title}
+              onChangeText={setTitle}
+              autoFocus
+            />
+
+            <Text style={[styles.label, dynamicStyles.textPrimary]}>
+              Duration (Optional)
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
+              <TextInput
+                style={[
+                  styles.input,
+                  dynamicStyles.input,
+                  { flex: 1, marginBottom: 0 },
+                ]}
+                placeholder="Hours"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                value={hours}
+                onChangeText={setHours}
+              />
+              <TextInput
+                style={[
+                  styles.input,
+                  dynamicStyles.input,
+                  { flex: 1, marginBottom: 0 },
+                ]}
+                placeholder="Mins"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                value={minutes}
+                onChangeText={setMinutes}
+              />
+            </View>
+
+            <Text style={[styles.label, dynamicStyles.textPrimary]}>
+              Category
+            </Text>
+            <View style={styles.catCloud}>
+              {CATEGORIES.map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  onPress={() => setCategory(c)}
                   style={[
-                    styles.input,
-                    dynamicStyles.input,
-                    { flex: 1, marginBottom: 0 },
+                    styles.catChip,
+                    {
+                      backgroundColor:
+                        category === c ? colors.primary : colors.background,
+                      borderColor:
+                        category === c ? colors.primary : colors.border,
+                    },
                   ]}
-                  placeholder="Hours"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
-                  value={hours}
-                  onChangeText={setHours}
-                />
-                <TextInput
-                  style={[
-                    styles.input,
-                    dynamicStyles.input,
-                    { flex: 1, marginBottom: 0 },
-                  ]}
-                  placeholder="Mins"
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="numeric"
-                  value={minutes}
-                  onChangeText={setMinutes}
-                />
-              </View>
-
-              <Text style={[styles.label, dynamicStyles.textPrimary]}>
-                Category
-              </Text>
-              <View style={styles.catCloud}>
-                {CATEGORIES.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    onPress={() => setCategory(c)}
-                    style={[
-                      styles.catChip,
-                      {
-                        backgroundColor:
-                          category === c ? colors.primary : colors.background,
-                        borderColor:
-                          category === c ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        color:
-                          category === c ? colors.white : colors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {c}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity onPress={() => setAddVisible(false)}>
+                >
                   <Text
-                    style={[styles.cancelText, { color: colors.textSecondary }]}
+                    style={{
+                      color:
+                        category === c ? colors.white : colors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
                   >
-                    Cancel
+                    {c}
                   </Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleAddHabit}
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity onPress={() => setAddVisible(false)}>
+                <Text
+                  style={[styles.cancelText, { color: colors.textSecondary }]}
                 >
-                  <Text style={styles.saveBtnText}>Create Habit</Text>
-                </TouchableOpacity>
-              </View>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                onPress={handleAddHabit}
+              >
+                <Text style={styles.saveBtnText}>Create Habit</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
@@ -644,7 +648,6 @@ const styles = StyleSheet.create({
 
   fab: {
     position: "absolute",
-    // bottom: 30, // Removed, handled dynamically
     right: 25,
     width: 60,
     height: 60,
@@ -657,20 +660,35 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  // Modals
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    // 5. Center content horizontally
-    alignItems: "center",
-    padding: 20,
+  // --- NEW MODAL STYLES ---
+  bottomModal: {
+    justifyContent: "flex-end",
+    margin: 0,
+  },
+  bottomModalContent: {
+    padding: 25,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingBottom: 40,
   },
   modalContent: {
     padding: 25,
-    borderRadius: 24,
     borderWidth: 1,
   },
+  // Drag Handle Styles
+  dragHandleContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+    marginTop: -10, // Pull it up slightly
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
+
   modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
   label: { marginBottom: 8, fontWeight: "600", fontSize: 14 },
   input: {

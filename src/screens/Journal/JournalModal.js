@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system"; // Fixed import for newer Expo versions
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useContext, useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  Modal,
+  // Modal, // REMOVED standard Modal
   Platform,
   ScrollView,
   StyleSheet,
@@ -17,6 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 1. IMPORT ENHANCED MODAL
+import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
 
 const MOODS = ["😊", "😂", "🥰", "😐", "😢", "😡"];
@@ -165,7 +167,7 @@ const JournalModal = ({
     textSecondary: { color: colors.textSecondary },
     input: { backgroundColor: colors.surface, color: colors.textPrimary },
     modalHeader: {
-      backgroundColor: colors.background,
+      backgroundColor: colors.background, // Match container
       borderBottomColor: colors.border,
     },
     chipActive: {
@@ -178,257 +180,293 @@ const JournalModal = ({
     },
     chipTextActive: { color: colors.white },
     chipTextInactive: { color: colors.textSecondary },
+    dragHandle: { backgroundColor: colors.border },
   };
 
   return (
     <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      isVisible={visible}
+      onSwipeComplete={onClose}
+      swipeDirection={["down"]}
+      onBackdropPress={onClose}
+      style={styles.modalStyle}
+      avoidKeyboard={true}
+      propagateSwipe={true} // Allows scrolling inside without closing modal
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={[styles.container, dynamicStyles.container]}
-      >
-        {/* Header */}
-        <View style={[styles.header, dynamicStyles.modalHeader]}>
-          <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-            <Text style={[styles.cancelText, dynamicStyles.textSecondary]}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-          <Text style={[styles.title, dynamicStyles.headerText]}>
-            {initialData ? "Edit Memory" : "New Memory"}
-          </Text>
-          <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
-            <Text style={[styles.saveText, { color: colors.primary }]}>
-              Save
-            </Text>
-          </TouchableOpacity>
+      <View style={[styles.sheetContainer, dynamicStyles.container]}>
+        {/* 2. Drag Handle */}
+        <View style={styles.dragHandleContainer}>
+          <View style={[styles.dragHandle, dynamicStyles.dragHandle]} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          {/* Topic Input */}
-          <TextInput
-            style={[styles.topicInput, { color: colors.textPrimary }]}
-            placeholder="Title (e.g. Trip to Mountains)"
-            placeholderTextColor={colors.textMuted}
-            value={topic}
-            onChangeText={setTopic}
-            maxLength={50}
-          />
-
-          {/* Location Bar */}
-          <View
-            style={[
-              styles.locationContainer,
-              { backgroundColor: colors.surfaceHighlight },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="map-marker"
-              size={20}
-              color={colors.primary}
-            />
-            <TextInput
-              style={[styles.locationInput, { color: colors.textPrimary }]}
-              placeholder="Add location..."
-              placeholderTextColor={colors.textMuted}
-              value={locationName}
-              onChangeText={setLocationName}
-            />
-            <TouchableOpacity
-              onPress={handleGetLocation}
-              disabled={isFetchingLoc}
-            >
-              {isFetchingLoc ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <MaterialCommunityIcons
-                  name="crosshairs-gps"
-                  size={20}
-                  color={colors.textSecondary}
-                />
-              )}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          {/* Header */}
+          <View style={[styles.header, dynamicStyles.modalHeader]}>
+            <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
+              <Text style={[styles.cancelText, dynamicStyles.textSecondary]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.title, dynamicStyles.headerText]}>
+              {initialData ? "Edit Memory" : "New Memory"}
+            </Text>
+            <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
+              <Text style={[styles.saveText, { color: colors.primary }]}>
+                Save
+              </Text>
             </TouchableOpacity>
           </View>
 
-          {/* Mood Selector */}
-          <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
-            How did you feel?
-          </Text>
-          <View style={styles.moodRow}>
-            {MOODS.map((m, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => setSelectedMood(m)}
-                style={[
-                  styles.moodItem,
-                  {
-                    backgroundColor:
-                      selectedMood === m
-                        ? colors.surfaceHighlight
-                        : "transparent",
-                    borderColor:
-                      selectedMood === m ? colors.primary : "transparent",
-                    borderWidth: 1,
-                  },
-                ]}
-              >
-                <Text style={{ fontSize: 28 }}>{m}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <ScrollView contentContainerStyle={styles.content}>
+            {/* Topic Input */}
+            <TextInput
+              style={[styles.topicInput, { color: colors.textPrimary }]}
+              placeholder="Title (e.g. Trip to Mountains)"
+              placeholderTextColor={colors.textMuted}
+              value={topic}
+              onChangeText={setTopic}
+              maxLength={50}
+            />
 
-          {/* Tags */}
-          <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
-            Tags
-          </Text>
-          <View style={styles.tagSection}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: 20 }}
+            {/* Location Bar */}
+            <View
+              style={[
+                styles.locationContainer,
+                { backgroundColor: colors.surfaceHighlight },
+              ]}
             >
+              <MaterialCommunityIcons
+                name="map-marker"
+                size={20}
+                color={colors.primary}
+              />
+              <TextInput
+                style={[styles.locationInput, { color: colors.textPrimary }]}
+                placeholder="Add location..."
+                placeholderTextColor={colors.textMuted}
+                value={locationName}
+                onChangeText={setLocationName}
+              />
               <TouchableOpacity
-                style={[
-                  styles.tagChip,
-                  {
-                    borderColor: colors.primary,
-                    borderWidth: 1,
-                    borderStyle: "dashed",
-                    backgroundColor: "transparent",
-                  },
-                ]}
-                onPress={() => setShowTagInput(!showTagInput)}
+                onPress={handleGetLocation}
+                disabled={isFetchingLoc}
               >
-                <MaterialCommunityIcons
-                  name="plus"
-                  size={16}
-                  color={colors.primary}
-                />
-                <Text
-                  style={{
-                    color: colors.primary,
-                    fontSize: 12,
-                    fontWeight: "bold",
-                    marginLeft: 4,
-                  }}
-                >
-                  New
-                </Text>
+                {isFetchingLoc ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="crosshairs-gps"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                )}
               </TouchableOpacity>
+            </View>
 
-              {existingTags.map((tag, index) => (
+            {/* Mood Selector */}
+            <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
+              How did you feel?
+            </Text>
+            <View style={styles.moodRow}>
+              {MOODS.map((m, index) => (
                 <TouchableOpacity
                   key={index}
-                  onPress={() => toggleTag(tag)}
-                  onLongPress={() => onDeleteTag && onDeleteTag(tag)}
+                  onPress={() => setSelectedMood(m)}
                   style={[
-                    styles.tagChip,
-                    selectedTags.includes(tag)
-                      ? dynamicStyles.chipActive
-                      : dynamicStyles.chipInactive,
+                    styles.moodItem,
+                    {
+                      backgroundColor:
+                        selectedMood === m
+                          ? colors.surfaceHighlight
+                          : "transparent",
+                      borderColor:
+                        selectedMood === m ? colors.primary : "transparent",
+                      borderWidth: 1,
+                    },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.tagText,
-                      selectedTags.includes(tag)
-                        ? dynamicStyles.chipTextActive
-                        : dynamicStyles.chipTextInactive,
-                    ]}
-                  >
-                    #{tag}
-                  </Text>
+                  <Text style={{ fontSize: 28 }}>{m}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
 
-            {showTagInput && (
-              <View style={styles.newTagRow}>
-                <TextInput
-                  style={[
-                    styles.smallInput,
-                    dynamicStyles.input,
-                    { borderColor: colors.border },
-                  ]}
-                  placeholder="Tag name..."
-                  placeholderTextColor={colors.textMuted}
-                  value={newTagInput}
-                  onChangeText={setNewTagInput}
-                  autoFocus
-                />
+            {/* Tags */}
+            <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
+              Tags
+            </Text>
+            <View style={styles.tagSection}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingRight: 20 }}
+              >
                 <TouchableOpacity
-                  onPress={handleAddTag}
-                  style={{ marginLeft: 10 }}
+                  style={[
+                    styles.tagChip,
+                    {
+                      borderColor: colors.primary,
+                      borderWidth: 1,
+                      borderStyle: "dashed",
+                      backgroundColor: "transparent",
+                    },
+                  ]}
+                  onPress={() => setShowTagInput(!showTagInput)}
                 >
-                  <Text style={{ color: colors.primary, fontWeight: "bold" }}>
-                    Add
+                  <MaterialCommunityIcons
+                    name="plus"
+                    size={16}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      fontSize: 12,
+                      fontWeight: "bold",
+                      marginLeft: 4,
+                    }}
+                  >
+                    New
                   </Text>
                 </TouchableOpacity>
-              </View>
-            )}
-          </View>
 
-          {/* Main Note */}
-          <TextInput
-            style={[styles.textInput, dynamicStyles.input]}
-            multiline
-            placeholder="Write your memories here..."
-            placeholderTextColor={colors.textMuted}
-            value={note}
-            onChangeText={setNote}
-          />
+                {existingTags.map((tag, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => toggleTag(tag)}
+                    onLongPress={() => onDeleteTag && onDeleteTag(tag)}
+                    style={[
+                      styles.tagChip,
+                      selectedTags.includes(tag)
+                        ? dynamicStyles.chipActive
+                        : dynamicStyles.chipInactive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.tagText,
+                        selectedTags.includes(tag)
+                          ? dynamicStyles.chipTextActive
+                          : dynamicStyles.chipTextInactive,
+                      ]}
+                    >
+                      #{tag}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
-          {/* Image Picker */}
-          <TouchableOpacity
-            style={[
-              styles.imgBtn,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-            onPress={pickImage}
-          >
-            {selectedImage ? (
-              <Image
-                source={{ uri: selectedImage }}
-                style={styles.previewImage}
-              />
-            ) : (
-              <View style={{ alignItems: "center", padding: 20 }}>
-                <MaterialCommunityIcons
-                  name="camera-plus-outline"
-                  size={32}
-                  color={colors.textSecondary}
-                />
-                <Text style={[styles.imgBtnText, dynamicStyles.textSecondary]}>
-                  Add Photo
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          {selectedImage && (
+              {showTagInput && (
+                <View style={styles.newTagRow}>
+                  <TextInput
+                    style={[
+                      styles.smallInput,
+                      dynamicStyles.input,
+                      { borderColor: colors.border },
+                    ]}
+                    placeholder="Tag name..."
+                    placeholderTextColor={colors.textMuted}
+                    value={newTagInput}
+                    onChangeText={setNewTagInput}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    onPress={handleAddTag}
+                    style={{ marginLeft: 10 }}
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+                      Add
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Main Note */}
+            <TextInput
+              style={[styles.textInput, dynamicStyles.input]}
+              multiline
+              placeholder="Write your memories here..."
+              placeholderTextColor={colors.textMuted}
+              value={note}
+              onChangeText={setNote}
+            />
+
+            {/* Image Picker */}
             <TouchableOpacity
-              onPress={() => setSelectedImage(null)}
-              style={{ alignSelf: "center", marginTop: 10 }}
+              style={[
+                styles.imgBtn,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+              onPress={pickImage}
             >
-              <Text style={{ color: colors.danger }}>Remove Photo</Text>
+              {selectedImage ? (
+                <Image
+                  source={{ uri: selectedImage }}
+                  style={styles.previewImage}
+                />
+              ) : (
+                <View style={{ alignItems: "center", padding: 20 }}>
+                  <MaterialCommunityIcons
+                    name="camera-plus-outline"
+                    size={32}
+                    color={colors.textSecondary}
+                  />
+                  <Text
+                    style={[styles.imgBtnText, dynamicStyles.textSecondary]}
+                  >
+                    Add Photo
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+            {selectedImage && (
+              <TouchableOpacity
+                onPress={() => setSelectedImage(null)}
+                style={{ alignSelf: "center", marginTop: 10 }}
+              >
+                <Text style={{ color: colors.danger }}>Remove Photo</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  // Modal Styles
+  modalStyle: {
+    margin: 0,
+    justifyContent: "flex-end",
+  },
+  sheetContainer: {
+    height: "92%", // Takes up most of the screen like a pageSheet
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
+
+  // Existing Styles
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingBottom: 15,
     borderBottomWidth: 1,
   },
   headerBtn: { padding: 5 },

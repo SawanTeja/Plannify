@@ -1,27 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   Alert,
-  Animated,
-  Dimensions,
   Image,
-  Modal,
-  PanResponder,
-  Platform,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
+import Modal from "react-native-modal";
 import { AppContext } from "../context/AppContext";
-
-const SCREEN_WIDTH = Dimensions.get("window").width;
-const SIDEBAR_WIDTH = SCREEN_WIDTH * 0.8; // Slightly wider for modern feel
 
 const SideMenu = ({ visible, onClose }) => {
   const {
@@ -30,7 +21,7 @@ const SideMenu = ({ visible, onClose }) => {
     toggleTheme,
     getStorageUsage,
     setUserData,
-    colors, // New Color System
+    colors,
     theme,
   } = useContext(AppContext);
 
@@ -38,80 +29,11 @@ const SideMenu = ({ visible, onClose }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(userData.name);
 
-  // Animation States
-  const [showModal, setShowModal] = useState(false);
-  const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  // --- GESTURE LOGIC ---
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-        return (
-          Math.abs(gestureState.dx) > 5 &&
-          Math.abs(gestureState.dy) < Math.abs(gestureState.dx)
-        );
-      },
-      onPanResponderGrant: () => {
-        slideAnim.setOffset(0);
-        slideAnim.setValue(0);
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dx < 0) slideAnim.setValue(gestureState.dx);
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < -SIDEBAR_WIDTH * 0.3 || gestureState.vx < -0.5) {
-          Animated.timing(slideAnim, {
-            toValue: -SIDEBAR_WIDTH,
-            duration: 200,
-            useNativeDriver: true,
-          }).start(handleClose);
-        } else {
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 4,
-          }).start();
-        }
-      },
-    }),
-  ).current;
-
+  // Update data when opening
   useEffect(() => {
     if (visible) {
-      setShowModal(true);
       setTempName(userData.name);
       getStorageUsage().then(setStorageSize);
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: -SIDEBAR_WIDTH,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
-        if (finished) {
-          setShowModal(false);
-          setIsEditingName(false);
-        }
-      });
     }
   }, [visible]);
 
@@ -119,6 +41,7 @@ const SideMenu = ({ visible, onClose }) => {
     if (isEditingName && tempName.trim().length > 0) {
       updateUserData({ name: tempName });
     }
+    setIsEditingName(false);
     onClose();
   };
 
@@ -164,250 +87,236 @@ const SideMenu = ({ visible, onClose }) => {
     ]);
   };
 
-  if (!showModal) return null;
+  const handleLoginPress = () => {
+    Alert.alert("Authentication", "Redirecting to Login Screen...");
+    // navigation.navigate('Login'); // Hook this up later
+  };
 
-  // Dynamic Styles
-  const glassStyle = {
-    backgroundColor:
-      theme === "dark" ? "rgba(15, 23, 42, 0.95)" : "rgba(255, 255, 255, 0.95)",
-    borderRightColor: colors.glassBorder,
+  // --- STYLES ---
+  const dynamicStyles = {
+    card: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    textPrimary: { color: colors.textPrimary },
+    textSecondary: { color: colors.textSecondary },
+    divider: { backgroundColor: colors.border },
+    loginBtn: { backgroundColor: colors.primary },
   };
 
   return (
     <Modal
-      transparent
-      visible={showModal}
-      onRequestClose={handleClose}
-      animationType="none"
-      statusBarTranslucent={true}
+      isVisible={visible}
+      // 1. SWIPE CONFIGURATION
+      onSwipeComplete={handleClose}
+      swipeDirection={["up", "left", "right"]} // Swipe UP to dismiss
+      onBackdropPress={handleClose}
+      onBackButtonPress={handleClose}
+      // 2. SLIDE ANIMATIONS
+      animationIn="slideInDown"
+      animationOut="slideOutUp"
+      backdropOpacity={0.4}
+      useNativeDriver={true}
+      hideModalContentWhileAnimating={true}
+      style={styles.modal}
     >
-      <View style={styles.overlay}>
-        {/* Backdrop */}
-        <TouchableWithoutFeedback onPress={handleClose}>
-          <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
-        </TouchableWithoutFeedback>
-
-        {/* Glass Panel */}
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={[
-            styles.sidebar,
-            glassStyle,
-            { transform: [{ translateX: slideAnim }] },
-          ]}
-        >
-          {/* 1. Profile Card */}
-          <View
-            style={[
-              styles.profileCard,
-              {
-                backgroundColor: colors.surfaceHighlight,
-                borderColor: colors.border,
-              },
-            ]}
+      <View style={[styles.popoverCard, dynamicStyles.card]}>
+        {/* --- NEW: DUMMY LOGIN BUTTON --- */}
+        {/* Only show if name is Guest or no image set (Simulating not logged in) */}
+        {!userData.image && userData.name === "Guest" && (
+          <TouchableOpacity
+            style={[styles.loginBtn, dynamicStyles.loginBtn]}
+            onPress={handleLoginPress}
+            activeOpacity={0.8}
           >
-            <TouchableOpacity onPress={pickImage} style={styles.imageWrapper}>
-              {userData.image ? (
-                <Image
-                  source={{ uri: userData.image }}
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.profileImage,
-                    { backgroundColor: colors.primary },
-                  ]}
-                >
-                  <Text style={styles.placeholderText}>
-                    {userData.name?.[0]?.toUpperCase() || "G"}
-                  </Text>
-                </View>
-              )}
+            <Text style={styles.loginBtnText}>Log In / Sign Up</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* --- HEADER: Profile Info --- */}
+        <View style={styles.headerContainer}>
+          <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
+            {userData.image ? (
+              <Image
+                source={{ uri: userData.image }}
+                style={styles.profileImage}
+              />
+            ) : (
               <View
-                style={[styles.editBadge, { backgroundColor: colors.surface }]}
+                style={[
+                  styles.profileImage,
+                  { backgroundColor: colors.primary },
+                ]}
               >
-                <Text style={{ fontSize: 8 }}>📷</Text>
+                <Text style={styles.avatarText}>
+                  {userData.name?.[0]?.toUpperCase() || "G"}
+                </Text>
               </View>
-            </TouchableOpacity>
+            )}
+            <View style={[styles.cameraBadge, { borderColor: colors.surface }]}>
+              <Text style={{ fontSize: 8 }}>📷</Text>
+            </View>
+          </TouchableOpacity>
 
-            <View style={styles.nameContainer}>
-              {isEditingName ? (
-                <View style={styles.editRow}>
-                  <TextInput
-                    style={[
-                      styles.nameInput,
-                      {
-                        color: colors.textPrimary,
-                        borderBottomColor: colors.primary,
-                      },
-                    ]}
-                    value={tempName}
-                    onChangeText={setTempName}
-                    autoFocus
-                    onSubmitEditing={saveName}
-                    returnKeyType="done"
-                  />
-                  <TouchableOpacity onPress={saveName}>
-                    <Text style={{ fontSize: 16 }}>✅</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity onPress={() => setIsEditingName(true)}>
-                  <Text
-                    style={[styles.userName, { color: colors.textPrimary }]}
-                  >
-                    {userData.name || "Guest"}
-                  </Text>
-                  <Text style={[styles.userRole, { color: colors.primary }]}>
-                    {userData.userType === "student"
-                      ? "Student Account"
-                      : "Pro Account"}
-                  </Text>
+          <View style={styles.infoContainer}>
+            {isEditingName ? (
+              <View style={styles.editRow}>
+                <TextInput
+                  style={[styles.input, { color: colors.textPrimary }]}
+                  value={tempName}
+                  onChangeText={setTempName}
+                  autoFocus
+                  onSubmitEditing={saveName}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity onPress={saveName}>
+                  <Text style={{ fontSize: 16, marginLeft: 8 }}>✅</Text>
                 </TouchableOpacity>
-              )}
-            </View>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => setIsEditingName(true)}>
+                <Text style={[styles.nameText, dynamicStyles.textPrimary]}>
+                  {userData.name || "Guest"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[styles.emailText, dynamicStyles.textSecondary]}>
+              {userData.userType === "student" ? "Student" : "Pro"} Account
+            </Text>
+          </View>
+        </View>
+
+        {/* --- DIVIDER --- */}
+        <View style={[styles.divider, dynamicStyles.divider]} />
+
+        {/* --- SETTINGS ROWS --- */}
+        <View style={styles.settingsList}>
+          {/* Profile Mode */}
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+              Work Mode
+            </Text>
+            <Switch
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={"#FFF"}
+              value={userData.userType === "job"}
+              onValueChange={() =>
+                updateUserData({
+                  userType: userData.userType === "student" ? "job" : "student",
+                })
+              }
+            />
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-          {/* 2. Settings Options */}
-          <View style={styles.menuContainer}>
-            {/* User Type Toggle */}
-            <View
-              style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            >
-              <View>
-                <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>
-                  Profile Mode
-                </Text>
-                <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
-                  {userData.userType === "student"
-                    ? "Optimized for School"
-                    : "Optimized for Work"}
-                </Text>
-              </View>
-              <Switch
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.white}
-                value={userData.userType === "job"}
-                onValueChange={() =>
-                  updateUserData({
-                    userType:
-                      userData.userType === "student" ? "job" : "student",
-                  })
-                }
-              />
-            </View>
-
-            {/* Notifications */}
-            <View
-              style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            >
-              <View>
-                <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>
-                  Notifications
-                </Text>
-                <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
-                  Daily reminders
-                </Text>
-              </View>
-              <Switch
-                trackColor={{ false: colors.border, true: colors.success }}
-                thumbColor={colors.white}
-                value={userData.notifyTasks}
-                onValueChange={(val) => updateUserData({ notifyTasks: val })}
-              />
-            </View>
-
-            {/* Dark Mode */}
-            <View
-              style={[styles.menuItem, { backgroundColor: colors.surface }]}
-            >
-              <View>
-                <Text style={[styles.menuLabel, { color: colors.textPrimary }]}>
-                  Dark Mode
-                </Text>
-                <Text style={[styles.menuSub, { color: colors.textSecondary }]}>
-                  {theme === "dark" ? "On" : "Off"}
-                </Text>
-              </View>
-              <Switch
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={colors.white}
-                value={theme === "dark"}
-                onValueChange={toggleTheme}
-              />
-            </View>
+          {/* Notifications */}
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+              Notifications
+            </Text>
+            <Switch
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={"#FFF"}
+              value={userData.notifyTasks}
+              onValueChange={(val) => updateUserData({ notifyTasks: val })}
+            />
           </View>
 
-          {/* 3. Footer */}
-          <View style={{ flex: 1 }} />
+          {/* Dark Mode */}
+          <View style={styles.row}>
+            <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+              Dark Mode
+            </Text>
+            <Switch
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={"#FFF"}
+              value={theme === "dark"}
+              onValueChange={toggleTheme}
+            />
+          </View>
+        </View>
 
-          <View style={[styles.footer, { borderColor: colors.border }]}>
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginBottom: 15,
-              }}
-            >
-              <Text style={{ color: colors.textMuted }}>Storage Used</Text>
-              <Text style={{ color: colors.textPrimary, fontWeight: "bold" }}>
-                {storageSize}
-              </Text>
-            </View>
+        {/* --- DIVIDER --- */}
+        <View style={[styles.divider, dynamicStyles.divider]} />
 
+        {/* --- FOOTER: Storage & Reset --- */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, dynamicStyles.textSecondary]}>
+            Storage used: {storageSize}
+          </Text>
+          <View style={styles.footerButtons}>
             <TouchableOpacity
-              style={[
-                styles.resetBtn,
-                { backgroundColor: colors.danger + "20" },
-              ]} // 20% opacity red
-              onPress={handleFactoryReset}
+              onPress={handleClose}
+              style={[styles.btn, styles.closeBtn]}
             >
-              <Text style={[styles.resetBtnText, { color: colors.danger }]}>
-                Reset App Data
+              <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
+                Close
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleFactoryReset}
+              style={[styles.btn, styles.resetBtn]}
+            >
+              <Text style={{ color: colors.white, fontWeight: "600" }}>
+                Reset App
               </Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
+
+        {/* Visual Swipe Indicator */}
+        <View style={styles.swipeIndicatorContainer}>
+          <View
+            style={[styles.swipeIndicator, { backgroundColor: colors.border }]}
+          />
+        </View>
       </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, flexDirection: "row" },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0,0,0,0.8)", // Deep dim for focus
+  modal: {
+    justifyContent: "flex-start",
+    marginTop: 60, // Slight gap from top status bar
+    marginHorizontal: 15,
   },
-  sidebar: {
-    width: SIDEBAR_WIDTH,
-    height: "100%",
-    padding: 25,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 60,
-    borderRightWidth: 1,
+  popoverCard: {
+    borderRadius: 24,
+    padding: 20,
+    paddingBottom: 15,
+    borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 5, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 30,
-    elevation: 20,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  // Profile
-  profileCard: {
+  // LOGIN BUTTON STYLES
+  loginBtn: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  loginBtnText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  // Header
+  headerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: 10,
   },
-  imageWrapper: { marginRight: 15 },
+  avatarContainer: {
+    marginRight: 15,
+  },
   profileImage: {
     width: 50,
     height: 50,
@@ -415,55 +324,102 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  placeholderText: { color: "#fff", fontSize: 20, fontWeight: "bold" },
-  editBadge: {
+  avatarText: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  cameraBadge: {
     position: "absolute",
     bottom: -2,
     right: -2,
-    padding: 3,
-    borderRadius: 8,
+    backgroundColor: "#FFF",
+    borderRadius: 10,
+    borderWidth: 2,
+    padding: 2,
     elevation: 2,
   },
-  nameContainer: { flex: 1 },
-  userName: { fontSize: 18, fontWeight: "bold" },
-  userRole: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 2,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  infoContainer: {
+    flex: 1,
+    justifyContent: "center",
   },
-  nameInput: {
+  nameText: {
     fontSize: 18,
     fontWeight: "bold",
-    borderBottomWidth: 1,
-    padding: 0,
-    minWidth: 120,
+  },
+  emailText: {
+    fontSize: 12,
   },
   editRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
-
-  divider: { height: 1, width: "100%", marginBottom: 25 },
-
-  // Menu
-  menuContainer: { gap: 15 },
-  menuItem: {
+  input: {
+    borderBottomWidth: 1,
+    borderBottomColor: "#ccc",
+    padding: 0,
+    fontSize: 18,
+    fontWeight: "bold",
+    minWidth: 100,
+  },
+  // Common
+  divider: {
+    height: 1,
+    width: "100%",
+    marginVertical: 15,
+    opacity: 0.5,
+  },
+  settingsList: {
+    gap: 15,
+  },
+  row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 15,
-    borderRadius: 16,
   },
-  menuLabel: { fontSize: 16, fontWeight: "600" },
-  menuSub: { fontSize: 12, marginTop: 2 },
-
+  rowLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+  },
   // Footer
-  footer: { borderTopWidth: 1, paddingTop: 20 },
-  resetBtn: { padding: 15, borderRadius: 15, alignItems: "center" },
-  resetBtnText: { fontWeight: "bold", fontSize: 14 },
+  footer: {
+    marginTop: 5,
+  },
+  footerText: {
+    fontSize: 12,
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  footerButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeBtn: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  resetBtn: {
+    backgroundColor: "#EF4444", // Red
+  },
+  swipeIndicatorContainer: {
+    alignItems: "center",
+    marginTop: 15,
+  },
+  swipeIndicator: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.5,
+  },
 });
 
 export default SideMenu;

@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useContext, useState } from "react";
 import {
+  Image,
   LayoutAnimation,
   Modal,
   Platform,
@@ -59,7 +60,6 @@ const ALL_FEATURES = [
 
 const SummaryDashboard = () => {
   const navigation = useNavigation();
-  // We now get 'colors' from the context!
   const { userData, colors, theme } = useContext(AppContext);
 
   // --- STATE ---
@@ -169,7 +169,7 @@ const SummaryDashboard = () => {
     }
   };
 
-  // --- STYLES GENERATOR (Since colors change) ---
+  // --- STYLES GENERATOR ---
   const dynamicStyles = {
     screen: {
       flex: 1,
@@ -183,7 +183,6 @@ const SummaryDashboard = () => {
       borderRadius: 28,
       padding: 20,
       justifyContent: "space-between",
-      // Soft modern shadow
       shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
@@ -211,6 +210,15 @@ const SummaryDashboard = () => {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    profileAvatar: {
+      width: 45,
+      height: 45,
+      borderRadius: 22.5,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      borderColor: colors.border,
+    },
   };
 
   // --- RENDERERS ---
@@ -224,21 +232,31 @@ const SummaryDashboard = () => {
           {userData.name}
         </Text>
       </View>
+
+      {/* UPDATED: Profile Avatar Trigger 
+          Clicking this opens the Floating Popover (SideMenu)
+      */}
       <TouchableOpacity
-        style={[
-          styles.menuBtn,
-          {
-            backgroundColor: colors.surfaceHighlight,
-            borderColor: colors.border,
-          },
-        ]}
         onPress={() => setMenuVisible(true)}
+        activeOpacity={0.8}
       >
-        <MaterialCommunityIcons
-          name="menu-open"
-          size={28}
-          color={colors.textPrimary}
-        />
+        {userData.image ? (
+          <Image
+            source={{ uri: userData.image }}
+            style={dynamicStyles.profileAvatar}
+          />
+        ) : (
+          <View
+            style={[
+              dynamicStyles.profileAvatar,
+              { backgroundColor: colors.primary },
+            ]}
+          >
+            <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "bold" }}>
+              {userData.name?.[0]?.toUpperCase() || "G"}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -543,7 +561,7 @@ const SummaryDashboard = () => {
         </View>
       </ScrollView>
 
-      {/* --- SIDE MENU --- */}
+      {/* --- FLOATING POPOVER (Replaces Old Sidebar) --- */}
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} />
 
       {/* --- EDIT MODAL (Simple Styling for now) --- */}

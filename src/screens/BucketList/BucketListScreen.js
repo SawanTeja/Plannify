@@ -1,11 +1,9 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
-// 1. Import Safe Area Insets
 import {
   Alert,
   FlatList,
   LayoutAnimation,
-  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -16,6 +14,9 @@ import {
   UIManager,
   View,
 } from "react-native";
+// 1. IMPORT THE NEW MODAL LIBRARY
+import Modal from "react-native-modal";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
@@ -39,8 +40,6 @@ const CATEGORIES = [
 
 const BucketListScreen = () => {
   const { colors } = useContext(AppContext);
-
-  // 2. Calculate Dynamic Bottom Spacing
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -105,7 +104,6 @@ const BucketListScreen = () => {
     filter === "All" ? items : items.filter((i) => i.category === filter);
   const completedCount = items.filter((i) => i.completed).length;
 
-  // --- DYNAMIC STYLES ---
   const dynamicStyles = {
     container: { backgroundColor: colors.background },
     headerText: { color: colors.textPrimary },
@@ -207,7 +205,6 @@ const BucketListScreen = () => {
       <FlatList
         data={visibleItems}
         keyExtractor={(item) => item.id.toString()}
-        // 3. Apply Dynamic Bottom Padding to List
         contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
         renderItem={({ item }) => (
           <TouchableOpacity
@@ -215,7 +212,7 @@ const BucketListScreen = () => {
             style={[
               styles.card,
               dynamicStyles.card,
-              item.completed && { opacity: 0.6 }, // Dim completed items
+              item.completed && { opacity: 0.6 },
             ]}
             onPress={() => toggleComplete(item.id)}
             onLongPress={() => deleteItem(item.id)}
@@ -263,7 +260,6 @@ const BucketListScreen = () => {
                 </View>
               </View>
 
-              {/* Optional Delete Icon for clarity */}
               <TouchableOpacity onPress={() => deleteItem(item.id)}>
                 <MaterialCommunityIcons
                   name="dots-horizontal"
@@ -290,7 +286,6 @@ const BucketListScreen = () => {
 
       {/* FAB */}
       <TouchableOpacity
-        // 4. Dynamic Position for FAB
         style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
         activeOpacity={0.8}
         onPress={() => setModalVisible(true)}
@@ -298,80 +293,92 @@ const BucketListScreen = () => {
         <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
       </TouchableOpacity>
 
-      {/* Add Modal */}
+      {/* --- NEW SWIPEABLE MODAL --- */}
       <Modal
-        visible={modalVisible}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        isVisible={modalVisible}
+        // 2. THIS ENABLES THE SLIDE DOWN TO CLOSE
+        onSwipeComplete={() => setModalVisible(false)}
+        swipeDirection={["down"]}
+        // 3. Tapping the background closes it too
+        onBackdropPress={() => setModalVisible(false)}
+        // 4. Smooth Animations
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+        // 5. Input keyboard handling
+        avoidKeyboard={true}
+        // 6. Style to center the modal content
+        style={styles.modalContainer}
+        // 7. Transparency for backdrop
+        backdropOpacity={0.7}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-            <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
-              New Goal
-            </Text>
-
-            <TextInput
-              style={[styles.input, dynamicStyles.input]}
-              placeholder="What do you want to achieve?"
-              placeholderTextColor={colors.textMuted}
-              value={newItem}
-              onChangeText={setNewItem}
-              autoFocus
+        <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+          {/* 8. Visual "Drag Handle" to show it can be swiped */}
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
             />
+          </View>
 
-            <Text style={[styles.label, dynamicStyles.subText]}>
-              Select Category
-            </Text>
-            <View style={styles.catWrap}>
-              {CATEGORIES.filter((c) => c !== "All").map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.catChip,
-                    {
-                      backgroundColor:
-                        selectedCat === cat
-                          ? colors.primary
-                          : colors.background,
-                      borderColor:
-                        selectedCat === cat ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => setSelectedCat(cat)}
-                >
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: "600",
-                      color:
-                        selectedCat === cat
-                          ? colors.white
-                          : colors.textSecondary,
-                    }}
-                  >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
+            New Goal
+          </Text>
 
-            <View style={styles.modalActions}>
+          <TextInput
+            style={[styles.input, dynamicStyles.input]}
+            placeholder="What do you want to achieve?"
+            placeholderTextColor={colors.textMuted}
+            value={newItem}
+            onChangeText={setNewItem}
+            autoFocus
+          />
+
+          <Text style={[styles.label, dynamicStyles.subText]}>
+            Select Category
+          </Text>
+          <View style={styles.catWrap}>
+            {CATEGORIES.filter((c) => c !== "All").map((cat) => (
               <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={{ padding: 10 }}
+                key={cat}
+                style={[
+                  styles.catChip,
+                  {
+                    backgroundColor:
+                      selectedCat === cat ? colors.primary : colors.background,
+                    borderColor:
+                      selectedCat === cat ? colors.primary : colors.border,
+                  },
+                ]}
+                onPress={() => setSelectedCat(cat)}
               >
-                <Text style={{ color: colors.textMuted, fontWeight: "600" }}>
-                  Cancel
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "600",
+                    color:
+                      selectedCat === cat ? colors.white : colors.textSecondary,
+                  }}
+                >
+                  {cat}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-                onPress={addItem}
-              >
-                <Text style={styles.saveBtnText}>Add Dream</Text>
-              </TouchableOpacity>
-            </View>
+            ))}
+          </View>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              onPress={() => setModalVisible(false)}
+              style={{ padding: 10 }}
+            >
+              <Text style={{ color: colors.textMuted, fontWeight: "600" }}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              onPress={addItem}
+            >
+              <Text style={styles.saveBtnText}>Add Dream</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -380,6 +387,7 @@ const BucketListScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  // ... (Your existing styles remain exactly the same)
   container: {
     flex: 1,
     paddingHorizontal: 20,
@@ -397,7 +405,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 25,
-    backgroundColor: "rgba(255, 215, 0, 0.15)", // Gold tint
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -429,10 +437,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   categoryText: { fontSize: 10, fontWeight: "bold" },
-
   fab: {
     position: "absolute",
-    // bottom: 30, // REMOVED: Now controlled dynamically
     right: 25,
     width: 60,
     height: 60,
@@ -447,14 +453,29 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: "center", marginTop: 60, opacity: 0.7 },
   emptyText: { textAlign: "center", marginTop: 15, fontSize: 16 },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    padding: 25,
+  // --- UPDATED MODAL STYLES ---
+  modalContainer: {
+    justifyContent: "flex-end", // Change to 'center' if you want it in the middle like your screenshot
+    margin: 0, // This ensures the modal takes up full width for sliding
   },
-  modalContent: { borderRadius: 24, padding: 25, borderWidth: 1 },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 25,
+    borderWidth: 1,
+    paddingBottom: 40, // Extra padding for bottom
+  },
+  // New styles for the drag handle
+  dragHandleContainer: {
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
   modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
   input: {
     borderWidth: 1,

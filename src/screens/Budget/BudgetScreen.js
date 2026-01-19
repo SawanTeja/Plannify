@@ -4,8 +4,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useCallback, useContext, useState } from "react";
 import {
   Alert,
-  Modal,
-  // Removed SafeAreaView to use View with manual padding
+  // Modal, // REMOVED standard modal
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -14,6 +13,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+// 2. Import Enhanced Modal
+import Modal from "react-native-modal";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
@@ -22,10 +24,9 @@ const BudgetScreen = () => {
   const navigation = useNavigation();
   const { colors, theme } = useContext(AppContext);
 
-  // 2. Calculate Dynamic Spacing
+  // 3. Calculate Dynamic Spacing
   const insets = useSafeAreaInsets();
-  const FLOATING_TAB_BAR_HEIGHT = 90; // Height of your bottom nav
-  // This is where the Floating Dock will sit (above the tab bar)
+  const FLOATING_TAB_BAR_HEIGHT = 90;
   const dockPositionBottom = FLOATING_TAB_BAR_HEIGHT + insets.bottom + 10;
 
   const [budget, setBudget] = useState(null);
@@ -220,7 +221,6 @@ const BudgetScreen = () => {
   };
 
   return (
-    // 3. FIX TOP: Use View with paddingTop from insets
     <View
       style={[
         styles.container,
@@ -264,7 +264,6 @@ const BudgetScreen = () => {
       </View>
 
       <ScrollView
-        // 4. FIX SCROLLING: Add huge bottom padding so content clears the dock AND tab bar
         contentContainerStyle={{
           paddingBottom: dockPositionBottom + 100,
           paddingHorizontal: 20,
@@ -542,7 +541,6 @@ const BudgetScreen = () => {
           {
             backgroundColor: colors.surface,
             borderColor: colors.border,
-            // 5. FIX BOTTOM: Position the dock dynamically
             bottom: dockPositionBottom,
           },
         ]}
@@ -596,180 +594,208 @@ const BudgetScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* --- ADD EXPENSE MODAL --- */}
-      <Modal visible={modalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-            <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
-              Add Expense
-            </Text>
-
-            <TextInput
-              placeholder="Description (e.g. Coffee)"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, dynamicStyles.input]}
-              value={desc}
-              onChangeText={setDesc}
+      {/* --- 1. ADD EXPENSE MODAL (Slide Up) --- */}
+      <Modal
+        isVisible={modalVisible}
+        onSwipeComplete={() => setModalVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setModalVisible(false)}
+        style={styles.bottomModal}
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
+      >
+        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
             />
-            <TextInput
-              placeholder="Amount"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              style={[styles.input, dynamicStyles.input]}
-              value={amount}
-              onChangeText={setAmount}
-            />
+          </View>
 
-            {hasCategories && (
-              <View style={styles.catSelectRow}>
-                {budget.categories.map((cat) => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[
-                      styles.catChip,
-                      selectedCat === cat.name
-                        ? dynamicStyles.pillActive
-                        : dynamicStyles.pillInactive,
-                    ]}
-                    onPress={() => setSelectedCat(cat.name)}
+          <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
+            Add Expense
+          </Text>
+
+          <TextInput
+            placeholder="Description (e.g. Coffee)"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, dynamicStyles.input]}
+            value={desc}
+            onChangeText={setDesc}
+          />
+          <TextInput
+            placeholder="Amount"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            style={[styles.input, dynamicStyles.input]}
+            value={amount}
+            onChangeText={setAmount}
+          />
+
+          {hasCategories && (
+            <View style={styles.catSelectRow}>
+              {budget.categories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.catChip,
+                    selectedCat === cat.name
+                      ? dynamicStyles.pillActive
+                      : dynamicStyles.pillInactive,
+                  ]}
+                  onPress={() => setSelectedCat(cat.name)}
+                >
+                  <Text
+                    style={{
+                      color:
+                        selectedCat === cat.name
+                          ? colors.white
+                          : colors.textSecondary,
+                      fontWeight: "600",
+                    }}
                   >
-                    <Text
-                      style={{
-                        color:
-                          selectedCat === cat.name
-                            ? colors.white
-                            : colors.textSecondary,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text
-                  style={[styles.cancelText, { color: colors.textSecondary }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.danger }]}
-                onPress={handleAddTransaction}
-              >
-                <Text style={styles.saveBtnText}>Add Expense</Text>
-              </TouchableOpacity>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+          )}
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text
+                style={[styles.cancelText, { color: colors.textSecondary }]}
+              >
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.danger }]}
+              onPress={handleAddTransaction}
+            >
+              <Text style={styles.saveBtnText}>Add Expense</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* --- ADD INCOME MODAL --- */}
+      {/* --- 2. ADD INCOME MODAL (Slide Up) --- */}
       <Modal
-        visible={incomeModalVisible}
-        animationType="slide"
-        transparent={true}
+        isVisible={incomeModalVisible}
+        onSwipeComplete={() => setIncomeModalVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setIncomeModalVisible(false)}
+        style={styles.bottomModal}
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-            <Text style={[styles.modalTitle, { color: colors.success }]}>
-              Add Income
-            </Text>
-
-            <TextInput
-              placeholder="Source (e.g. Salary)"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, dynamicStyles.input]}
-              value={desc}
-              onChangeText={setDesc}
+        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
             />
-            <TextInput
-              placeholder="Amount"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              style={[styles.input, dynamicStyles.input]}
-              value={amount}
-              onChangeText={setAmount}
-            />
+          </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setIncomeModalVisible(false)}>
-                <Text
-                  style={[styles.cancelText, { color: colors.textSecondary }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.success }]}
-                onPress={handleAddIncome}
+          <Text style={[styles.modalTitle, { color: colors.success }]}>
+            Add Income
+          </Text>
+
+          <TextInput
+            placeholder="Source (e.g. Salary)"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, dynamicStyles.input]}
+            value={desc}
+            onChangeText={setDesc}
+          />
+          <TextInput
+            placeholder="Amount"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            style={[styles.input, dynamicStyles.input]}
+            value={amount}
+            onChangeText={setAmount}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity onPress={() => setIncomeModalVisible(false)}>
+              <Text
+                style={[styles.cancelText, { color: colors.textSecondary }]}
               >
-                <Text style={styles.saveBtnText}>Add Income</Text>
-              </TouchableOpacity>
-            </View>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: colors.success }]}
+              onPress={handleAddIncome}
+            >
+              <Text style={styles.saveBtnText}>Add Income</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* --- ADD AUTO-PAY MODAL --- */}
+      {/* --- 3. ADD AUTO-PAY MODAL (Slide Up) --- */}
       <Modal
-        visible={recurringModalVisible}
-        animationType="slide"
-        transparent={true}
+        isVisible={recurringModalVisible}
+        onSwipeComplete={() => setRecurringModalVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setRecurringModalVisible(false)}
+        style={styles.bottomModal}
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-            <Text style={[styles.modalTitle, { color: "#A855F7" }]}>
-              Setup Auto-Pay
-            </Text>
-            <Text style={[styles.modalSub, dynamicStyles.subText]}>
-              This will automatically deduct from your budget on the specified
-              day every month.
-            </Text>
+        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
+            />
+          </View>
 
-            <TextInput
-              placeholder="Service Name (e.g. Netflix)"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, dynamicStyles.input]}
-              value={desc}
-              onChangeText={setDesc}
-            />
-            <TextInput
-              placeholder="Amount"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              style={[styles.input, dynamicStyles.input]}
-              value={amount}
-              onChangeText={setAmount}
-            />
-            <TextInput
-              placeholder="Day of Month (1-31)"
-              placeholderTextColor={colors.textMuted}
-              keyboardType="numeric"
-              style={[styles.input, dynamicStyles.input]}
-              value={payDay}
-              onChangeText={setPayDay}
-            />
+          <Text style={[styles.modalTitle, { color: "#A855F7" }]}>
+            Setup Auto-Pay
+          </Text>
+          <Text style={[styles.modalSub, dynamicStyles.subText]}>
+            This will automatically deduct from your budget on the specified day
+            every month.
+          </Text>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setRecurringModalVisible(false)}>
-                <Text
-                  style={[styles.cancelText, { color: colors.textSecondary }]}
-                >
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: "#A855F7" }]}
-                onPress={handleAddRecurring}
+          <TextInput
+            placeholder="Service Name (e.g. Netflix)"
+            placeholderTextColor={colors.textMuted}
+            style={[styles.input, dynamicStyles.input]}
+            value={desc}
+            onChangeText={setDesc}
+          />
+          <TextInput
+            placeholder="Amount"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            style={[styles.input, dynamicStyles.input]}
+            value={amount}
+            onChangeText={setAmount}
+          />
+          <TextInput
+            placeholder="Day of Month (1-31)"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="numeric"
+            style={[styles.input, dynamicStyles.input]}
+            value={payDay}
+            onChangeText={setPayDay}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity onPress={() => setRecurringModalVisible(false)}>
+              <Text
+                style={[styles.cancelText, { color: colors.textSecondary }]}
               >
-                <Text style={styles.saveBtnText}>Save Auto-Pay</Text>
-              </TouchableOpacity>
-            </View>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: "#A855F7" }]}
+              onPress={handleAddRecurring}
+            >
+              <Text style={styles.saveBtnText}>Save Auto-Pay</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -870,7 +896,6 @@ const styles = StyleSheet.create({
   // Dock
   dockContainer: {
     position: "absolute",
-    // bottom: 30, // REMOVED: Now controlled dynamically
     alignSelf: "center",
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -902,14 +927,30 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
 
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    padding: 20,
+  // --- NEW MODAL STYLES ---
+  bottomModal: {
+    justifyContent: "flex-end",
+    margin: 0,
   },
-  modalContent: { borderRadius: 24, padding: 25, borderWidth: 1 },
+  bottomModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 25,
+    paddingBottom: 40,
+    borderWidth: 1,
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    marginBottom: 15,
+    marginTop: -10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
+
   modalTitle: {
     fontSize: 22,
     fontWeight: "bold",

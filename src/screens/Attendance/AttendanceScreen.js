@@ -5,7 +5,7 @@ import {
   Alert,
   FlatList,
   LayoutAnimation,
-  Modal,
+  // Modal, // REMOVED Standard Modal
   Platform,
   ScrollView,
   StatusBar,
@@ -16,6 +16,9 @@ import {
   UIManager,
   View,
 } from "react-native";
+// 2. IMPORT ENHANCED MODAL
+import Modal from "react-native-modal";
+
 import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
@@ -61,7 +64,7 @@ const getDayNameFromDateStr = (dateStr) => {
 const AttendanceScreen = () => {
   const { userData, colors, theme } = useContext(AppContext);
 
-  // 2. Safe Area Constants
+  // 3. Safe Area Constants
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -838,204 +841,218 @@ const AttendanceScreen = () => {
         </ScrollView>
       )}
 
-      {/* --- MODAL: ADD SUBJECT --- */}
+      {/* --- MODAL: ADD SUBJECT (Swipeable) --- */}
       <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
+        isVisible={modalVisible}
+        onSwipeComplete={() => setModalVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setModalVisible(false)}
+        style={styles.bottomModal}
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
+        propagateSwipe={true}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
-              Add Subject
-            </Text>
-
-            <TextInput
-              style={[styles.input, dynamicStyles.input]}
-              placeholder="Subject Name"
-              placeholderTextColor={colors.textMuted}
-              value={newSubject}
-              onChangeText={setNewSubject}
+        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+          {/* Drag Handle */}
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
             />
-
-            <Text style={[styles.label, dynamicStyles.textSecondary]}>
-              Weekly Schedule (Optional)
-            </Text>
-            <View style={styles.weekSelector}>
-              {DAYS.map((day, idx) => {
-                const count = tempSchedule[day] || 0;
-                const isSelected = count > 0;
-                return (
-                  <TouchableOpacity
-                    key={day}
-                    onPress={() => toggleDaySelection(day)}
-                    style={[
-                      styles.dayCircle,
-                      { borderColor: colors.border },
-                      isSelected && {
-                        backgroundColor: colors.primary,
-                        borderColor: colors.primary,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayCircleText,
-                        { color: colors.textSecondary },
-                        isSelected && { color: colors.white },
-                      ]}
-                    >
-                      {SHORT_DAYS[idx]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Day Counter Controls - CHANGED TO SCROLLVIEW */}
-            {Object.keys(tempSchedule).length > 0 && (
-              <ScrollView
-                style={styles.counterList}
-                showsVerticalScrollIndicator={true}
-              >
-                {Object.keys(tempSchedule).map((day) => (
-                  <View key={day} style={styles.counterRow}>
-                    <Text style={{ color: colors.textPrimary, flex: 1 }}>
-                      {day}
-                    </Text>
-                    <View style={styles.counterControls}>
-                      <TouchableOpacity
-                        onPress={() => adjustDayCount(day, -1)}
-                        style={[
-                          styles.counterBtn,
-                          { backgroundColor: colors.background },
-                        ]}
-                      >
-                        <Text style={{ color: colors.textPrimary }}>-</Text>
-                      </TouchableOpacity>
-                      <Text
-                        style={{
-                          color: colors.textPrimary,
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {tempSchedule[day]}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={() => adjustDayCount(day, 1)}
-                        style={[
-                          styles.counterBtn,
-                          { backgroundColor: colors.background },
-                        ]}
-                      >
-                        <Text style={{ color: colors.textPrimary }}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={[styles.cancelText, { color: colors.textMuted }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={addSubject}
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-              >
-                <Text style={[styles.saveBtnText, { color: colors.white }]}>
-                  Save Subject
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </View>
-      </Modal>
 
-      {/* --- MODAL: ADD TO SCHEDULE --- */}
-      <Modal
-        visible={scheduleModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setScheduleModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
-              Add Class to {editingDay}
-            </Text>
+          <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+            Add Subject
+          </Text>
 
-            <Text style={[styles.label, dynamicStyles.textSecondary]}>
-              Select Subject
-            </Text>
-            <View style={styles.tagCloud}>
-              {subjects.map((sub) => (
+          <TextInput
+            style={[styles.input, dynamicStyles.input]}
+            placeholder="Subject Name"
+            placeholderTextColor={colors.textMuted}
+            value={newSubject}
+            onChangeText={setNewSubject}
+          />
+
+          <Text style={[styles.label, dynamicStyles.textSecondary]}>
+            Weekly Schedule (Optional)
+          </Text>
+          <View style={styles.weekSelector}>
+            {DAYS.map((day, idx) => {
+              const count = tempSchedule[day] || 0;
+              const isSelected = count > 0;
+              return (
                 <TouchableOpacity
-                  key={sub.id}
+                  key={day}
+                  onPress={() => toggleDaySelection(day)}
                   style={[
-                    styles.tag,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                    },
-                    selectedSubjectId === sub.id && {
+                    styles.dayCircle,
+                    { borderColor: colors.border },
+                    isSelected && {
                       backgroundColor: colors.primary,
                       borderColor: colors.primary,
                     },
                   ]}
-                  onPress={() => setSelectedSubjectId(sub.id)}
                 >
                   <Text
                     style={[
-                      styles.tagText,
-                      { color: colors.textPrimary },
-                      selectedSubjectId === sub.id && {
-                        color: colors.white,
-                        fontWeight: "bold",
-                      },
+                      styles.dayCircleText,
+                      { color: colors.textSecondary },
+                      isSelected && { color: colors.white },
                     ]}
                   >
-                    {sub.name}
+                    {SHORT_DAYS[idx]}
                   </Text>
                 </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* 1. CHANGED: Replaced ScrollView with View so it expands naturally */}
+          {Object.keys(tempSchedule).length > 0 && (
+            <View style={styles.counterList}>
+              {Object.keys(tempSchedule).map((day) => (
+                <View key={day} style={styles.counterRow}>
+                  <Text style={{ color: colors.textPrimary, flex: 1 }}>
+                    {day}
+                  </Text>
+                  <View style={styles.counterControls}>
+                    <TouchableOpacity
+                      onPress={() => adjustDayCount(day, -1)}
+                      style={[
+                        styles.counterBtn,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
+                      <Text style={{ color: colors.textPrimary }}>-</Text>
+                    </TouchableOpacity>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {tempSchedule[day]}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => adjustDayCount(day, 1)}
+                      style={[
+                        styles.counterBtn,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
+                      <Text style={{ color: colors.textPrimary }}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               ))}
             </View>
+          )}
 
-            <Text
-              style={[
-                styles.label,
-                { marginTop: 15 },
-                dynamicStyles.textSecondary,
-              ]}
+          <View style={styles.modalActions}>
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={[styles.cancelText, { color: colors.textMuted }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={addSubject}
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
             >
-              Classes per day
-            </Text>
-            <TextInput
-              style={[styles.input, dynamicStyles.input]}
-              keyboardType="numeric"
-              value={classCount}
-              onChangeText={setClassCount}
-            />
+              <Text style={[styles.saveBtnText, { color: colors.white }]}>
+                Save Subject
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setScheduleModalVisible(false)}>
-                <Text style={[styles.cancelText, { color: colors.textMuted }]}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
+      {/* --- MODAL: ADD TO SCHEDULE (Swipeable) --- */}
+      <Modal
+        isVisible={scheduleModalVisible}
+        onSwipeComplete={() => setScheduleModalVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setScheduleModalVisible(false)}
+        style={styles.bottomModal}
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
+      >
+        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+          {/* Drag Handle */}
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
+            />
+          </View>
+
+          <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+            Add Class to {editingDay}
+          </Text>
+
+          <Text style={[styles.label, dynamicStyles.textSecondary]}>
+            Select Subject
+          </Text>
+          <View style={styles.tagCloud}>
+            {subjects.map((sub) => (
               <TouchableOpacity
-                onPress={addToSchedule}
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                key={sub.id}
+                style={[
+                  styles.tag,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                  selectedSubjectId === sub.id && {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                  },
+                ]}
+                onPress={() => setSelectedSubjectId(sub.id)}
               >
-                <Text style={[styles.saveBtnText, { color: colors.white }]}>
-                  Add to Schedule
+                <Text
+                  style={[
+                    styles.tagText,
+                    { color: colors.textPrimary },
+                    selectedSubjectId === sub.id && {
+                      color: colors.white,
+                      fontWeight: "bold",
+                    },
+                  ]}
+                >
+                  {sub.name}
                 </Text>
               </TouchableOpacity>
-            </View>
+            ))}
+          </View>
+
+          <Text
+            style={[
+              styles.label,
+              { marginTop: 15 },
+              dynamicStyles.textSecondary,
+            ]}
+          >
+            Classes per day
+          </Text>
+          <TextInput
+            style={[styles.input, dynamicStyles.input]}
+            keyboardType="numeric"
+            value={classCount}
+            onChangeText={setClassCount}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity onPress={() => setScheduleModalVisible(false)}>
+              <Text style={[styles.cancelText, { color: colors.textMuted }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={addToSchedule}
+              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            >
+              <Text style={[styles.saveBtnText, { color: colors.white }]}>
+                Add to Schedule
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1266,18 +1283,30 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // Modals
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)", // Glass dark
-    justifyContent: "center",
-    padding: 20,
+  // --- NEW MODAL STYLES ---
+  bottomModal: {
+    justifyContent: "flex-end",
+    margin: 0,
   },
-  modalContent: {
-    borderRadius: 24,
+  bottomModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
+    paddingBottom: 40,
     borderWidth: 1,
   },
+  dragHandleContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+    marginTop: -10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
+
   modalTitle: {
     fontSize: 22,
     fontWeight: "bold",
@@ -1310,8 +1339,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
+  // 2. CHANGED: Removed max-height constraints so it expands indefinitely
   counterList: {
-    maxHeight: 150,
     marginBottom: 20,
   },
   counterRow: {

@@ -3,9 +3,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   LayoutAnimation,
-  Modal,
+  // Modal, // Removed built-in Modal
   Platform,
   SectionList,
   StatusBar,
@@ -16,9 +15,11 @@ import {
   UIManager,
   View,
 } from "react-native";
+// 1. Import react-native-modal
+import Modal from "react-native-modal";
+
 import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import colors from "../../constants/colors"; // Fallback if context is missing
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
@@ -34,14 +35,11 @@ if (
 }
 
 const TaskScreen = () => {
-  // Grab theme and dynamic colors from context
   const { theme, colors } = useContext(AppContext);
   const isDark = theme === "dark";
 
-  // Dynamic Spacing
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
-
   const today = new Date().toISOString().split("T")[0];
 
   // State
@@ -344,12 +342,9 @@ const TaskScreen = () => {
     );
   };
 
-  // --- DYNAMIC STYLES ---
   const dynamicStyles = {
-    // 1. Dynamic Text Colors for Theme
     textColor: isDark ? "#FFFFFF" : "#000000",
     subTextColor: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)",
-    // 2. Dynamic Input Background for Modal
     inputBg: isDark ? "#2C2C2E" : "#F2F2F7",
     modalBg: isDark ? "#1C1C1E" : "#FFFFFF",
   };
@@ -402,26 +397,24 @@ const TaskScreen = () => {
           >
             <Calendar
               current={currentMonth}
-              // Force re-render on theme change
               key={theme}
               onDayPress={handleDayPress}
               onMonthChange={(month) => setCurrentMonth(month.dateString)}
               markedDates={markedDates}
               enableSwipeMonths={true}
               theme={{
-                // 3. FIX: Fully Dynamic Calendar Theme
                 backgroundColor: "transparent",
                 calendarBackground: "transparent",
                 textSectionTitleColor: dynamicStyles.subTextColor,
                 selectedDayBackgroundColor: colors.primary,
-                selectedDayTextColor: "#FFFFFF", // Always white on blue
+                selectedDayTextColor: "#FFFFFF",
                 todayTextColor: colors.primary,
-                dayTextColor: dynamicStyles.textColor, // Adapts to theme
+                dayTextColor: dynamicStyles.textColor,
                 textDisabledColor: isDark ? "#444" : "#CCC",
                 dotColor: colors.primary,
                 selectedDotColor: "#FFFFFF",
                 arrowColor: colors.primary,
-                monthTextColor: dynamicStyles.textColor, // Adapts to theme
+                monthTextColor: dynamicStyles.textColor,
                 indicatorColor: colors.primary,
                 textDayFontWeight: "400",
                 textMonthFontWeight: "bold",
@@ -472,7 +465,7 @@ const TaskScreen = () => {
         <TouchableOpacity
           style={[
             styles.fab,
-            { bottom: tabBarHeight + 20, backgroundColor: "#2563EB" },
+            { bottom: tabBarHeight + 20, backgroundColor: colors.primary },
           ]}
           onPress={openAddModal}
           activeOpacity={0.8}
@@ -481,128 +474,125 @@ const TaskScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Add Task Modal */}
+      {/* --- ADD TASK MODAL (Updated to Bottom Sheet) --- */}
       <Modal
-        visible={addVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setAddVisible(false)}
+        isVisible={addVisible}
+        onSwipeComplete={() => setAddVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setAddVisible(false)}
+        style={styles.bottomModal} // Aligns content to bottom
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalOverlay}
+        <View
+          style={[
+            styles.bottomModalContent,
+            {
+              backgroundColor: dynamicStyles.modalBg,
+              borderColor: colors.border,
+            },
+          ]}
         >
-          {/* 4. FIX: Dynamic Background for Modal Content */}
-          <View
+          {/* DRAG HANDLE */}
+          <View style={styles.dragHandleContainer}>
+            <View
+              style={[styles.dragHandle, { backgroundColor: colors.border }]}
+            />
+          </View>
+
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              New Task
+            </Text>
+            {/* Optional Close Button in header, or just rely on swipe */}
+          </View>
+          <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
+            {selectedDate}
+          </Text>
+
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            Title
+          </Text>
+          <TextInput
             style={[
-              styles.modalContent,
+              styles.input,
               {
-                backgroundColor: dynamicStyles.modalBg,
+                backgroundColor: dynamicStyles.inputBg,
+                color: colors.textPrimary,
                 borderColor: colors.border,
               },
             ]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                New Task
+            placeholder="What needs to be done?"
+            placeholderTextColor={colors.textMuted}
+            value={title}
+            onChangeText={setTitle}
+            autoFocus
+          />
+
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Duration (min)
               </Text>
-              <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <MaterialCommunityIcons
-                  name="close"
-                  size={24}
-                  color={colors.textMuted}
-                />
-              </TouchableOpacity>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: dynamicStyles.inputBg,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="30"
+                keyboardType="numeric"
+                placeholderTextColor={colors.textMuted}
+                value={duration}
+                onChangeText={setDuration}
+              />
             </View>
-            <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
-              {selectedDate}
-            </Text>
-
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Title
-            </Text>
-            {/* 5. FIX: Dynamic Input Backgrounds */}
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: dynamicStyles.inputBg,
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                },
-              ]}
-              placeholder="What needs to be done?"
-              placeholderTextColor={colors.textMuted}
-              value={title}
-              onChangeText={setTitle}
-              autoFocus
-            />
-
-            <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Duration (min)
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: dynamicStyles.inputBg,
-                      color: colors.textPrimary,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  placeholder="30"
-                  keyboardType="numeric"
-                  placeholderTextColor={colors.textMuted}
-                  value={duration}
-                  onChangeText={setDuration}
-                />
-              </View>
-              <View style={{ flex: 2 }}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Priority
-                </Text>
-                <View style={styles.prioritySelector}>
-                  {["High", "Medium", "Low"].map((p) => (
-                    <TouchableOpacity
-                      key={p}
-                      onPress={() => setPriority(p)}
+            <View style={{ flex: 2 }}>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>
+                Priority
+              </Text>
+              <View style={styles.prioritySelector}>
+                {["High", "Medium", "Low"].map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => setPriority(p)}
+                    style={[
+                      styles.priorityOption,
+                      { borderColor: colors.border },
+                      priority === p && {
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.priorityOption,
-                        { borderColor: colors.border },
+                        styles.priorityOptionText,
+                        { color: colors.textSecondary },
                         priority === p && {
-                          backgroundColor: colors.primary,
-                          borderColor: colors.primary,
+                          color: "#FFFFFF",
+                          fontWeight: "bold",
                         },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.priorityOptionText,
-                          { color: colors.textSecondary },
-                          priority === p && {
-                            color: "#FFFFFF", // White text on selected pill
-                            fontWeight: "bold",
-                          },
-                        ]}
-                      >
-                        {p}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                      {p}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
-
-            <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
-              onPress={handleAddTask}
-            >
-              <Text style={styles.saveBtnText}>Save Task</Text>
-            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            onPress={handleAddTask}
+          >
+            <Text style={styles.saveBtnText}>Save Task</Text>
+          </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );
@@ -705,7 +695,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   overdueText: {
-    color: colors.danger,
+    color: "#EF4444", // Assuming danger color
     fontSize: 12,
     fontWeight: "bold",
   },
@@ -723,18 +713,29 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)", // Slightly darker for better focus
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+
+  // --- NEW MODAL STYLES ---
+  bottomModal: {
+    justifyContent: "flex-end",
+    margin: 0,
   },
-  modalContent: {
-    width: "100%",
-    borderRadius: 24,
+  bottomModalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 24,
+    paddingBottom: 40, // Extra padding for safety
     borderWidth: 1,
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    marginBottom: 10,
+    marginTop: -10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
   },
   modalHeader: {
     flexDirection: "row",
@@ -747,6 +748,7 @@ const styles = StyleSheet.create({
   },
   modalSub: {
     marginBottom: 20,
+    marginTop: 4,
   },
   label: {
     fontSize: 14,
