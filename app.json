@@ -18,9 +18,10 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
-      "package": "com.tejashvi52.PersonalPlanner"
+      "package": "com.tejashvi52.PersonalPlanner",
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "output": "static",
