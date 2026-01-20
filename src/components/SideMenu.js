@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons"; // Added for icons
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useContext, useEffect, useState } from "react";
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import Modal from "react-native-modal";
 import { AppContext } from "../context/AppContext";
+import BackupModal from "./BackupModal"; // <--- Make sure you created this file from the previous step!
 
 const SideMenu = ({ visible, onClose }) => {
   const {
@@ -23,11 +25,15 @@ const SideMenu = ({ visible, onClose }) => {
     setUserData,
     colors,
     theme,
+    user, // <--- Get the Google User object
   } = useContext(AppContext);
 
   const [storageSize, setStorageSize] = useState("Calculating...");
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(userData.name);
+
+  // State for the Backup Modal
+  const [showBackupModal, setShowBackupModal] = useState(false);
 
   // Update data when opening
   useEffect(() => {
@@ -87,11 +93,6 @@ const SideMenu = ({ visible, onClose }) => {
     ]);
   };
 
-  const handleLoginPress = () => {
-    Alert.alert("Authentication", "Redirecting to Login Screen...");
-    // navigation.navigate('Login'); // Hook this up later
-  };
-
   // --- STYLES ---
   const dynamicStyles = {
     card: {
@@ -105,179 +106,221 @@ const SideMenu = ({ visible, onClose }) => {
   };
 
   return (
-    <Modal
-      isVisible={visible}
-      // 1. SWIPE CONFIGURATION
-      onSwipeComplete={handleClose}
-      swipeDirection={["up", "left", "right"]} // Swipe UP to dismiss
-      onBackdropPress={handleClose}
-      onBackButtonPress={handleClose}
-      // 2. SLIDE ANIMATIONS
-      animationIn="slideInDown"
-      animationOut="slideOutUp"
-      backdropOpacity={0.4}
-      useNativeDriver={true}
-      hideModalContentWhileAnimating={true}
-      style={styles.modal}
-    >
-      <View style={[styles.popoverCard, dynamicStyles.card]}>
-        {/* --- NEW: DUMMY LOGIN BUTTON --- */}
-        {/* Only show if name is Guest or no image set (Simulating not logged in) */}
-        {!userData.image && userData.name === "Guest" && (
-          <TouchableOpacity
-            style={[styles.loginBtn, dynamicStyles.loginBtn]}
-            onPress={handleLoginPress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.loginBtnText}>Log In / Sign Up</Text>
-          </TouchableOpacity>
-        )}
+    <>
+      <Modal
+        isVisible={visible}
+        // 1. SWIPE CONFIGURATION
+        onSwipeComplete={handleClose}
+        swipeDirection={["up", "left", "right"]} // Swipe UP to dismiss
+        onBackdropPress={handleClose}
+        onBackButtonPress={handleClose}
+        // 2. SLIDE ANIMATIONS
+        animationIn="slideInDown"
+        animationOut="slideOutUp"
+        backdropOpacity={0.4}
+        useNativeDriver={true}
+        hideModalContentWhileAnimating={true}
+        style={styles.modal}
+      >
+        <View style={[styles.popoverCard, dynamicStyles.card]}>
+          {/* --- LOGIN BUTTON --- */}
+          {/* Shows if NOT logged in via Google, OR if logged in but name is still Guest (edge case) */}
+          {!user && (
+            <TouchableOpacity
+              style={[styles.loginBtn, dynamicStyles.loginBtn]}
+              onPress={() => setShowBackupModal(true)} // <--- OPENS BACKUP MODAL
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loginBtnText}>Log In / Sign Up</Text>
+            </TouchableOpacity>
+          )}
 
-        {/* --- HEADER: Profile Info --- */}
-        <View style={styles.headerContainer}>
-          <TouchableOpacity onPress={pickImage} style={styles.avatarContainer}>
-            {userData.image ? (
-              <Image
-                source={{ uri: userData.image }}
-                style={styles.profileImage}
-              />
-            ) : (
+          {/* --- HEADER: Profile Info --- */}
+          <View style={styles.headerContainer}>
+            <TouchableOpacity
+              onPress={pickImage}
+              style={styles.avatarContainer}
+            >
+              {userData.image ? (
+                <Image
+                  source={{ uri: userData.image }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.profileImage,
+                    { backgroundColor: colors.primary },
+                  ]}
+                >
+                  <Text style={styles.avatarText}>
+                    {userData.name?.[0]?.toUpperCase() || "G"}
+                  </Text>
+                </View>
+              )}
               <View
-                style={[
-                  styles.profileImage,
-                  { backgroundColor: colors.primary },
-                ]}
+                style={[styles.cameraBadge, { borderColor: colors.surface }]}
               >
-                <Text style={styles.avatarText}>
-                  {userData.name?.[0]?.toUpperCase() || "G"}
+                <Text style={{ fontSize: 8 }}>📷</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.infoContainer}>
+              {isEditingName ? (
+                <View style={styles.editRow}>
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    value={tempName}
+                    onChangeText={setTempName}
+                    autoFocus
+                    onSubmitEditing={saveName}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity onPress={saveName}>
+                    <Text style={{ fontSize: 16, marginLeft: 8 }}>✅</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setIsEditingName(true)}>
+                  <Text style={[styles.nameText, dynamicStyles.textPrimary]}>
+                    {userData.name || "Guest"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <Text style={[styles.emailText, dynamicStyles.textSecondary]}>
+                {userData.userType === "student" ? "Student" : "Pro"} Account
+              </Text>
+            </View>
+          </View>
+
+          {/* --- DIVIDER --- */}
+          <View style={[styles.divider, dynamicStyles.divider]} />
+
+          {/* --- SETTINGS ROWS --- */}
+          <View style={styles.settingsList}>
+            {/* NEW: Cloud Sync Option (Always visible so you can backup/restore) */}
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => setShowBackupModal(true)}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons
+                  name="cloud-upload-outline"
+                  size={20}
+                  color={colors.textPrimary}
+                  style={{ marginRight: 10 }}
+                />
+                <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+                  Cloud Backup & Restore
                 </Text>
               </View>
-            )}
-            <View style={[styles.cameraBadge, { borderColor: colors.surface }]}>
-              <Text style={{ fontSize: 8 }}>📷</Text>
-            </View>
-          </TouchableOpacity>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={colors.textSecondary}
+              />
+            </TouchableOpacity>
 
-          <View style={styles.infoContainer}>
-            {isEditingName ? (
-              <View style={styles.editRow}>
-                <TextInput
-                  style={[styles.input, { color: colors.textPrimary }]}
-                  value={tempName}
-                  onChangeText={setTempName}
-                  autoFocus
-                  onSubmitEditing={saveName}
-                  returnKeyType="done"
-                />
-                <TouchableOpacity onPress={saveName}>
-                  <Text style={{ fontSize: 16, marginLeft: 8 }}>✅</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity onPress={() => setIsEditingName(true)}>
-                <Text style={[styles.nameText, dynamicStyles.textPrimary]}>
-                  {userData.name || "Guest"}
+            {/* Profile Mode */}
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+                Work Mode
+              </Text>
+              <Switch
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={"#FFF"}
+                value={userData.userType === "job"}
+                onValueChange={() =>
+                  updateUserData({
+                    userType:
+                      userData.userType === "student" ? "job" : "student",
+                  })
+                }
+              />
+            </View>
+
+            {/* Notifications */}
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+                Notifications
+              </Text>
+              <Switch
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={"#FFF"}
+                value={userData.notifyTasks}
+                onValueChange={(val) => updateUserData({ notifyTasks: val })}
+              />
+            </View>
+
+            {/* Dark Mode */}
+            <View style={styles.row}>
+              <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+                Dark Mode
+              </Text>
+              <Switch
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={"#FFF"}
+                value={theme === "dark"}
+                onValueChange={toggleTheme}
+              />
+            </View>
+          </View>
+
+          {/* --- DIVIDER --- */}
+          <View style={[styles.divider, dynamicStyles.divider]} />
+
+          {/* --- FOOTER: Storage & Reset --- */}
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, dynamicStyles.textSecondary]}>
+              Storage used: {storageSize}
+            </Text>
+            <View style={styles.footerButtons}>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[styles.btn, styles.closeBtn]}
+              >
+                <Text
+                  style={{ color: colors.textSecondary, fontWeight: "600" }}
+                >
+                  Close
                 </Text>
               </TouchableOpacity>
-            )}
-            <Text style={[styles.emailText, dynamicStyles.textSecondary]}>
-              {userData.userType === "student" ? "Student" : "Pro"} Account
-            </Text>
-          </View>
-        </View>
-
-        {/* --- DIVIDER --- */}
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        {/* --- SETTINGS ROWS --- */}
-        <View style={styles.settingsList}>
-          {/* Profile Mode */}
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
-              Work Mode
-            </Text>
-            <Switch
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={"#FFF"}
-              value={userData.userType === "job"}
-              onValueChange={() =>
-                updateUserData({
-                  userType: userData.userType === "student" ? "job" : "student",
-                })
-              }
-            />
+              <TouchableOpacity
+                onPress={handleFactoryReset}
+                style={[styles.btn, styles.resetBtn]}
+              >
+                <Text style={{ color: colors.white, fontWeight: "600" }}>
+                  Reset App
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Notifications */}
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
-              Notifications
-            </Text>
-            <Switch
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={"#FFF"}
-              value={userData.notifyTasks}
-              onValueChange={(val) => updateUserData({ notifyTasks: val })}
-            />
-          </View>
-
-          {/* Dark Mode */}
-          <View style={styles.row}>
-            <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
-              Dark Mode
-            </Text>
-            <Switch
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={"#FFF"}
-              value={theme === "dark"}
-              onValueChange={toggleTheme}
+          {/* Visual Swipe Indicator */}
+          <View style={styles.swipeIndicatorContainer}>
+            <View
+              style={[
+                styles.swipeIndicator,
+                { backgroundColor: colors.border },
+              ]}
             />
           </View>
         </View>
+      </Modal>
 
-        {/* --- DIVIDER --- */}
-        <View style={[styles.divider, dynamicStyles.divider]} />
-
-        {/* --- FOOTER: Storage & Reset --- */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, dynamicStyles.textSecondary]}>
-            Storage used: {storageSize}
-          </Text>
-          <View style={styles.footerButtons}>
-            <TouchableOpacity
-              onPress={handleClose}
-              style={[styles.btn, styles.closeBtn]}
-            >
-              <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
-                Close
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handleFactoryReset}
-              style={[styles.btn, styles.resetBtn]}
-            >
-              <Text style={{ color: colors.white, fontWeight: "600" }}>
-                Reset App
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Visual Swipe Indicator */}
-        <View style={styles.swipeIndicatorContainer}>
-          <View
-            style={[styles.swipeIndicator, { backgroundColor: colors.border }]}
-          />
-        </View>
-      </View>
-    </Modal>
+      {/* --- RENDER BACKUP MODAL --- */}
+      <BackupModal
+        visible={showBackupModal}
+        onClose={() => setShowBackupModal(false)}
+      />
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   modal: {
     justifyContent: "flex-start",
-    marginTop: 60, // Slight gap from top status bar
+    marginTop: 60,
     marginHorizontal: 15,
   },
   popoverCard: {
@@ -376,6 +419,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingVertical: 5,
   },
   rowLabel: {
     fontSize: 15,

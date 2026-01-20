@@ -601,7 +601,7 @@ const BudgetScreen = () => {
         swipeDirection={["down"]}
         onBackdropPress={() => setModalVisible(false)}
         style={styles.bottomModal}
-        avoidKeyboard={true}
+        avoidKeyboard={false} // HOPEFULL KEYBOARD FIX
         backdropOpacity={0.7}
       >
         <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>

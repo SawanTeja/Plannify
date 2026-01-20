@@ -305,7 +305,7 @@ const BucketListScreen = () => {
         animationIn="slideInUp"
         animationOut="slideOutDown"
         // 5. Input keyboard handling
-        avoidKeyboard={true}
+        avoidKeyboard={false} // HOPEFULLY THIS WILL FIX THE KEYBOARD
         // 6. Style to center the modal content
         style={styles.modalContainer}
         // 7. Transparency for backdrop

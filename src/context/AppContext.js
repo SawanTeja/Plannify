@@ -1,22 +1,27 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useEffect, useState } from "react";
 import { Appearance, StatusBar } from "react-native";
-import allColors from "../constants/colors"; // Import the new palette
+import allColors from "../constants/colors";
 import { getData, storeData } from "../utils/storageHelper";
+
+// Import Auth Services
+import {
+  configureGoogleSignIn,
+  getCurrentUser,
+  signInWithGoogle,
+  signOutGoogle,
+} from "../services/AuthService";
 
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState("dark");
 
-  // This is the magic line. It selects the correct object based on the string 'light' or 'dark'
-  // We merge 'common' colors so they are always available.
-  const activeColors = {
-    ...allColors.common,
-    ...allColors[theme],
-  };
+  // Auth State
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Unified User Data State
+  // Unified User Data State (Local profile data)
   const [userData, setUserData] = useState({
     name: "Guest",
     image: null,
@@ -25,7 +30,16 @@ export const AppProvider = ({ children }) => {
     notifyTasks: true,
   });
 
+  const activeColors = {
+    ...allColors.common,
+    ...allColors[theme],
+  };
+
   useEffect(() => {
+    // Initialize Google Auth Config
+    configureGoogleSignIn();
+
+    // Load all settings
     loadSettings();
   }, []);
 
@@ -39,12 +53,69 @@ export const AppProvider = ({ children }) => {
       setTheme(colorScheme || "dark");
     }
 
-    // 2. Load User Data
+    // 2. Load Local User Data
     const storedUserData = await getData("user_data");
     if (storedUserData) {
       setUserData((prev) => ({ ...prev, ...storedUserData }));
     }
+
+    // 3. Check Google Login Status
+    await checkUser();
   };
+
+  // --- Auth Helper Functions ---
+  const checkUser = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
+        // Optional: specific logic to sync Google profile photo to your local 'userData'
+        // if (currentUser.user.photo) updateUserData({ image: currentUser.user.photo });
+      }
+    } catch (e) {
+      console.log("Auth Check Error:", e);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const login = async () => {
+    try {
+      setAuthLoading(true);
+      const userInfo = await signInWithGoogle();
+      setUser(userInfo);
+
+      // Auto-update local name if it's currently "Guest"
+      if (userData.name === "Guest" && userInfo?.user?.name) {
+        updateUserData({
+          name: userInfo.user.name,
+          image: userInfo.user.photo,
+        });
+      }
+
+      return userInfo;
+    } catch (error) {
+      console.log("Login failed", error);
+      throw error; // Rethrow so the UI can show an alert
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      setAuthLoading(true);
+      await signOutGoogle();
+      setUser(null);
+      // Optional: Reset local user data to Guest on logout?
+      // updateUserData({ name: "Guest", image: null });
+    } catch (error) {
+      console.log("Logout failed", error);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+  // ---------------------------
 
   const toggleTheme = async () => {
     const newTheme = theme === "light" ? "dark" : "light";
@@ -78,18 +149,20 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider
       value={{
-        theme, // 'light' or 'dark'
-        colors: activeColors, // The actual color object (hex codes)
+        theme,
+        colors: activeColors,
         toggleTheme,
         userData,
         updateUserData,
         setUserData,
         getStorageUsage,
+        // Auth Values
+        user, // The Google User Object
+        authLoading, // Boolean to show spinners during login
+        login, // Function to trigger Google Login
+        logout, // Function to trigger Google Logout
       }}
     >
-      {/* We update the Status Bar (time/battery icons) to match the theme.
-         If Dark Mode -> Light Content. If Light Mode -> Dark Content.
-      */}
       <StatusBar
         barStyle={theme === "dark" ? "light-content" : "dark-content"}
         backgroundColor={activeColors.background}

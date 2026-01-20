@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "690723040085",
+    "project_id": "personal-planner-484904",
+    "storage_bucket": "personal-planner-484904.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690723040085:android:137f84ade6721e1b975ddc",
+        "android_client_info": {
+          "package_name": "com.tejashvi52.PersonalPlanner"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "690723040085-8mmpou6mbpmamathrlos0hc40bp4ke1l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkTR1QTSzrs-Y9UHcC2RTAZ1cw7k1V1lE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "690723040085-8mmpou6mbpmamathrlos0hc40bp4ke1l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
