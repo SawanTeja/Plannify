@@ -8,6 +8,8 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+.end
+node_modules
 
 # Native
 .kotlin/
@@ -41,3 +43,15 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Dependencies
+node_modules/
+
+# Environment variables (CRITICAL for Backend security)
+.env
+Backend/.env
+
+# Expo/React Native builds
+.expo/
+android/
+ios/
