@@ -15,6 +15,7 @@ const Budget = require('../models/Budget'); // <-- NEW
 
 // Helper for Singletons (Budget, Gamification, Timetable)
 // These should only have ONE document per user.
+// IMPORTANT: Uses delete+create to handle legacy ObjectId vs new string _id conflicts
 async function applySingletonChanges(Model, userId, items) {
   if (!items || items.length === 0) return;
 
@@ -26,42 +27,39 @@ async function applySingletonChanges(Model, userId, items) {
   })[0];
   
   const { _id, ...data } = latest;
-
   data.userId = userId;
-  data.updatedAt = new Date(); // Force server time
+  data.updatedAt = new Date();
 
-  // Special handling for Timetable: merge schedule keys using dot notation
-  // This preserves existing weekday mappings while updating changed ones
-  if (data.schedule && typeof data.schedule === 'object' && Object.keys(data.schedule).length > 0) {
-    const scheduleUpdates = {};
+  // STEP 1: Get existing document(s) to preserve/merge data
+  const existing = await Model.findOne({ userId: userId }).lean();
+  
+  // STEP 2: For Timetable - merge existing schedule with new schedule
+  if (data.schedule && existing && existing.schedule) {
+    // Merge: start with existing, overlay new values
+    const mergedSchedule = { ...existing.schedule };
     for (const [dayKey, dayValue] of Object.entries(data.schedule)) {
-      scheduleUpdates[`schedule.${dayKey}`] = dayValue;
+      mergedSchedule[dayKey] = dayValue;
     }
-    delete data.schedule; // Remove from $set since we're using dot notation
-    
-    const filter = _id ? { _id: _id, userId: userId } : { userId: userId };
-    await Model.updateOne(
-       filter,
-       { $set: { ...data, ...scheduleUpdates } },
-       { upsert: true }
-    );
-    return;
+    data.schedule = mergedSchedule;
+  } else if (!data.schedule && existing && existing.schedule) {
+    // If new data doesn't have schedule, preserve existing
+    data.schedule = existing.schedule;
   }
 
-  // For Timetable: use _id if provided (it's a required string field)
-  // For others: find by userId only
-  if (_id) {
-    await Model.updateOne(
-       { _id: _id, userId: userId },
-       { $set: data },
-       { upsert: true }
-    );
-  } else {
-    await Model.updateOne(
-       { userId: userId },
-       { $set: data },
-       { upsert: true }
-    );
+  // STEP 3: Delete ALL existing documents for this user (handles duplicate _id issue)
+  await Model.deleteMany({ userId: userId });
+
+  // STEP 4: Create fresh document with correct _id
+  const newDoc = {
+    _id: _id || 'singleton_' + Model.modelName.toLowerCase(),
+    ...data
+  };
+  
+  try {
+    await Model.create(newDoc);
+  } catch (err) {
+    // If create fails (e.g., validation), log but don't crash
+    console.error(`Failed to create ${Model.modelName}:`, err.message);
   }
 }
 

@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
   BackHandler,
@@ -22,6 +22,7 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 import JournalModal from "./JournalModal";
 import { getMonthName } from "./JournalUtils";
 
@@ -99,29 +100,76 @@ const JournalScreen = () => {
   };
 
   const handleSaveEntry = async (entryData) => {
+    let savedEntry = null;
     let updatedEntries = [];
+    
     if (entryData.id) {
+      // Editing existing entry
       updatedEntries = entries.map((e) =>
-        e.id === entryData.id ? { ...e, ...entryData } : e,
+        e.id === entryData.id ? { ...e, ...entryData, updatedAt: new Date().toISOString() } : e,
       );
+      savedEntry = updatedEntries.find(e => e.id === entryData.id);
       if (detailEntry && detailEntry.id === entryData.id) {
         setDetailEntry({ ...detailEntry, ...entryData });
       }
     } else {
-      const newEntry = {
+      // New entry
+      savedEntry = {
         ...entryData,
         id: Date.now(),
+        _id: `journal_${Date.now()}`,
         date: new Date().toLocaleDateString(),
         timestamp: Date.now(),
+        updatedAt: new Date().toISOString(),
       };
-      updatedEntries = [newEntry, ...entries];
+      updatedEntries = [savedEntry, ...entries];
     }
+    
+    // Save immediately with local image
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     setEntries(updatedEntries);
     await storeData("journal_data", updatedEntries);
-    syncNow(); // Trigger instant sync
     setModalVisible(false);
     setEntryToEdit(null);
+
+    // If upload is pending, handle background upload
+    if (savedEntry && savedEntry.uploadStatus === 'pending' && savedEntry.image) {
+      console.log('📤 Starting background upload for entry:', savedEntry.id);
+      
+      try {
+        const cloudUrl = await uploadToCloudinary(savedEntry.image);
+        console.log('✅ Background upload complete:', cloudUrl);
+        
+        // Update entry with cloud URL
+        setEntries(prevEntries => {
+          const newEntries = prevEntries.map(e =>
+            e.id === savedEntry.id 
+              ? { ...e, image: cloudUrl, uploadStatus: 'complete', updatedAt: new Date().toISOString() } 
+              : e
+          );
+          // Save and sync
+          storeData("journal_data", newEntries).then(() => {
+            syncNow();
+          });
+          return newEntries;
+        });
+      } catch (error) {
+        console.error('❌ Background upload failed:', error);
+        // Mark as failed but keep local image
+        setEntries(prevEntries => {
+          const newEntries = prevEntries.map(e =>
+            e.id === savedEntry.id 
+              ? { ...e, uploadStatus: 'failed' } 
+              : e
+          );
+          storeData("journal_data", newEntries);
+          return newEntries;
+        });
+      }
+    } else {
+      // No upload needed, just sync
+      syncNow();
+    }
   };
 
   const handleDelete = (id) => {
@@ -233,6 +281,23 @@ const JournalScreen = () => {
         <View style={styles.dateBadge}>
           <Text style={styles.dateText}>{item.date}</Text>
         </View>
+        {/* Upload status dot indicator */}
+        {item.uploadStatus && (
+          <View style={[
+            styles.statusDot,
+            { backgroundColor: item.uploadStatus === 'complete' ? '#22C55E' : item.uploadStatus === 'failed' ? '#EF4444' : '#F59E0B' }
+          ]}>
+            {item.uploadStatus === 'pending' && (
+              <MaterialCommunityIcons name="cloud-upload" size={10} color="#fff" />
+            )}
+            {item.uploadStatus === 'complete' && (
+              <MaterialCommunityIcons name="check" size={10} color="#fff" />
+            )}
+            {item.uploadStatus === 'failed' && (
+              <MaterialCommunityIcons name="alert" size={10} color="#fff" />
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.cardContent}>

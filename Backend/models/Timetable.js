@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const TimetableSchema = new mongoose.Schema({
-  _id: { type: String, required: true }, // Consistent ID for sync (sent from client as 'timetable')
+  _id: { type: String, default: 'timetable' }, // String ID, defaults to 'timetable' if not provided
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   // The schedule object: { "Monday": [{ subjectId: "...", count: 1 }] }
   schedule: { type: Object, default: {} },

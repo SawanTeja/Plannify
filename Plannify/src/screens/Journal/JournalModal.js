@@ -20,6 +20,7 @@ import {
 // 1. IMPORT ENHANCED MODAL
 import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
+import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 
 const MOODS = ["😊", "😂", "🥰", "😐", "😢", "😡"];
 
@@ -44,6 +45,7 @@ const JournalModal = ({
 
   // UI State
   const [isFetchingLoc, setIsFetchingLoc] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);  // NEW: For upload progress
   const [newTagInput, setNewTagInput] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
 
@@ -111,35 +113,39 @@ const JournalModal = ({
   const handleSave = async () => {
     if (!note && !selectedImage && !topic) return;
 
-    let finalImageUri = null;
-    if (
-      selectedImage &&
-      selectedImage.startsWith("file://") &&
-      !selectedImage.includes(FileSystem.documentDirectory)
-    ) {
-      const fileName = selectedImage.split("/").pop();
-      const newPath = FileSystem.documentDirectory + fileName;
-      try {
-        await FileSystem.copyAsync({ from: selectedImage, to: newPath });
-        finalImageUri = newPath;
-      } catch (e) {
-        console.error("Error saving image", e);
-        finalImageUri = selectedImage;
+    // Copy local image to document directory if needed
+    let localImageUri = selectedImage;
+    let needsCloudUpload = false;
+
+    if (selectedImage && (selectedImage.startsWith("file://") || selectedImage.startsWith("content://"))) {
+      // Check if it's already in document directory or already uploaded
+      if (!selectedImage.includes(FileSystem.documentDirectory) && !selectedImage.startsWith("http")) {
+        const fileName = selectedImage.split("/").pop();
+        const newPath = FileSystem.documentDirectory + fileName;
+        try {
+          await FileSystem.copyAsync({ from: selectedImage, to: newPath });
+          localImageUri = newPath;
+        } catch (e) {
+          console.error("Error copying image locally:", e);
+          localImageUri = selectedImage;
+        }
+        needsCloudUpload = true;
       }
-    } else {
-      finalImageUri = selectedImage;
     }
 
+    // Save immediately with local image
+    // If image needs cloud upload, mark uploadStatus as 'pending'
     onSave({
       id: initialData ? initialData.id : null,
       date: initialData ? initialData.date : null,
       timestamp: initialData ? initialData.timestamp : null,
       topic: topic,
       text: note,
-      image: finalImageUri,
+      image: localImageUri,
       tags: selectedTags,
       mood: selectedMood,
       location: locationName,
+      uploadStatus: needsCloudUpload ? 'pending' : (localImageUri?.startsWith('http') ? 'complete' : null),
     });
   };
 
@@ -213,10 +219,14 @@ const JournalModal = ({
             <Text style={[styles.title, dynamicStyles.headerText]}>
               {initialData ? "Edit Memory" : "New Memory"}
             </Text>
-            <TouchableOpacity onPress={handleSave} style={styles.headerBtn}>
-              <Text style={[styles.saveText, { color: colors.primary }]}>
-                Save
-              </Text>
+            <TouchableOpacity onPress={handleSave} style={styles.headerBtn} disabled={isSaving}>
+              {isSaving ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={[styles.saveText, { color: colors.primary }]}>
+                  Save
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
 
