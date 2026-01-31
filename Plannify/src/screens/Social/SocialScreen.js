@@ -168,6 +168,20 @@ const SocialScreen = () => {
       const result = await SocialService.joinGroup(user.idToken, joinCode.trim());
       if (result.success) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
+        
+        // Handle "Already a member" case
+        if (result.message === 'Already a member') {
+             Alert.alert("Already Joined", `You are already a member of "${result.group.name}"`);
+             // We still switch to it
+             if (!groups.find(g => g._id === result.group._id)) {
+                setGroups([result.group, ...groups]);
+             }
+             setSelectedGroup(result.group);
+             setJoinCode("");
+             setShowGroupModal(false);
+             return;
+        }
+
         // Add group if not already in list
         if (!groups.find(g => g._id === result.group._id)) {
           setGroups([result.group, ...groups]);

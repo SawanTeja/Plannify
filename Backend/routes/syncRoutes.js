@@ -17,6 +17,63 @@ const SocialGroup = require('../models/SocialGroup');
 const SplitGroup = require('../models/SplitGroup');
 const SplitExpense = require('../models/SplitExpense');
 
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+// Helper to extract public_id
+const extractPublicId = (url) => {
+  if (!url || !url.includes('cloudinary.com')) return null;
+  try {
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+)\.\w+$/);
+    if (match && match[1]) return match[1];
+  } catch (e) {
+    console.error('Error extracting public_id:', e);
+  }
+  return null;
+};
+
+// Helper to handle Cloudinary cleanup for synced deletions (Journal)
+async function processJournalDeletions(userId, items) {
+  if (!items || items.length === 0) return;
+  
+  // Find items marked as deleted in this sync payload
+  const deletedItems = items.filter(i => i.isDeleted);
+  if (deletedItems.length === 0) return;
+
+  try {
+     const ids = deletedItems.map(i => i._id);
+     // Fetch existing docs to get their image URLs before we potentially overwrite/ignore them
+     const docs = await Journal.find({ _id: { $in: ids }, userId }).lean();
+     
+     const publicIds = [];
+     docs.forEach(doc => {
+         if (doc.image && doc.image.includes('cloudinary.com')) {
+             const pid = extractPublicId(doc.image);
+             if (pid) publicIds.push(pid);
+         }
+     });
+
+     if (publicIds.length > 0) {
+         console.log(`☁️ Sync: Cleaning up ${publicIds.length} images for deleted journals`);
+         // Try batch delete
+         try {
+             await cloudinary.api.delete_resources(publicIds);
+         } catch (batchErr) {
+             console.error("Batch delete failed, trying individual:", batchErr.message);
+             await Promise.all(publicIds.map(id => cloudinary.uploader.destroy(id)));
+         }
+     }
+  } catch (err) {
+      console.error("Error processing journal deletions:", err);
+  }
+}
+
 // Helper for Singletons (Budget, Gamification, Timetable)
 // These should only have ONE document per user.
 // IMPORTANT: Uses delete+create to handle legacy ObjectId vs new string _id conflicts
@@ -127,7 +184,10 @@ router.post('/', authMiddleware, async (req, res) => {
         applyChanges(Task, userId, changes.tasks),
         applyChanges(Habit, userId, changes.habits),
         applyChanges(Transaction, userId, changes.transactions),
-        applyChanges(Journal, userId, changes.journal),
+        // Process Journal Deletions FIRST to clean up images
+        processJournalDeletions(userId, changes.journal).then(() => 
+             applyChanges(Journal, userId, changes.journal)
+        ),
         // New Collections
         // New Collections
         applyChanges(Subject, userId, changes.subjects),

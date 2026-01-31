@@ -225,15 +225,26 @@ const GroupScreen = ({ route }) => {
                         </TouchableOpacity>
 
                         {/* DELETE BUTTON (Offline: All, Online: Owner only) */}
-                        {(group.isOffline || group.ownerId === (user?.user?.id || user?.user?._id)) && (
-                            <TouchableOpacity 
-                                style={[styles.actionBtn, { borderColor: colors.error || '#EF4444' }]}
-                                onPress={confirmDeleteGroup}
-                            >
-                                <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error || '#EF4444'} />
-                                <Text style={[styles.btnText, { color: colors.error || '#EF4444' }]}>Delete</Text>
-                            </TouchableOpacity>
-                        )}
+                        {(() => {
+                            const myId = user?.user?.id || user?.user?._id;
+                            // Check ownership (handle populated object or direct ID string)
+                            const ownerId = group.ownerId?._id || group.ownerId;
+                            const isOwner = myId && ownerId && String(ownerId) === String(myId);
+                            
+                            // Show if Offline OR Owner
+                            if (group.isOffline || isOwner) {
+                                return (
+                                    <TouchableOpacity 
+                                        style={[styles.actionBtn, { borderColor: colors.error || '#EF4444' }]}
+                                        onPress={confirmDeleteGroup}
+                                    >
+                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error || '#EF4444'} />
+                                        <Text style={[styles.btnText, { color: colors.error || '#EF4444' }]}>Delete</Text>
+                                    </TouchableOpacity>
+                                );
+                            }
+                            return null;
+                        })()}
                     </View>
                 </View>
             )}

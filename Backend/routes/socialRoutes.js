@@ -210,15 +210,43 @@ router.delete('/groups/:groupId', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'Only the group owner can delete the group' });
     }
 
-    // Delete all posts in the group
+    // 1. Find all posts in this group
+    const posts = await SocialPost.find({ groupId });
+
+    // 2. Extract public_ids from posts with images
+    const imagePublicIds = [];
+    posts.forEach(post => {
+      if (post.image) {
+        const publicId = extractPublicId(post.image);
+        if (publicId) imagePublicIds.push(publicId);
+      }
+    });
+
+    // 3. Delete images from Cloudinary
+    if (imagePublicIds.length > 0) {
+      console.log(`☁️ Deleting ${imagePublicIds.length} images from Cloudinary for group ${group.name}`);
+      // Cloudinary delete_resources takes an array of public_ids
+      // It has a limit (usually 100 or 1000), but likely fine for this scale. 
+      // If risky, we can chunk it or do Promise.all with destroy().
+      // delete_resources is safer for batch.
+      try {
+          await cloudinary.api.delete_resources(imagePublicIds);
+      } catch (cloudErr) {
+           console.error("Cloudinary Batch Delete Error (trying individual):", cloudErr);
+           // Fallback to individual
+           await Promise.all(imagePublicIds.map(id => cloudinary.uploader.destroy(id)));
+      }
+    }
+
+    // 4. Delete all posts in DB
     await SocialPost.deleteMany({ groupId });
 
-    // Delete the group
+    // 5. Delete the group
     await SocialGroup.findByIdAndDelete(groupId);
 
-    console.log(`✅ Deleted group: ${group.name}`);
+    console.log(`✅ Deleted group and cleaned up resources: ${group.name}`);
 
-    res.json({ success: true, message: 'Group deleted successfully' });
+    res.json({ success: true, message: 'Group and all data deleted successfully' });
   } catch (error) {
     console.error('Delete Group Error:', error);
     res.status(500).json({ error: 'Failed to delete group' });
