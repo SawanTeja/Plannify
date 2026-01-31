@@ -18,6 +18,7 @@ import {
 import SideMenu from "../../components/SideMenu";
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";
+import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
 
 // Enable LayoutAnimation for Android
 if (
@@ -105,12 +106,12 @@ const SummaryDashboard = () => {
     if (!habits || habits.length === 0) return 0;
     let streak = 0;
     let d = new Date();
-    const todayStr = d.toISOString().split("T")[0];
+    const todayStr = getLocalDateString(d);
     const allDoneToday = habits.every((h) => h.history && h.history[todayStr]);
     if (allDoneToday) streak++;
     d.setDate(d.getDate() - 1);
     while (true) {
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = getLocalDateString(d);
       const allDone = habits.every((h) => h.history && h.history[dateStr]);
       if (allDone) {
         streak++;
@@ -130,7 +131,7 @@ const SummaryDashboard = () => {
     // 2. Tasks
     const tasks = (await getData("tasks_data")) || {};
     let count = 0;
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalToday();
     Object.keys(tasks).forEach((date) => {
       if (date >= today)
         count += tasks[date].filter((t) => !t.completed).length;

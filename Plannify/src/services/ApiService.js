@@ -59,5 +59,22 @@ export const ApiService = {
       console.error("Reset Data Error:", error);
       throw error;
     }
+  },
+
+  // 4. Delete Journal Entry (with Cloudinary image)
+  deleteJournal: async (googleIdToken, journalId) => {
+    try {
+      const response = await fetch(`${API_URL}/journal/${journalId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${googleIdToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error("Delete Journal Error:", error);
+      throw error;
+    }
   }
 };

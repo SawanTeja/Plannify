@@ -26,6 +26,7 @@ app.use(async (req, res, next) => {
 // Routes (We will add these in the next steps)
 app.use('/api/auth', require('../routes/authRoutes'));
 app.use('/api/sync', require('../routes/syncRoutes'));
+app.use('/api/journal', require('../routes/journalRoutes'));
 
 // For Local Development
 if (process.env.NODE_ENV !== 'production') {

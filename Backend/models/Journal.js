@@ -9,8 +9,10 @@ const JournalSchema = new mongoose.Schema({
   image: { type: String },    // Cloudinary URL
   location: { type: String }, // Human-readable location string
   mood: { type: String },     // e.g., "😊", "😢"
-  date: { type: Date, default: Date.now },
+  date: { type: String },     // Display date string (e.g., "31/01/2026")
+  timestamp: { type: Number }, // Unix timestamp for sorting
   tags: [{ type: String }],
+  uploadStatus: { type: String }, // 'pending', 'complete', 'failed'
   isDeleted: { type: Boolean, default: false },
 }, { timestamps: true });
 

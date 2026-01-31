@@ -37,6 +37,7 @@ import {
   getXpForCategory,
 } from "./gamification/gamificationConfig";
 import LevelProgress from "./gamification/LevelProgress";
+import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
 
 // Enable Animations
 if (
@@ -59,12 +60,6 @@ const HabitScreen = () => {
   const { colors, theme, syncNow } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
-
-  const getLocalToday = () => {
-    const d = new Date();
-    const offset = d.getTimezoneOffset() * 60000;
-    return new Date(d.getTime() - offset).toISOString().split("T")[0];
-  };
 
   const today = getLocalToday();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -112,14 +107,15 @@ const HabitScreen = () => {
   // --- STREAK LOGIC ---
   const calculateStreakForHabit = (history, targetDate) => {
     let streak = 0;
-    if (!history) return 0; // Fix: Handle undefined history
+    if (!history) return 0;
     let d = new Date(targetDate);
     if (isNaN(d.getTime())) return 0;
 
+    // We can just iterate back in days using standard date manipulation
+    // because we have formatted keys.
     while (true) {
-      const offset = d.getTimezoneOffset() * 60000;
-      const loopDate = new Date(d.getTime() - offset);
-      const dateStr = loopDate.toISOString().split("T")[0];
+      // Check current date string
+      const dateStr = getLocalDateString(d);
 
       if (history[dateStr]) {
         streak++;
@@ -255,9 +251,7 @@ const HabitScreen = () => {
       d <= endDate;
       d.setDate(d.getDate() + 1)
     ) {
-      const offset = d.getTimezoneOffset() * 60000;
-      const loopDate = new Date(d.getTime() - offset);
-      const dateStr = loopDate.toISOString().split("T")[0];
+      const dateStr = getLocalDateString(d);
 
       let completedCount = 0;
       habits.forEach((h) => {

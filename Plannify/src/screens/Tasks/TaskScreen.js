@@ -21,6 +21,7 @@ import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
 
 // Components
 import PriorityMatrix from "./components/PriorityMatrix";
@@ -40,7 +41,7 @@ const TaskScreen = () => {
 
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalToday();
 
   // State
   const [viewMode, setViewMode] = useState("List");
@@ -139,7 +140,7 @@ const TaskScreen = () => {
         });
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const isTomorrow = date === tomorrow.toISOString().split("T")[0];
+        const isTomorrow = date === getLocalDateString(tomorrow);
         
         if (tasksMap[date] && tasksMap[date].length > 0)
           newSections.push({

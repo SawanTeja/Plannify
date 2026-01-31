@@ -143,7 +143,22 @@ export const SyncHelper = {
 
       // Handle Array Merging (Tasks, Habits, etc.)
       const localData = (await getData(storageKey)) || [];
-      const mergedData = mergeArrays(localData, serverData[backendKey]);
+      let mergedData = mergeArrays(localData, serverData[backendKey]);
+      
+      // Special handling for journal: mark new entries with remote images as 'downloading'
+      if (backendKey === 'journal') {
+        mergedData = mergedData.map(entry => {
+          // If entry has a Cloudinary image and no local upload status, mark as downloading
+          if (entry.image && entry.image.includes('cloudinary.com') && !entry.uploadStatus) {
+            return { ...entry, uploadStatus: 'downloading' };
+          }
+          // If entry came from server with 'complete' status for remote image, keep it
+          if (entry.image && entry.image.includes('cloudinary.com') && entry.uploadStatus === 'complete') {
+            return entry;
+          }
+          return entry;
+        });
+      }
       
       await storeData(storageKey, mergedData);
       hasChanges = true;
@@ -184,10 +199,18 @@ const mergeArrays = (local, server) => {
 
     server.forEach(serverItem => {
         if (!serverItem) return;
+        
+        // Ensure serverItem has 'id' field for frontend compatibility
+        // The server uses _id but frontend uses id
+        const normalizedServerItem = { 
+          ...serverItem, 
+          id: serverItem.id || (serverItem._id ? extractNumericId(serverItem._id) : Date.now())
+        };
+        
         // Find if item exists locally (check both _id and legacy id)
         const index = merged.findIndex(l => 
             (l && l._id && l._id === serverItem._id) || 
-            (l && l.id && l.id == serverItem._id)
+            (l && l.id && l.id == normalizedServerItem.id)
         );
 
         if (index > -1) {
@@ -198,16 +221,26 @@ const mergeArrays = (local, server) => {
                     // Server wins if conflict (last-write-wins)
                     mergedHistory[dateKey] = dateValue;
                 }
-                merged[index] = { ...merged[index], ...serverItem, history: mergedHistory };
+                merged[index] = { ...merged[index], ...normalizedServerItem, history: mergedHistory };
             } else {
                 // Standard shallow merge for items without history
-                merged[index] = { ...merged[index], ...serverItem };
+                merged[index] = { ...merged[index], ...normalizedServerItem };
             }
         } else {
             // Add new item from server
-            merged.push(serverItem);
+            merged.push(normalizedServerItem);
         }
     });
     
     return merged;
+};
+
+// Helper to extract numeric id from string _id (e.g., "journal_1234567890" -> 1234567890)
+const extractNumericId = (_id) => {
+    if (typeof _id === 'number') return _id;
+    if (typeof _id === 'string') {
+        const match = _id.match(/(\d+)/);
+        if (match) return parseInt(match[1], 10);
+    }
+    return Date.now();
 };

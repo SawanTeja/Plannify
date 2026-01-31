@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
+import { ApiService } from "../../services/ApiService";
 import JournalModal from "./JournalModal";
 import { getMonthName } from "./JournalUtils";
 
@@ -37,7 +38,7 @@ if (
 const { width, height } = Dimensions.get("window");
 
 const JournalScreen = () => {
-  const { colors, theme, syncNow } = useContext(AppContext);
+  const { colors, theme, syncNow, lastRefreshed, user } = useContext(AppContext);
 
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
@@ -62,6 +63,49 @@ const JournalScreen = () => {
   useEffect(() => {
     loadData();
   }, []);
+
+  // Reload data when sync completes with new data
+  useEffect(() => {
+    if (lastRefreshed) {
+      console.log('🔄 Journal: Reloading after sync...');
+      loadData();
+    }
+  }, [lastRefreshed]);
+
+  // Prefetch images for entries with 'downloading' status
+  useEffect(() => {
+    const prefetchImages = async () => {
+      const downloadingEntries = entries.filter(
+        e => e.uploadStatus === 'downloading' && e.image && e.image.includes('cloudinary.com')
+      );
+      
+      if (downloadingEntries.length === 0) return;
+      
+      console.log(`📥 Prefetching ${downloadingEntries.length} images...`);
+      
+      for (const entry of downloadingEntries) {
+        try {
+          // Prefetch the image using Image.prefetch (React Native built-in)
+          await Image.prefetch(entry.image);
+          console.log('✅ Image prefetched:', entry.image);
+          
+          // Mark as complete
+          setEntries(prev => {
+            const updated = prev.map(e =>
+              e.id === entry.id ? { ...e, uploadStatus: 'complete' } : e
+            );
+            storeData('journal_data', updated);
+            return updated;
+          });
+        } catch (error) {
+          console.error('❌ Failed to prefetch image:', error);
+          // Keep as downloading, will retry on next render
+        }
+      }
+    };
+    
+    prefetchImages();
+  }, [entries.map(e => e.id + e.uploadStatus).join(',')]);
 
   useEffect(() => {
     const backAction = () => {
@@ -88,8 +132,9 @@ const JournalScreen = () => {
       const tagsData = await getData("user_tags");
 
       if (journalData && Array.isArray(journalData)) {
+        // Filter out deleted entries and entries without valid id
         const validEntries = journalData.filter(
-          (item) => item && item.id != null,
+          (item) => item && item.id != null && !item.isDeleted,
         );
         setEntries(validEntries);
       }
@@ -174,16 +219,39 @@ const JournalScreen = () => {
 
   const handleDelete = (id) => {
     if (detailEntry && detailEntry.id === id) setDetailEntry(null);
-    Alert.alert("Delete", "Delete this memory?", [
+    
+    // Find the entry to get its _id for backend
+    const entryToDelete = entries.find(e => e.id === id);
+    
+    Alert.alert("Delete", "Delete this memory? This will also remove the image from cloud storage.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          const updated = entries.filter((e) => e.id !== id);
-          setEntries(updated);
+          
+          // 1. Mark as deleted locally (soft delete for sync)
+          const updated = entries.map(e => 
+            e.id === id ? { ...e, isDeleted: true, updatedAt: new Date().toISOString() } : e
+          );
+          // Filter out deleted for UI but keep in storage for sync
+          setEntries(updated.filter(e => !e.isDeleted));
           await storeData("journal_data", updated);
+          
+          // 2. Call backend to delete from Cloudinary and mark as deleted
+          if (user?.idToken && entryToDelete?._id) {
+            try {
+              console.log('🗑️ Calling backend to delete:', entryToDelete._id);
+              const result = await ApiService.deleteJournal(user.idToken, entryToDelete._id);
+              console.log('✅ Backend delete result:', result);
+            } catch (error) {
+              console.error('❌ Backend delete failed:', error);
+              // Entry is still marked as deleted locally, will sync later
+            }
+          }
+          
+          // 3. Sync to propagate deletion to other devices
           syncNow();
         },
       },
@@ -281,14 +349,22 @@ const JournalScreen = () => {
         <View style={styles.dateBadge}>
           <Text style={styles.dateText}>{item.date}</Text>
         </View>
-        {/* Upload status dot indicator */}
+        {/* Upload/Download status dot indicator */}
         {item.uploadStatus && (
           <View style={[
             styles.statusDot,
-            { backgroundColor: item.uploadStatus === 'complete' ? '#22C55E' : item.uploadStatus === 'failed' ? '#EF4444' : '#F59E0B' }
+            { backgroundColor: 
+              item.uploadStatus === 'complete' ? '#22C55E' :  // Green
+              item.uploadStatus === 'failed' ? '#EF4444' :    // Red
+              item.uploadStatus === 'downloading' ? '#FBBF24' : // Yellow
+              '#F97316' // Orange (pending upload)
+            }
           ]}>
             {item.uploadStatus === 'pending' && (
               <MaterialCommunityIcons name="cloud-upload" size={10} color="#fff" />
+            )}
+            {item.uploadStatus === 'downloading' && (
+              <MaterialCommunityIcons name="cloud-download" size={10} color="#fff" />
             )}
             {item.uploadStatus === 'complete' && (
               <MaterialCommunityIcons name="check" size={10} color="#fff" />
@@ -788,6 +864,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   dateText: { color: "#fff", fontSize: 12, fontWeight: "bold" },
+  statusDot: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 4,
+  },
   cardContent: { padding: 15 },
   rowBetween: {
     flexDirection: "row",

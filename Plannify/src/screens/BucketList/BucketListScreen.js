@@ -36,7 +36,7 @@ const CATEGORIES = [
 ];
 
 const BucketListScreen = () => {
-  const { colors, syncNow } = useContext(AppContext);
+  const { colors, syncNow, lastRefreshed } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -50,9 +50,20 @@ const BucketListScreen = () => {
     loadItems();
   }, []);
 
+  // Reload data when sync completes with new data
+  useEffect(() => {
+    if (lastRefreshed) {
+      console.log('🔄 BucketList: Reloading after sync...');
+      loadItems();
+    }
+  }, [lastRefreshed]);
+
   const loadItems = async () => {
     const data = await getData("bucket_list");
-    if (data) setItems(data);
+    if (data) {
+      // Filter out deleted items
+      setItems(data.filter(i => !i.isDeleted));
+    }
   };
 
   const saveItems = async (newData) => {

@@ -8,6 +8,11 @@ import {
   View,
 } from "react-native";
 import { AppContext } from "../../../context/AppContext";
+import {
+  getLocalDateString,
+  getLocalToday,
+  getDayName,
+} from "../../../utils/dateHelper";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const ITEM_WIDTH = 60; // Fixed width for calculations
@@ -18,15 +23,27 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
   const scrollViewRef = useRef(null);
 
   // 1. Generate Strip centered on TODAY (Fixed Anchor)
-  // This prevents the list from "walking away" into old dates when you tap.
   useEffect(() => {
-    const today = new Date();
+    // Start from "Today" in local time to avoid shifting
+    const todayStr = getLocalToday();
+    const today = new Date(todayStr); // This creates a date at 00:00:00 Local/UTC (depending on parsing)
+    // Important: parsing "YYYY-MM-DD" in JS creates UTC midnight. 
+    // But since we use getLocalDateString later, just treating it as a "day anchor" is fine.
+    
+    // Actually, safer to just work with native dates and use helper for stringifying
+    const anchor = new Date();
     const dates = [];
-    // Generate 14 days back and 14 days forward (wider range)
+    
+    // Generate 14 days back and 14 days forward
     for (let i = -14; i <= 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      dates.push(d);
+        const d = new Date(anchor);
+        d.setDate(anchor.getDate() + i);
+        // We only care about the date part string
+        const dateStr = getLocalDateString(d);
+        dates.push({
+            obj: d,
+            dateStr: dateStr
+        });
     }
     setWeekDates(dates);
   }, []);
@@ -34,13 +51,14 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
   // 2. Scroll to the selected date whenever it changes
   useEffect(() => {
     if (weekDates.length > 0 && selectedDate) {
-      const index = weekDates.findIndex(
-        (d) => d.toISOString().split("T")[0] === selectedDate,
-      );
+      const index = weekDates.findIndex((d) => d.dateStr === selectedDate);
 
       if (index !== -1 && scrollViewRef.current) {
-        // Center the selected item
-        const xPos = index * ITEM_WIDTH - SCREEN_WIDTH / 2 + ITEM_WIDTH / 2;
+        // Since we have padding = (SCREEN_WIDTH - ITEM_WIDTH) / 2 in contentContainerStyle
+        // The first item (index 0) is centered at scrollOffset = 0.
+        // Each subsequent item is ITEM_WIDTH away.
+        // So simply scrolling to index * ITEM_WIDTH keeps it centered.
+        const xPos = index * ITEM_WIDTH;
         scrollViewRef.current.scrollTo({
           x: xPos,
           animated: true,
@@ -49,13 +67,8 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
     }
   }, [selectedDate, weekDates]);
 
-  const isToday = (date) => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
+  const isToday = (dateStr) => {
+    return dateStr === getLocalToday();
   };
 
   return (
@@ -68,13 +81,11 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
           paddingHorizontal: (SCREEN_WIDTH - ITEM_WIDTH) / 2,
         }}
       >
-        {weekDates.map((date, index) => {
-          const dateStr = date.toISOString().split("T")[0];
+        {weekDates.map((item, index) => {
+          const { dateStr, obj } = item;
           const isSelected = dateStr === selectedDate;
-          const dayNum = date.getDate();
-          const dayName = date.toLocaleDateString("en-US", {
-            weekday: "short",
-          });
+          const dayNum = obj.getDate();
+          const dayName = getDayName(obj);
 
           // Dynamic Styles
           const boxStyle = {
@@ -104,7 +115,7 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
               <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
 
               {/* Dot for Today */}
-              {isToday(date) && !isSelected && (
+              {isToday(dateStr) && !isSelected && (
                 <View
                   style={[styles.todayDot, { backgroundColor: colors.primary }]}
                 />
