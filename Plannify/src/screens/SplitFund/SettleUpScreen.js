@@ -1,211 +1,254 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import { AppContext } from '../../context/AppContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SplitService } from '../../services/SplitService';
 import { simplifyDebts } from '../../utils/SplitLogic';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SettleUpScreen = ({ route }) => {
     const { colors, theme, user } = useContext(AppContext);
-    const { groupId, balances, members } = route.params;
+    // Initial balances from params, but we will refresh them locally too
+    const { groupId, balances: initialBalances, members } = route.params;
     const navigation = useNavigation();
-    // Get user ID consistently
-    const currentUserId = user?.user?.id || user?.user?._id || 'local_user';
-    const [payer, setPayer] = useState(currentUserId);
-    const [payee, setPayee] = useState(''); // Default empty
-    const [amount, setAmount] = useState('');
-    
-    const [suggestions, setSuggestions] = useState([]);
+    const insets = useSafeAreaInsets();
 
+    const [balances, setBalances] = useState(initialBalances);
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Get user ID consistently - prioritize _id (Mongo) over id (Google)
+    const currentUserId = user?.user?._id || user?.user?.id || 'local_user';
+
+    // Initial Load & Refresh Logic
     useEffect(() => {
         if (balances) {
-            const simplified = simplifyDebts(balances);
-            setSuggestions(simplified);
-            
-            // Auto-select a suggestion involving current user if exists
-            const mySuggestion = simplified.find(s => s.from === currentUserId || s.to === currentUserId);
-            if (mySuggestion) {
-                if (mySuggestion.from === currentUserId) {
-                    setPayer(currentUserId);
-                    setPayee(mySuggestion.to);
-                    setAmount(String(mySuggestion.amount));
-                } else {
-                    setPayer(mySuggestion.from);
-                    setPayee(currentUserId);
-                    setAmount(String(mySuggestion.amount));
-                }
-            } else if (simplified.length > 0) {
-                 setPayer(simplified[0].from);
-                 setPayee(simplified[0].to);
-                 setAmount(String(simplified[0].amount));
-            }
+            calculateSuggestions(balances);
         }
     }, [balances]);
 
-    const handleRecordPayment = async () => {
-        if (!payee || !amount) {
-            Alert.alert("Error", "Please select who is getting paid and the amount.");
-            return;
-        }
+    const calculateSuggestions = (currentBalances) => {
+        const simplified = simplifyDebts(currentBalances);
+        setSuggestions(simplified);
+    };
 
-        if (!user?.idToken) {
+    const fetchLatestBalances = async () => {
+        setRefreshing(true);
+        try {
+            // Determine token (null if offline)
+            const isOffline = groupId && groupId.toString().startsWith('local_');
+            const token = isOffline ? null : user?.idToken;
+            
+            const newBalances = await SplitService.calculateBalances(token, groupId);
+            setBalances(newBalances);
+        } catch (error) {
+            console.error("Failed to refresh balances:", error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    const handleSettleDebt = (debt) => {
+        const { from, to, amount } = debt;
+        // DIRECT PROCESSING - No confirmation popup
+        processPayment(from, to, amount);
+    };
+
+    const processPayment = async (payerId, payeeId, amountAmount) => {
+        if (!user?.idToken && !groupId.toString().startsWith('local_')) {
             Alert.alert("Error", "You must be logged in to record payments.");
             return;
         }
 
+        setLoading(true);
         try {
+             // Determine token
+            const isOffline = groupId && groupId.toString().startsWith('local_');
+            const token = isOffline ? null : user?.idToken;
+
             // A Payment is just an expense where Payer pays explicitly for Payee
-            await SplitService.addExpense(user.idToken, {
+            await SplitService.addExpense(token, {
                 groupId,
-                description: 'Payment',
-                amount: parseFloat(amount),
-                paidBy: payer,
+                description: 'Settlement',
+                amount: parseFloat(amountAmount),
+                paidBy: payerId,
                 splitType: 'Payment',
-                splits: { [payee]: parseFloat(amount) }, 
+                splits: { [payeeId]: parseFloat(amountAmount) }, 
                 type: 'payment', // Mark as payment type
                 date: new Date()
             });
             
-            Alert.alert("Success", "Payment recorded!", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            // Refund/Refresh logic
+            // We fetch the latest balances to update the list immediately
+            await fetchLatestBalances();
+            // Alert.alert("Success", "Payment recorded! List updated."); // Removed per user request
+
         } catch (e) {
             console.error(e);
             Alert.alert("Error", "Could not record payment.");
+        } finally {
+            setLoading(false);
         }
     };
     
+    // Helper to get consistent name
+    const getName = (id) => {
+        const targetId = String(id);
+        const myIdStr = String(currentUserId);
+
+        if (targetId === myIdStr) return 'You';
+        
+        const member = members.find(m => String(m._id || m.id) === targetId);
+        if (member && String(member._id || member.id) === myIdStr) return 'You';
+
+        return member?.name || 'Unknown';
+    };
+
+    // Helper to get Avatar
+    const getAvatar = (id) => {
+        const targetId = String(id);
+        const member = members.find(m => String(m._id || m.id) === targetId);
+        return member?.avatar || null;
+    };
+
     const dynamicStyles = {
         container: { backgroundColor: colors.background },
         text: { color: colors.textPrimary },
         subText: { color: colors.textSecondary },
         card: { backgroundColor: colors.surface, borderColor: colors.border },
-    };
-
-    const getName = (id) => {
-        if (id === currentUserId) return 'You';
-        const member = members.find(m => (m._id || m.id) === id);
-        return member?.name || 'Unknown';
+        highlight: { color: colors.primary },
     };
 
     return (
-        <ScrollView style={[styles.container, dynamicStyles.container]} contentContainerStyle={{ padding: 20 }}>
-            
-            {/* SUGGESTIONS */}
-            {suggestions.length > 0 && (
-                <View style={{ marginBottom: 25 }}>
-                    <Text style={[styles.label, { color: colors.textSecondary }]}>Suggested Payments</Text>
-                    {suggestions.map((s, index) => (
-                         <TouchableOpacity 
-                            key={index} 
-                            style={[styles.suggestionCard, { backgroundColor: colors.primary + '10', borderColor: colors.primary }]}
-                            onPress={() => {
-                                setPayer(s.from);
-                                setPayee(s.to);
-                                setAmount(String(s.amount));
-                            }}
-                        >
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <MaterialCommunityIcons name="arrow-right-thin" size={24} color={colors.primary} />
-                                <Text style={[styles.sugText, dynamicStyles.text]}>
-                                    <Text style={{ fontWeight: 'bold' }}>{getName(s.from)}</Text> pays <Text style={{ fontWeight: 'bold' }}>{getName(s.to)}</Text>
-                                </Text>
-                            </View>
-                            <Text style={[styles.sugAmount, { color: colors.primary }]}>{colors.currency}{s.amount}</Text>
-                        </TouchableOpacity>
-                    ))}
+        <View style={[styles.container, dynamicStyles.container]}>
+            {/* Refresh Indicator */}
+            {refreshing && (
+                <View style={{ padding: 10 }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
                 </View>
             )}
 
-            {/* MANUAL FORM */}
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Record Payment</Text>
-            
-            <View style={[styles.card, dynamicStyles.card]}>
-                {/* PAYER ROW */}
-                <View style={styles.row}>
-                    <Text style={[styles.rowLabel, dynamicStyles.subText]}>From</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {members.map(m => {
-                            const memberId = m._id || m.id;
-                            return (
-                            <TouchableOpacity 
-                                key={memberId}
-                                style={[styles.chip, payer === memberId ? { backgroundColor: colors.primary } : { borderWidth: 1, borderColor: colors.border }]}
-                                onPress={() => setPayer(memberId)}
-                            >
-                                <Text style={{ color: payer === memberId ? 'white' : colors.textPrimary }}>{memberId === currentUserId ? 'You' : m.name}</Text>
-                            </TouchableOpacity>
-                        )})}
-                    </ScrollView>
-                </View>
-
-                {/* ARROW */}
-                <View style={{ alignItems: 'center', marginVertical: -10, zIndex: 1 }}>
-                     <View style={{ backgroundColor: colors.background, padding: 5, borderRadius: 20 }}>
-                         <MaterialCommunityIcons name="arrow-down" size={24} color={colors.textMuted} />
-                     </View>
-                </View>
-
-                {/* PAYEE ROW */}
-                <View style={styles.row}>
-                    <Text style={[styles.rowLabel, dynamicStyles.subText]}>To</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {members.map(m => {
-                            const memberId = m._id || m.id;
-                            return (
-                            <TouchableOpacity 
-                                key={memberId}
-                                style={[styles.chip, payee === memberId ? { backgroundColor: colors.success } : { borderWidth: 1, borderColor: colors.border }]}
-                                onPress={() => setPayee(memberId)}
-                            >
-                                <Text style={{ color: payee === memberId ? 'white' : colors.textPrimary }}>{memberId === currentUserId ? 'You' : m.name}</Text>
-                            </TouchableOpacity>
-                        )})}
-                    </ScrollView>
-                </View>
+            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
                 
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                
-                {/* AMOUNT */}
-                <View style={{ alignItems: 'center', padding: 20 }}>
-                    <Text style={[dynamicStyles.subText, { fontSize: 12, marginBottom: 5 }]}>AMOUNT</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                         <Text style={{ fontSize: 32, fontWeight: 'bold', color: colors.textPrimary }}>{colors.currency || '$'}</Text>
-                         <TextInput
-                            style={{ fontSize: 40, fontWeight: 'bold', color: colors.textPrimary, minWidth: 100, textAlign: 'center' }}
-                            placeholder="0.00"
-                            placeholderTextColor={colors.textMuted}
-                            keyboardType="numeric"
-                            value={amount}
-                            onChangeText={setAmount}
-                        />
+                <Text style={[styles.title, dynamicStyles.text]}>Outstanding Debts</Text>
+                <Text style={[styles.subtitle, dynamicStyles.subText]}>
+                    Below is the most efficient way to settle all group debts.
+                </Text>
+
+                {suggestions.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <MaterialCommunityIcons name="check-circle-outline" size={64} color={colors.success} />
+                        <Text style={[styles.emptyText, dynamicStyles.text]}>All settled up!</Text>
+                        <Text style={[styles.emptySub, dynamicStyles.subText]}>No one owes anything in this group.</Text>
                     </View>
-                </View>
-            </View>
+                ) : (
+                    suggestions.map((s, index) => {
+                         const isMyDebt = String(s.from) === String(currentUserId);
+                         const isOwedToMe = String(s.to) === String(currentUserId);
+                         
+                         return (
+                            <View 
+                                key={index} 
+                                style={[styles.debtCard, dynamicStyles.card]}
+                            >
+                                <View style={styles.debtInfo}>
+                                    <View style={styles.avatarRow}>
+                                        {/* Payer Avatar */}
+                                        <View style={[styles.avatar, { backgroundColor: colors.danger + '20' }]}>
+                                             <Text style={{ color: colors.danger, fontWeight: 'bold' }}>
+                                                 {getName(s.from)[0]}
+                                             </Text>
+                                        </View>
+                                        <MaterialCommunityIcons name="arrow-right-thin" size={24} color={colors.textSecondary} style={{ marginHorizontal: 8 }} />
+                                        {/* Payee Avatar */}
+                                        <View style={[styles.avatar, { backgroundColor: colors.success + '20' }]}>
+                                             <Text style={{ color: colors.success, fontWeight: 'bold' }}>
+                                                 {getName(s.to)[0]}
+                                             </Text>
+                                        </View>
+                                    </View>
 
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.success }]} onPress={handleRecordPayment}>
-                <Text style={styles.saveBtnText}>Record Cash Payment</Text>
-            </TouchableOpacity>
+                                    <View style={{ marginTop: 10 }}>
+                                        <Text style={[dynamicStyles.text, { fontSize: 16 }]}>
+                                            <Text style={{ fontWeight: 'bold' }}>{getName(s.from)}</Text> owes <Text style={{ fontWeight: 'bold' }}>{getName(s.to)}</Text>
+                                        </Text>
+                                        <Text style={[styles.amountText, { color: colors.textPrimary }]}>
+                                            {colors.currency}{s.amount}
+                                        </Text>
+                                    </View>
+                                </View>
 
-        </ScrollView>
+                                <TouchableOpacity 
+                                    style={[
+                                        styles.settleBtn, 
+                                        { backgroundColor: isMyDebt ? colors.primary : colors.surfaceHighlight }
+                                    ]}
+                                    onPress={() => handleSettleDebt(s)}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color={isMyDebt ? 'white' : colors.textPrimary} size="small" />
+                                    ) : (
+                                        <>
+                                            <MaterialCommunityIcons 
+                                                name="check" 
+                                                size={16} 
+                                                color={isMyDebt ? 'white' : colors.primary} 
+                                            />
+                                            <Text style={{ 
+                                                color: isMyDebt ? 'white' : colors.primary, 
+                                                fontWeight: 'bold', 
+                                                marginLeft: 4 
+                                            }}>
+                                                Settle
+                                            </Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        );
+                    })
+                )}
+            </ScrollView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    card: { borderRadius: 16, borderWidth: 1, marginBottom: 20 },
-    label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, uppercase: true, marginLeft: 5 },
+    title: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
+    subtitle: { fontSize: 14, marginBottom: 25 },
     
-    suggestionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
-    sugText: { marginLeft: 10, fontSize: 14 },
-    sugAmount: { fontWeight: 'bold', fontSize: 16 },
-
-    row: { padding: 15 },
-    rowLabel: { fontSize: 12, fontWeight: 'bold', marginBottom: 10 },
-    chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
-    divider: { height: 1, width: '100%' },
-
-    saveBtn: { height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+    debtCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 15,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 15,
+    },
+    debtInfo: { flex: 1, marginRight: 10 },
+    avatarRow: { flexDirection: 'row', alignItems: 'center' },
+    avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    
+    amountText: { fontSize: 20, fontWeight: 'bold', marginTop: 4 },
+    
+    settleBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        minWidth: 90,
+        justifyContent: 'center'
+    },
+    
+    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
+    emptyText: { fontSize: 20, fontWeight: 'bold', marginTop: 20 },
+    emptySub: { fontSize: 14, marginTop: 5 }
 });
 
 export default SettleUpScreen;

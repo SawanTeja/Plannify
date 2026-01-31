@@ -85,7 +85,7 @@ const GroupScreen = ({ route }) => {
             setNewMemberName('');
             setAddMemberModalVisible(false);
             loadGroupData();
-            Alert.alert("Success", "Member added successfully");
+            // Alert.alert("Success", "Member added successfully"); // Removed per user request
         } catch (e) {
             Alert.alert("Error", e.message || "Could not add member.");
         }
@@ -131,8 +131,9 @@ const GroupScreen = ({ route }) => {
     const renderExpenseItem = ({ item }) => {
         // Backend stores paidBy as User ID
         // Backend stores paidBy as User ID
-        const myId = user?.user?.id || user?.user?._id || 'guest';
-        const isPayer = item.paidBy === myId;
+        // Backend stores paidBy as User ID
+        const myId = user?.user?._id || user?.user?.id || 'guest'; // Prioritize _id
+        const isPayer = String(item.paidBy) === String(myId);
         const month = new Date(item.date).toLocaleString('default', { month: 'short', day: 'numeric' });
         
         return (
@@ -143,7 +144,7 @@ const GroupScreen = ({ route }) => {
                 <View style={{ flex: 1, paddingHorizontal: 12 }}>
                     <Text style={[styles.expDesc, dynamicStyles.text]}>{item.description}</Text>
                     <Text style={[styles.expPayer, dynamicStyles.subText]}>
-                        {isPayer ? 'You' : 'Someone'} paid {formatMoney(item.amount)}
+                        {isPayer ? 'You' : (group?.members?.find(m => String(m._id || m.id) === String(item.paidBy))?.name || 'Someone')} paid {formatMoney(item.amount)}
                     </Text>
                 </View>
                 <View>
@@ -192,8 +193,8 @@ const GroupScreen = ({ route }) => {
                              {group.members.map((member) => {
                                  const uid = member._id || member.id;
                                  const amount = balances[uid] || 0;
-                                 const myId = user?.user?.id || user?.user?._id || 'guest';
-                                 const isMe = uid === myId;
+                                 const myId = user?.user?._id || user?.user?.id || 'guest';
+                                 const isMe = String(uid) === String(myId);
                                  
                                  return (
                                      <View key={uid} style={[styles.balanceChip, { backgroundColor: amount >= 0 ? colors.success + '20' : colors.danger + '20' }]}>
@@ -226,7 +227,7 @@ const GroupScreen = ({ route }) => {
 
                         {/* DELETE BUTTON (Offline: All, Online: Owner only) */}
                         {(() => {
-                            const myId = user?.user?.id || user?.user?._id;
+                            const myId = user?.user?._id || user?.user?.id;
                             // Check ownership (handle populated object or direct ID string)
                             const ownerId = group.ownerId?._id || group.ownerId;
                             const isOwner = myId && ownerId && String(ownerId) === String(myId);
