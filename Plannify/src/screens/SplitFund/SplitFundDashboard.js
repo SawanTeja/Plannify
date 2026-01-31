@@ -34,10 +34,10 @@ const SplitFundDashboard = () => {
     useFocusEffect(
         useCallback(() => {
             loadData();
-        }, [])
+        }, [loadData])
     );
 
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         // Allow loading without token for offline groups
         setIsRefreshing(true);
         try {
@@ -63,7 +63,7 @@ const SplitFundDashboard = () => {
         } finally {
             setIsRefreshing(false);
         }
-    };
+    }, [user?.idToken, user?.user?.id]);
 
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;

@@ -69,6 +69,32 @@ router.get('/groups', authMiddleware, async (req, res) => {
     }
 });
 
+// DELETE /api/split/groups/:id - Delete a group (Owner only)
+router.delete('/groups/:id', authMiddleware, async (req, res) => {
+    try {
+        const group = await SplitGroup.findById(req.params.id);
+
+        if (!group) {
+            return res.status(404).json({ message: 'Group not found' });
+        }
+
+        if (group.ownerId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: 'Not authorized to delete this group' });
+        }
+
+        // Delete group
+        await SplitGroup.findByIdAndDelete(req.params.id);
+        
+        // Delete associated expenses
+        await SplitExpense.deleteMany({ groupId: req.params.id });
+
+        res.json({ message: 'Group deleted successfully' });
+    } catch (error) {
+        console.error('Delete Group Error:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // POST /api/split/groups - Create a new group
 router.post('/groups', authMiddleware, async (req, res) => {
     try {

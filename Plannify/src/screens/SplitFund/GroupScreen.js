@@ -91,6 +91,31 @@ const GroupScreen = ({ route }) => {
         }
     };
 
+    const confirmDeleteGroup = () => {
+        Alert.alert(
+            "Delete Group",
+            "Are you sure you want to delete this group? This action cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete", 
+                    style: "destructive", 
+                    onPress: handleDeleteGroup 
+                }
+            ]
+        );
+    };
+
+    const handleDeleteGroup = async () => {
+        try {
+            const token = group?.isOffline ? null : user?.idToken;
+            await SplitService.deleteGroup(token, groupId);
+            navigation.goBack();
+        } catch (e) {
+            Alert.alert("Error", e.message || "Could not delete group");
+        }
+    };
+
     // Helper to format currency
     const formatMoney = (amount) => {
         return `${colors.currency || '₹'}${Math.abs(amount).toFixed(2)}`;
@@ -105,7 +130,8 @@ const GroupScreen = ({ route }) => {
 
     const renderExpenseItem = ({ item }) => {
         // Backend stores paidBy as User ID
-        const myId = user.user?.id || user.user?._id;
+        // Backend stores paidBy as User ID
+        const myId = user?.user?.id || user?.user?._id || 'guest';
         const isPayer = item.paidBy === myId;
         const month = new Date(item.date).toLocaleString('default', { month: 'short', day: 'numeric' });
         
@@ -150,36 +176,36 @@ const GroupScreen = ({ route }) => {
                         )}
 
                         {/* ADD MEMBER BUTTON - Visible for Offline groups OR Online Group Creator */}
-                        {(group.isOffline || group.ownerId === (user.user?.id || user.user?._id)) && (
-                            <TouchableOpacity 
-                                onPress={() => setAddMemberModalVisible(true)} 
-                                style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHighlight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
-                            >
-                                <MaterialCommunityIcons name="account-plus" size={16} color={colors.primary} />
-                                <Text style={{ color: colors.primary, fontWeight: 'bold', marginLeft: 5, fontSize: 12 }}>
-                                    Add Member {group.isOffline ? '(Offline)' : '(Virtual)'}
-                                </Text>
-                            </TouchableOpacity>
-                        )}
+                        {/* ADD MEMBER BUTTON - Visible for Offline groups OR Any Member of Online Group (per user request) */}
+                        <TouchableOpacity 
+                            onPress={() => setAddMemberModalVisible(true)} 
+                            style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHighlight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+                        >
+                            <MaterialCommunityIcons name="account-plus" size={16} color={colors.primary} />
+                            <Text style={{ color: colors.primary, fontWeight: 'bold', marginLeft: 5, fontSize: 12 }}>
+                                Add Member {group.isOffline ? '(Offline)' : '(Virtual)'}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 10 }}>
-                         {Object.entries(balances).map(([uid, amount]) => {
-                             if (Math.abs(amount) < 0.01) return null; // Hide approximate zeros
-                             const member = group.members.find(m => (m._id || m.id) === uid);
-                             const myId = user.user?.id || user.user?._id;
-                             const isMe = uid === myId;
-                             
-                             return (
-                                 <View key={uid} style={[styles.balanceChip, { backgroundColor: amount > 0 ? colors.success + '20' : colors.danger + '20' }]}>
-                                     <Text style={[styles.chipText, { color: amount > 0 ? colors.success : colors.danger }]}>
-                                         {isMe ? 'You' : member?.name || 'User'} 
-                                         {amount >= 0 ? ' gets ' : ' owes '}
-                                         {formatMoney(amount)}
-                                     </Text>
-                                 </View>
-                             );
-                         })}
-                    </ScrollView>
+                             {/* Show ALL members, even with 0 balance */}
+                             {group.members.map((member) => {
+                                 const uid = member._id || member.id;
+                                 const amount = balances[uid] || 0;
+                                 const myId = user?.user?.id || user?.user?._id || 'guest';
+                                 const isMe = uid === myId;
+                                 
+                                 return (
+                                     <View key={uid} style={[styles.balanceChip, { backgroundColor: amount >= 0 ? colors.success + '20' : colors.danger + '20' }]}>
+                                         <Text style={[styles.chipText, { color: amount >= 0 ? colors.success : colors.danger }]}>
+                                             {isMe ? 'You' : member?.name || 'User'} 
+                                             {amount >= 0 ? ' gets ' : ' owes '}
+                                             {formatMoney(amount)}
+                                         </Text>
+                                     </View>
+                                 );
+                             })}
+                        </ScrollView>
                     
                     <View style={styles.actionRow}>
                         <TouchableOpacity 
@@ -197,6 +223,17 @@ const GroupScreen = ({ route }) => {
                             <MaterialCommunityIcons name="history" size={20} color={colors.textPrimary} />
                             <Text style={[styles.btnText, dynamicStyles.text]}>History Log</Text>
                         </TouchableOpacity>
+
+                        {/* DELETE BUTTON (Offline: All, Online: Owner only) */}
+                        {(group.isOffline || group.ownerId === (user?.user?.id || user?.user?._id)) && (
+                            <TouchableOpacity 
+                                style={[styles.actionBtn, { borderColor: colors.error || '#EF4444' }]}
+                                onPress={confirmDeleteGroup}
+                            >
+                                <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.error || '#EF4444'} />
+                                <Text style={[styles.btnText, { color: colors.error || '#EF4444' }]}>Delete</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             )}

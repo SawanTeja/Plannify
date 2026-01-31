@@ -173,6 +173,46 @@ export const SplitService = {
         }
     },
 
+    deleteGroup: async (token, groupId) => {
+        // Handle Offline Deletion
+        if (!token) {
+            try {
+                // Delete Group
+                const localGroups = await SplitService.getLocalGroups();
+                const filteredGroups = localGroups.filter(g => g.id !== groupId);
+                await storeData('split_offline_groups', filteredGroups);
+                
+                // Delete Expenses
+                const allExpenses = await getData('split_offline_expenses') || {};
+                delete allExpenses[groupId]; // Remove expenses for this specific group
+                await storeData('split_offline_expenses', allExpenses);
+                
+                return true;
+            } catch (e) {
+                console.error('Delete Local Group Error:', e);
+                throw e;
+            }
+        }
+        
+        // Handle Online Deletion
+        try {
+            const response = await fetch(`${API_URL}/split/groups/${groupId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.message || 'Failed to delete group');
+            }
+            return await response.json();
+        } catch (e) {
+            console.error('Delete Online Group Error:', e);
+            throw e;
+        }
+    },
+
     // ===================================
     // EXPENSE MANAGEMENT
     // ===================================
@@ -266,8 +306,13 @@ export const SplitService = {
     calculateBalances: async (token, groupId) => {
         try {
             const expenses = await SplitService.getExpenses(token, groupId);
-            // We need members list, but calculateBalances usually called inside component that has group info
-            // For now, we assume simple balance calculation based on expense history
+            
+            // Note: Ideally we should pass members list to this function or fetch group here
+            // But to save calls, we are relying on "paidBy" appearing in expenses or frontend handling 0s
+            // However, to show 0 balance for virtual members who haven't participated yet, 
+            // the frontend logic (GroupScreen) now iterates over group.members.
+            // So this function just needs to return accurate non-zero diffs.
+            // But let's be safe and return what we know.
             
             const balances = {};
             

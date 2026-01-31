@@ -12,6 +12,10 @@ const Timetable = require('../models/Timetable');  // <-- NEW
 const BucketItem = require('../models/BucketItem');// <-- NEW
 const Gamification = require('../models/Gamification');
 const Budget = require('../models/Budget'); // <-- NEW
+const SocialPost = require('../models/SocialPost');
+const SocialGroup = require('../models/SocialGroup');
+const SplitGroup = require('../models/SplitGroup');
+const SplitExpense = require('../models/SplitExpense');
 
 // Helper for Singletons (Budget, Gamification, Timetable)
 // These should only have ONE document per user.
@@ -203,6 +207,14 @@ router.delete('/reset', authMiddleware, async (req, res) => {
       BucketItem.deleteMany({ userId }),
       Gamification.deleteMany({ userId }),
       Budget.deleteMany({ userId }),
+      // Socials
+      SocialPost.deleteMany({ authorId: userId }),
+      SocialGroup.deleteMany({ ownerId: userId }), // Only groups owned by user
+      // SplitFund
+      SplitGroup.deleteMany({ ownerId: userId }),
+      SplitExpense.deleteMany({ paidBy: userId }), // Technically expenses could be tricky if group persists, but for "wipe everything" this is safer
+      // Ideally for SplitFund, if you wipe your data, you might want to leave groups you don't own? 
+      // But "Clear Database" usually implies wiping ALL your footprint.
     ]);
 
     // Reset Last Sync
