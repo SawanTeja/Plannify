@@ -22,6 +22,7 @@ const SplitFundDashboard = () => {
     
     // Inputs
     const [newGroupName, setNewGroupName] = useState('');
+    const [isOfflineGroup, setIsOfflineGroup] = useState(false);
     const [joinCode, setJoinCode] = useState('');
 
     const currentUser = {
@@ -37,27 +38,26 @@ const SplitFundDashboard = () => {
     );
 
     const loadData = async () => {
-        if (!user?.idToken) {
-            console.log('SplitFund: No auth token, skipping load');
-            return;
-        }
-
+        // Allow loading without token for offline groups
         setIsRefreshing(true);
         try {
-            const loadedGroups = await SplitService.getGroups(user.idToken);
+            const loadedGroups = await SplitService.getGroups(user?.idToken); // Token optional
             setGroups(loadedGroups);
             
             // Calculate total net balance across all groups
             let total = 0;
             for (const group of loadedGroups) {
-                const balances = await SplitService.calculateBalances(user.idToken, group._id || group.id);
-                const myId = user.user?.id || user.user?._id;
+                // Determine token to use (none for offline)
+                const token = group.isOffline ? null : user?.idToken;
+                if (!group.isOffline && !token) continue;
+
+                const balances = await SplitService.calculateBalances(token, group._id || group.id);
+                const myId = user?.user?.id || user?.user?._id || 'local_user';
                 if (myId && balances[myId]) {
                     total += balances[myId];
                 }
             }
             setNetBalance(total);
-
         } catch (e) {
             console.error("Failed to load SplitFund data", e);
         } finally {
@@ -67,14 +67,23 @@ const SplitFundDashboard = () => {
 
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;
-        if (!user?.idToken) {
-            Alert.alert("Error", "You must be logged in to create groups.");
-            return;
-        }
+
         try {
-            await SplitService.createGroup(user.idToken, newGroupName);
+            if (isOfflineGroup) {
+                // Create local group
+                await SplitService.createLocalGroup(newGroupName, [currentUser]);
+            } else {
+                // Create online group
+                if (!user?.idToken) {
+                    Alert.alert("Error", "You must be logged in to create online groups.");
+                    return;
+                }
+                await SplitService.createGroup(user.idToken, newGroupName);
+            }
+            
             setCreateModalVisible(false);
             setNewGroupName('');
+            setIsOfflineGroup(false); // Reset
             loadData();
         } catch (e) {
             Alert.alert("Error", e.message || "Could not create group");
@@ -156,9 +165,10 @@ const SplitFundDashboard = () => {
                             <View style={{ flex: 1 }}>
                                 <Text style={[styles.groupName, dynamicStyles.text]}>{g.name}</Text>
                                 <Text style={[styles.groupMembers, dynamicStyles.subText]}>
-                                    {g.members?.length || 0} members
+                                    {g.members?.length || 0} members {g.isOffline ? '• Offline' : ''}
                                 </Text>
                             </View>
+                            {g.isOffline && <MaterialCommunityIcons name="wifi-off" size={20} color={colors.textMuted} style={{ marginRight: 5 }} />}
                             <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textMuted} />
                         </TouchableOpacity>
                     ))
@@ -176,6 +186,19 @@ const SplitFundDashboard = () => {
                         value={newGroupName}
                         onChangeText={setNewGroupName}
                     />
+                    
+                    <TouchableOpacity 
+                        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
+                        onPress={() => setIsOfflineGroup(!isOfflineGroup)}
+                    >
+                        <MaterialCommunityIcons 
+                            name={isOfflineGroup ? "checkbox-marked" : "checkbox-blank-outline"} 
+                            size={24} 
+                            color={colors.primary} 
+                        />
+                        <Text style={[dynamicStyles.text, { marginLeft: 10 }]}>Offline Group (Local only)</Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleCreateGroup}>
                         <Text style={styles.saveBtnText}>Create Group</Text>
                     </TouchableOpacity>

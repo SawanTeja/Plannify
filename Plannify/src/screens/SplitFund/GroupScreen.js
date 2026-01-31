@@ -1,19 +1,30 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SectionList, RefreshControl, Clipboard, Alert, ScrollView } from 'react-native';
+import Modal from 'react-native-modal';
+import { View, Text, StyleSheet, TouchableOpacity, SectionList, RefreshControl, Clipboard, Alert, ScrollView, TextInput } from 'react-native';
 import { AppContext } from '../../context/AppContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SplitService } from '../../services/SplitService';
 
 const GroupScreen = ({ route }) => {
     const { colors, theme, userData, user } = useContext(AppContext);
     const { groupId, groupName } = route.params;
     const navigation = useNavigation();
+    const insets = useSafeAreaInsets();
+    const tabBarHeight = insets.bottom + 60;
     
     const [expenses, setExpenses] = useState([]);
     const [balances, setBalances] = useState({});
     const [group, setGroup] = useState(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    
+    // Offline Member Add
+    const [addMemberModalVisible, setAddMemberModalVisible] = useState(false);
+    const [newMemberName, setNewMemberName] = useState('');
+    
+    // History Modal
+    const [historyModalVisible, setHistoryModalVisible] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -33,19 +44,20 @@ const GroupScreen = ({ route }) => {
     }, [group]);
 
     const loadGroupData = async () => {
-        if (!user?.idToken) return;
-
         setIsRefreshing(true);
         try {
-            // Fetch all groups to find current one (could be optimized with getGroupById endpoint)
-            const allGroups = await SplitService.getGroups(user.idToken);
-            const currentGroup = allGroups.find(g => g._id === groupId); // Use _id from backend
+            // Fetch all groups to find current one
+            const allGroups = await SplitService.getGroups(user?.idToken);
+            const currentGroup = allGroups.find(g => (g._id === groupId || g.id === groupId));
             setGroup(currentGroup);
+            
+            // Determine token (null if offline)
+            const token = currentGroup?.isOffline ? null : user?.idToken;
 
-            const exp = await SplitService.getExpenses(user.idToken, groupId);
+            const exp = await SplitService.getExpenses(token, groupId);
             setExpenses(exp);
 
-            const bals = await SplitService.calculateBalances(user.idToken, groupId);
+            const bals = await SplitService.calculateBalances(token, groupId);
             setBalances(bals);
 
         } catch (e) {
@@ -60,6 +72,22 @@ const GroupScreen = ({ route }) => {
         if (group?.inviteCode) {
             Clipboard.setString(group.inviteCode);
             Alert.alert("Copied!", `Group code ${group.inviteCode} copied to clipboard.`);
+        }
+    };
+
+    const handleAddMember = async () => {
+        if (!newMemberName.trim()) return;
+        try {
+            // Use unified addMember method (handles both online and offline)
+             const token = group?.isOffline ? null : user?.idToken;
+            await SplitService.addMember(token, groupId, newMemberName.trim());
+            
+            setNewMemberName('');
+            setAddMemberModalVisible(false);
+            loadGroupData();
+            Alert.alert("Success", "Member added successfully");
+        } catch (e) {
+            Alert.alert("Error", e.message || "Could not add member.");
         }
     };
 
@@ -110,7 +138,30 @@ const GroupScreen = ({ route }) => {
             {/* BALANCES HEADER */}
             {group && (
                 <View style={[styles.headerCard, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-                    <Text style={[styles.groupCode, { color: colors.primary }]}>Invite Code: {group.inviteCode}</Text>
+                    <View style={{ marginBottom: 15 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 5 }}>
+                            <Text style={[styles.groupCode, { color: colors.primary }]}>{group.name}</Text>
+                        </View>
+                        
+                        {!group.isOffline && (
+                            <Text style={[styles.groupCode, { color: colors.textSecondary, fontSize: 11, marginBottom: 10 }]}>
+                                Invite Code: {group.inviteCode}
+                            </Text>
+                        )}
+
+                        {/* ADD MEMBER BUTTON - Visible for Offline groups OR Online Group Creator */}
+                        {(group.isOffline || group.ownerId === (user.user?.id || user.user?._id)) && (
+                            <TouchableOpacity 
+                                onPress={() => setAddMemberModalVisible(true)} 
+                                style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHighlight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 }}
+                            >
+                                <MaterialCommunityIcons name="account-plus" size={16} color={colors.primary} />
+                                <Text style={{ color: colors.primary, fontWeight: 'bold', marginLeft: 5, fontSize: 12 }}>
+                                    Add Member {group.isOffline ? '(Offline)' : '(Virtual)'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 10 }}>
                          {Object.entries(balances).map(([uid, amount]) => {
                              if (Math.abs(amount) < 0.01) return null; // Hide approximate zeros
@@ -141,10 +192,10 @@ const GroupScreen = ({ route }) => {
                         
                         <TouchableOpacity 
                             style={[styles.actionBtn, { borderColor: colors.border }]}
-                            onPress={() => Alert.alert("Balances", "Exporting PDF... (Coming Soon)")}
+                            onPress={() => setHistoryModalVisible(true)}
                         >
-                            <MaterialCommunityIcons name="file-chart" size={20} color={colors.textPrimary} />
-                            <Text style={[styles.btnText, dynamicStyles.text]}>Report</Text>
+                            <MaterialCommunityIcons name="history" size={20} color={colors.textPrimary} />
+                            <Text style={[styles.btnText, dynamicStyles.text]}>History Log</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -169,11 +220,58 @@ const GroupScreen = ({ route }) => {
 
             {/* FAB */}
             <TouchableOpacity 
-                style={[styles.fab, { backgroundColor: colors.primary }]}
+                style={[styles.fab, { backgroundColor: colors.primary, bottom: tabBarHeight + 20 }]}
                 onPress={() => navigation.navigate('AddExpense', { groupId, members: group?.members || [] })}
             >
                 <MaterialCommunityIcons name="plus" size={32} color="white" />
             </TouchableOpacity>
+
+            {/* ADD MEMBER MODAL (OFFLINE ONLY) */}
+            <Modal isVisible={addMemberModalVisible} onBackdropPress={() => setAddMemberModalVisible(false)} avoidKeyboard>
+                <View style={[styles.modalContent, dynamicStyles.card, { padding: 20, borderRadius: 15 }]}>
+                    <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }]}>Add Offline Member</Text>
+                    <TextInput 
+                        placeholder="Member Name"
+                        placeholderTextColor={colors.textMuted}
+                        style={{ height: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, color: colors.textPrimary, marginBottom: 15 }}
+                        value={newMemberName}
+                        onChangeText={setNewMemberName}
+                    />
+                    <TouchableOpacity style={{ backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={handleAddMember}>
+                        <Text style={{ color: 'white', fontWeight: 'bold' }}>Add Member</Text>
+                    </TouchableOpacity>
+                </View>
+            </Modal>
+
+            {/* HISTORY LOG MODAL */}
+            <Modal isVisible={historyModalVisible} onBackdropPress={() => setHistoryModalVisible(false)} style={{ margin: 0, justifyContent: 'flex-end' }}>
+                <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '70%', padding: 20 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text style={[dynamicStyles.text, { fontSize: 20, fontWeight: 'bold' }]}>Group History</Text>
+                        <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
+                            <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+                        {(group?.activities || []).length === 0 ? (
+                             <Text style={{ color: colors.textSecondary, textAlign: 'center', marginTop: 20 }}>No history yet.</Text>
+                        ) : (
+                            [...(group?.activities || [])].reverse().map((act, index) => (
+                                <View key={index} style={{ flexDirection: 'row', marginBottom: 15, borderBottomWidth: 0.5, borderBottomColor: colors.border, paddingBottom: 10 }}>
+                                    <MaterialCommunityIcons name="clock-outline" size={16} color={colors.textMuted} style={{ marginTop: 2, marginRight: 10 }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[dynamicStyles.text, { fontSize: 14 }]}>{act.text}</Text>
+                                        <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                                            {new Date(act.date).toLocaleString()}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))
+                        )}
+                    </ScrollView>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -197,7 +295,7 @@ const styles = StyleSheet.create({
     expAmount: { fontSize: 10, textAlign: 'right' },
     expVal: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' },
     
-    fab: { position: 'absolute', bottom: 30, right: 30, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 4 } }
+    fab: { position: 'absolute', right: 30, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 4 } }
 });
 
 export default GroupScreen;

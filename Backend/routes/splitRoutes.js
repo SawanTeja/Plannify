@@ -14,10 +14,50 @@ const generateInviteCode = () => {
 // GROUP ROUTES
 // ==========================
 
+// POST /api/split/groups/:id/members - Add virtual member
+router.post('/groups/:id/members', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        const userId = req.user._id;
+
+        const group = await SplitGroup.findById(id);
+        if (!group) return res.status(404).json({ error: 'Group not found' });
+        // Only members (or just creator provided logic?) can add members. 
+        // Requirement: "the admin can add members". Assuming creator for now, or any member? 
+        // Let's allow any member to add virtual members for flexibility, or restriction to creator if strict.
+        // User said "admin". Let's check ownerId.
+        if (group.ownerId.toString() !== userId.toString()) {
+             return res.status(403).json({ error: 'Only admin can add members' });
+        }
+
+        if (!name) return res.status(400).json({ error: 'Member name required' });
+
+        const newVirtual = {
+            id: `virtual_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            name
+        };
+        group.virtualMembers.push(newVirtual);
+        
+        // Log activity
+        group.activities.push({
+            text: `${req.user.name} added ${name} (offline)`,
+            date: new Date()
+        });
+
+        await group.save();
+        res.json({ success: true, member: newVirtual, group });
+    } catch (error) {
+        console.error('Add Virtual Member Error:', error);
+        res.status(500).json({ error: 'Failed to add member' });
+    }
+});
+
 // GET /api/split/groups - Get user's groups
 router.get('/groups', authMiddleware, async (req, res) => {
     try {
         const userId = req.user._id;
+        // Find groups where user is a member OR owner 
         const groups = await SplitGroup.find({ members: userId })
             .populate('members', 'name email') // Basic user info
             .sort({ updatedAt: -1 });
@@ -50,7 +90,13 @@ router.post('/groups', authMiddleware, async (req, res) => {
             name,
             inviteCode,
             ownerId: userId,
-            members: [userId]
+            ownerId: userId,
+            members: [userId],
+            virtualMembers: [],
+            activities: [{
+                text: `${req.user.name} created the group`,
+                date: new Date()
+            }]
         });
 
         await group.save();
@@ -79,6 +125,10 @@ router.post('/groups/join', authMiddleware, async (req, res) => {
 
         group.members.push(userId);
         group.updatedAt = new Date();
+        group.activities.push({
+            text: `${req.user.name} joined the group`,
+            date: new Date()
+        });
         await group.save();
 
         const updatedGroup = await SplitGroup.findById(group._id).populate('members', 'name email');
@@ -140,7 +190,12 @@ router.post('/groups/:groupId/expenses', authMiddleware, async (req, res) => {
         await expense.save();
 
         // Touch group update time
+        // Touch group update time & Log
         group.updatedAt = new Date();
+        group.activities.push({
+            text: `${req.user.name} added expense: ${description}`,
+            date: new Date()
+        });
         await group.save();
 
         res.json({ success: true, expense });
