@@ -28,6 +28,7 @@ app.use('/api/auth', require('../routes/authRoutes'));
 app.use('/api/sync', require('../routes/syncRoutes'));
 app.use('/api/journal', require('../routes/journalRoutes'));
 app.use('/api/social', require('../routes/socialRoutes'));
+app.use('/api/split', require('../routes/splitRoutes'));
 
 // For Local Development
 if (process.env.NODE_ENV !== 'production') {

@@ -72,12 +72,23 @@ const JournalModal = ({
   }, [visible, initialData]);
 
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
-      allowsEditing: false, // Ensure full aspect ratio
-      quality: 1,
-    });
-    if (!result.canceled) setSelectedImage(result.assets[0].uri);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Please allow access to your photos to upload memories.");
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Fixed enum
+        allowsEditing: false, // Ensure full aspect ratio
+        quality: 1,
+      });
+      if (!result.canceled) setSelectedImage(result.assets[0].uri);
+    } catch (error) {
+      console.log("Error picking image:", error);
+      Alert.alert("Error", "Failed to open gallery");
+    }
   };
 
   const pickFromCamera = async () => {

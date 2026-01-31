@@ -62,6 +62,8 @@ const SocialScreen = () => {
   const [isGroupOwner, setIsGroupOwner] = useState(false);
   const [renameGroupName, setRenameGroupName] = useState("");
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [modalMode, setModalMode] = useState("menu"); // 'menu', 'create', 'join'
+  const [fullScreenImage, setFullScreenImage] = useState(null);
 
   // Reaction emojis
   const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
@@ -623,198 +625,243 @@ const SocialScreen = () => {
       swipeDirection={["down"]}
       style={styles.modal}
       backdropOpacity={0.5}
+      avoidKeyboard={true}
     >
       <ScrollView style={[styles.modalContent, dynamicStyles.modalContent]}>
         <View style={styles.dragHandle} />
-        
-        <Text style={[styles.modalTitle, dynamicStyles.headerText]}>Groups</Text>
 
-        {/* CURRENT GROUP SETTINGS (if a group is selected) */}
-        {selectedGroup && (
-          <>
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, dynamicStyles.subText]}>CURRENT GROUP</Text>
-              <View style={[styles.groupInfoCard, { backgroundColor: colors.surfaceHighlight }]}>
-                <Text style={[styles.groupInfoName, dynamicStyles.headerText]}>
-                  {selectedGroup.name}
-                </Text>
-                
-                {/* Invite Code Display (Read Only) */}
-                <View style={styles.codeRow}>
-                  <Text style={dynamicStyles.subText}>Invite Code: </Text>
-                  <Text style={[styles.inviteCode, { color: colors.primary }]}>
-                    {selectedGroup.inviteCode}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      Clipboard.setString(selectedGroup.inviteCode);
-                      Alert.alert("Copied!", "Invite code copied to clipboard");
-                    }}
-                    style={{ marginLeft: 8 }}
-                  >
-                    <MaterialCommunityIcons name="content-copy" size={18} color={colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleShareInvite}
-                    style={{ marginLeft: 8 }}
-                  >
-                    <MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Share Invite Button */}
-                <TouchableOpacity 
-                  onPress={handleShareInvite}
-                  style={[styles.shareInviteBtn, { backgroundColor: colors.primary }]}
-                >
-                  <MaterialCommunityIcons name="share" size={18} color={colors.white} />
-                  <Text style={{ color: colors.white, fontWeight: '600', marginLeft: 8 }}>
-                    Share Invite Link
-                  </Text>
-                </TouchableOpacity>
-
-                {/* View Members */}
-                <TouchableOpacity onPress={handleShowMembers} style={styles.membersBtn}>
-                  <MaterialCommunityIcons name="account-group" size={16} color={colors.textSecondary} />
-                  <Text style={dynamicStyles.subText}> {selectedGroup.memberCount} members</Text>
-                </TouchableOpacity>
-              </View>
+        {/* --- VIEW: CREATE GROUP --- */}
+        {modalMode === "create" && (
+          <View>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+              <TouchableOpacity onPress={() => setModalMode("menu")} style={{ marginRight: 15 }}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, dynamicStyles.headerText, { marginBottom: 0 }]}>
+                Create New Group
+              </Text>
             </View>
 
-            {/* GROUP SETTINGS - Owner Only */}
-            {selectedGroup.isOwner && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, dynamicStyles.subText]}>OWNER SETTINGS</Text>
-                
-                {/* Rename Group */}
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={{
-                      flex: 1,
-                      height: 48,
-                      borderWidth: 1,
-                      borderRadius: 12,
-                      paddingHorizontal: 15,
-                      color: colors.textPrimary,
-                      borderColor: colors.border,
-                    }}
-                    placeholder="Rename group..."
-                    placeholderTextColor={colors.textMuted}
-                    value={renameGroupName}
-                    onChangeText={setRenameGroupName}
-                  />
-                  <TouchableOpacity
-                    style={[styles.inputBtn, { backgroundColor: colors.primary }]}
-                    onPress={handleRenameGroup}
-                  >
-                    <MaterialCommunityIcons name="pencil" size={20} color={colors.white} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Transfer Ownership */}
-                <TouchableOpacity
-                  onPress={() => {
-                    handleShowMembers();
-                    setShowTransferModal(true);
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, dynamicStyles.subText]}>GROUP NAME</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingHorizontal: 15,
+                    fontSize: 15,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
                   }}
-                  style={[styles.settingsBtn, { borderColor: colors.warning || "#F59E0B" }]}
-                >
-                  <MaterialCommunityIcons name="account-switch" size={20} color={colors.warning || "#F59E0B"} />
-                  <Text style={{ color: colors.warning || "#F59E0B", marginLeft: 8 }}>
-                    Transfer Ownership
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Delete Group */}
-                <TouchableOpacity
-                  onPress={() => handleDeleteGroup(selectedGroup._id)}
-                  style={[styles.settingsBtn, { borderColor: colors.error || "#EF4444" }]}
-                >
-                  <MaterialCommunityIcons name="delete" size={20} color={colors.error || "#EF4444"} />
-                  <Text style={{ color: colors.error || "#EF4444", marginLeft: 8 }}>
-                    Delete Group
-                  </Text>
-                </TouchableOpacity>
+                  placeholder="e.g. Family Trip 2024"
+                  placeholderTextColor={colors.textMuted}
+                  value={createGroupName}
+                  onChangeText={setCreateGroupName}
+                  autoFocus={true}
+                />
               </View>
-            )}
-
-            {/* Leave Group - Non-owners only */}
-            {!selectedGroup.isOwner && (
               <TouchableOpacity
-                onPress={() => handleLeaveGroup(selectedGroup._id)}
-                style={[styles.settingsBtn, { borderColor: colors.error || "#EF4444", marginTop: 10 }]}
+                style={[
+                  styles.actionBtn, 
+                  { backgroundColor: colors.primary, marginTop: 20, justifyContent: "center" }
+                ]}
+                onPress={handleCreateGroup}
               >
-                <MaterialCommunityIcons name="exit-run" size={20} color={colors.error || "#EF4444"} />
-                <Text style={{ color: colors.error || "#EF4444", marginLeft: 8 }}>
-                  Leave Group
-                </Text>
+                <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                <Text style={styles.actionBtnText}>Create Group</Text>
               </TouchableOpacity>
-            )}
-
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          </>
+            </View>
+            <View style={{ height: 300 }} /> 
+          </View>
         )}
 
-        {/* CREATE OR JOIN GROUP */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, dynamicStyles.subText]}>CREATE NEW GROUP</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={{
-                flex: 1,
-                height: 48,
-                borderWidth: 1,
-                borderRadius: 12,
-                paddingHorizontal: 15,
-                fontSize: 15,
-                color: colors.textPrimary,
-                borderColor: colors.border,
-              }}
-              placeholder="Group name..."
-              placeholderTextColor={colors.textMuted}
-              value={createGroupName}
-              onChangeText={setCreateGroupName}
-            />
-            <TouchableOpacity
-              style={[styles.inputBtn, { backgroundColor: colors.primary }]}
-              onPress={handleCreateGroup}
-            >
-              <MaterialCommunityIcons name="plus" size={24} color={colors.white} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* --- VIEW: JOIN GROUP --- */}
+        {modalMode === "join" && (
+          <View>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+              <TouchableOpacity onPress={() => setModalMode("menu")} style={{ marginRight: 15 }}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, dynamicStyles.headerText, { marginBottom: 0 }]}>
+                Join Group
+              </Text>
+            </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, dynamicStyles.subText]}>JOIN WITH CODE</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={{
-                flex: 1,
-                height: 48,
-                borderWidth: 1,
-                borderRadius: 12,
-                paddingHorizontal: 15,
-                fontSize: 15,
-                color: colors.textPrimary,
-                borderColor: colors.border,
-              }}
-              placeholder="Enter invite code..."
-              placeholderTextColor={colors.textMuted}
-              value={joinCode}
-              onChangeText={setJoinCode}
-              autoCapitalize="characters"
-              maxLength={6}
-            />
-            <TouchableOpacity
-              style={[styles.inputBtn, { backgroundColor: colors.success || "#22C55E" }]}
-              onPress={handleJoinGroup}
-            >
-              <MaterialCommunityIcons name="check" size={24} color={colors.white} />
-            </TouchableOpacity>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, dynamicStyles.subText]}>INVITE CODE</Text>
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={{
+                    flex: 1,
+                    height: 48,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingHorizontal: 15,
+                    fontSize: 15,
+                    color: colors.textPrimary,
+                    borderColor: colors.border,
+                    fontWeight: "bold",
+                    letterSpacing: 1,
+                  }}
+                  placeholder="ENTER CODE"
+                  placeholderTextColor={colors.textMuted}
+                  value={joinCode}
+                  onChangeText={setJoinCode}
+                  autoCapitalize="characters"
+                  maxLength={6}
+                  autoFocus={true}
+                />
+              </View>
+               <TouchableOpacity
+                style={[
+                  styles.actionBtn, 
+                  { backgroundColor: colors.success || "#22C55E", marginTop: 20, justifyContent: "center" }
+                ]}
+                onPress={handleJoinGroup}
+              >
+                <MaterialCommunityIcons name="login" size={20} color={colors.white} />
+                <Text style={styles.actionBtnText}>Join Group</Text>
+              </TouchableOpacity>
+            </View>
+             <View style={{ height: 300 }} />
           </View>
-        </View>
+        )}
 
-        <View style={{ height: 20 }} />
+        {/* --- VIEW: MENU / SETTINGS --- */}
+        {modalMode === "menu" && (
+          <View>
+            <Text style={[styles.modalTitle, dynamicStyles.headerText]}>Social Settings</Text>
+
+            {/* CURRENT GROUP INFO */}
+            {selectedGroup ? (
+              <>
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, dynamicStyles.subText]}>CURRENT GROUP</Text>
+                  <View style={[styles.groupInfoCard, { backgroundColor: colors.surfaceHighlight }]}>
+                    <Text style={[styles.groupInfoName, dynamicStyles.headerText]}>
+                      {selectedGroup.name}
+                    </Text>
+                    
+                    <View style={styles.codeRow}>
+                      <Text style={dynamicStyles.subText}>Invite Code: </Text>
+                      <Text style={[styles.inviteCode, { color: colors.primary }]}>
+                        {selectedGroup.inviteCode}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => {
+                          Clipboard.setString(selectedGroup.inviteCode);
+                          Alert.alert("Copied!", "Invite code copied to clipboard");
+                        }}
+                        style={{ marginLeft: 8 }}
+                      >
+                        <MaterialCommunityIcons name="content-copy" size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
+
+                     <TouchableOpacity onPress={handleShowMembers} style={styles.membersBtn}>
+                      <MaterialCommunityIcons name="account-group" size={16} color={colors.textSecondary} />
+                      <Text style={dynamicStyles.subText}> {selectedGroup.memberCount} members</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* OWNER ACTIONS */}
+                {selectedGroup.isOwner && (
+                  <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, dynamicStyles.subText]}>OWNER ACTIONS</Text>
+                    <View style={styles.inputRow}>
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          height: 48,
+                          borderWidth: 1,
+                          borderRadius: 12,
+                          paddingHorizontal: 15,
+                          color: colors.textPrimary,
+                          borderColor: colors.border,
+                        }}
+                        placeholder="Rename group..."
+                        placeholderTextColor={colors.textMuted}
+                        value={renameGroupName}
+                        onChangeText={setRenameGroupName}
+                      />
+                      <TouchableOpacity
+                        style={[styles.inputBtn, { backgroundColor: colors.primary }]}
+                        onPress={handleRenameGroup}
+                      >
+                        <MaterialCommunityIcons name="pencil" size={20} color={colors.white} />
+                      </TouchableOpacity>
+                    </View>
+                     <TouchableOpacity
+                      onPress={() => {
+                        handleShowMembers();
+                        setShowTransferModal(true);
+                      }}
+                      style={[styles.settingsBtn, { borderColor: colors.warning || "#F59E0B" }]}
+                    >
+                      <MaterialCommunityIcons name="account-switch" size={20} color={colors.warning || "#F59E0B"} />
+                      <Text style={{ color: colors.warning || "#F59E0B", marginLeft: 8 }}>
+                        Transfer Ownership
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => handleDeleteGroup(selectedGroup._id)}
+                      style={[styles.settingsBtn, { borderColor: colors.error || "#EF4444" }]}
+                    >
+                      <MaterialCommunityIcons name="delete" size={20} color={colors.error || "#EF4444"} />
+                      <Text style={{ color: colors.error || "#EF4444", marginLeft: 8 }}>
+                        Delete Group
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* MEMBER ACTIONS */}
+                {!selectedGroup.isOwner && (
+                   <TouchableOpacity
+                    onPress={() => handleLeaveGroup(selectedGroup._id)}
+                    style={[styles.settingsBtn, { borderColor: colors.error || "#EF4444", marginBottom: 20 }]}
+                  >
+                    <MaterialCommunityIcons name="exit-run" size={20} color={colors.error || "#EF4444"} />
+                    <Text style={{ color: colors.error || "#EF4444", marginLeft: 8 }}>
+                      Leave Group
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              </>
+            ) : (
+               <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                  <Text style={dynamicStyles.subText}>No group selected</Text>
+               </View>
+            )}
+
+            {/* NAVIGATION BUTTONS */}
+            <View style={styles.section}>
+               <Text style={[styles.sectionTitle, dynamicStyles.subText]}>NEW ACTIONS</Text>
+               <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.primary, marginBottom: 10 }]}
+                onPress={() => setModalMode("create")}
+              >
+                <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
+                <Text style={styles.actionBtnText}>Create New Group</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
+                onPress={() => setModalMode("join")}
+              >
+                <MaterialCommunityIcons name="link" size={20} color={colors.textPrimary} />
+                <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Join Existing Group</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ height: 50 }} />
+          </View>
+        )}
       </ScrollView>
     </Modal>
   );
@@ -912,7 +959,9 @@ const SocialScreen = () => {
             </View>
 
             {detailPost.image && (
-              <Image source={{ uri: detailPost.image }} style={styles.detailImage} />
+              <TouchableOpacity onPress={() => setFullScreenImage(detailPost.image)} activeOpacity={0.9}>
+                 <Image source={{ uri: detailPost.image }} style={styles.detailImage} />
+              </TouchableOpacity>
             )}
 
             <View style={styles.detailBody}>
@@ -1010,7 +1059,10 @@ const SocialScreen = () => {
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-              onPress={() => setShowGroupModal(true)}
+              onPress={() => {
+                setModalMode("create");
+                setShowGroupModal(true);
+              }}
             >
               <MaterialCommunityIcons name="plus" size={20} color={colors.white} />
               <Text style={styles.actionBtnText}>Create Group</Text>
@@ -1018,7 +1070,10 @@ const SocialScreen = () => {
 
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}
-              onPress={() => setShowGroupModal(true)}
+              onPress={() => {
+                setModalMode("join");
+                setShowGroupModal(true);
+              }}
             >
               <MaterialCommunityIcons name="link" size={20} color={colors.textPrimary} />
               <Text style={[styles.actionBtnText, { color: colors.textPrimary }]}>Join with Code</Text>
@@ -1039,7 +1094,10 @@ const SocialScreen = () => {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={[styles.headerTitle, dynamicStyles.headerText]}>Social</Text>
-        <TouchableOpacity onPress={() => setShowGroupModal(true)}>
+        <TouchableOpacity onPress={() => {
+          setModalMode("menu");
+          setShowGroupModal(true);
+        }}>
           <MaterialCommunityIcons name="cog" size={24} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -1053,7 +1111,10 @@ const SocialScreen = () => {
         >
           {groups.map(renderGroupChip)}
           <TouchableOpacity
-            onPress={() => setShowGroupModal(true)}
+            onPress={() => {
+               setModalMode("create");
+               setShowGroupModal(true);
+            }}
             style={[styles.groupChip, styles.addGroupChip, { borderColor: colors.border }]}
           >
             <MaterialCommunityIcons name="plus" size={18} color={colors.textSecondary} />
@@ -1098,6 +1159,33 @@ const SocialScreen = () => {
       {renderGroupModal()}
       {renderMembersModal()}
       {renderDetailModal()}
+
+      {/* FULL SCREEN IMAGE MODAL */}
+       <Modal
+        isVisible={!!fullScreenImage}
+        onBackdropPress={() => setFullScreenImage(null)}
+        onSwipeComplete={() => setFullScreenImage(null)}
+        swipeDirection={["down", "up", "left", "right"]}
+        style={{ margin: 0 }}
+        backdropOpacity={1}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+      >
+        <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center" }}>
+          <TouchableOpacity 
+            style={{ position: "absolute", top: 40, right: 20, zIndex: 10, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}
+            onPress={() => setFullScreenImage(null)}
+          >
+             <MaterialCommunityIcons name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+          {fullScreenImage && (
+             <Image 
+               source={{ uri: fullScreenImage }} 
+               style={{ width: "100%", height: "100%", resizeMode: "contain" }} 
+             />
+          )}
+        </View>
+      </Modal>
 
       <SocialPostModal
         visible={showPostModal}
@@ -1188,6 +1276,7 @@ const styles = StyleSheet.create({
   postImage: {
     width: "100%",
     height: 200,
+    resizeMode: "cover",
   },
   postContent: {
     padding: 12,
@@ -1387,6 +1476,7 @@ const styles = StyleSheet.create({
   detailImage: {
     width: "100%",
     height: 300,
+    resizeMode: "cover",
   },
   detailBody: {
     padding: 20,

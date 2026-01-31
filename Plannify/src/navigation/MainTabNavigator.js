@@ -31,10 +31,15 @@ import SummaryDashboard from "../screens/Home/SummaryDashboard";
 import JournalScreen from "../screens/Journal/JournalScreen";
 import SocialScreen from "../screens/Social/SocialScreen";
 import TaskScreen from "../screens/Tasks/TaskScreen";
+import SplitFundDashboard from "../screens/SplitFund/SplitFundDashboard";
+import GroupScreen from "../screens/SplitFund/GroupScreen";
+import AddExpenseScreen from "../screens/SplitFund/AddExpenseScreen";
+import SettleUpScreen from "../screens/SplitFund/SettleUpScreen";
 
 const Tab = createMaterialTopTabNavigator();
 const HomeStack = createNativeStackNavigator();
 const BudgetStack = createNativeStackNavigator();
+const SplitStack = createNativeStackNavigator();
 
 // --- STACK NAVIGATORS ---
 const HomeStackNavigator = () => {
@@ -80,6 +85,42 @@ const BudgetStackNavigator = () => {
   );
 };
 
+const SplitFundStackNavigator = () => {
+  const { colors } = useContext(AppContext);
+
+  const headerStyle = {
+    headerStyle: { backgroundColor: colors.background },
+    headerTintColor: colors.textPrimary,
+    headerTitleStyle: { fontWeight: "bold" },
+    headerShadowVisible: false,
+  };
+
+  return (
+    <SplitStack.Navigator>
+      <SplitStack.Screen
+        name="SplitDashboard"
+        component={SplitFundDashboard}
+        options={{ headerShown: false }}
+      />
+      <SplitStack.Screen
+        name="GroupDetails"
+        component={GroupScreen}
+        options={{ title: "Group", ...headerStyle }}
+      />
+      <SplitStack.Screen
+        name="AddExpense"
+        component={AddExpenseScreen}
+        options={{ title: "Add Expense", ...headerStyle }}
+      />
+      <SplitStack.Screen
+        name="SettleUp"
+        component={SettleUpScreen}
+        options={{ title: "Settle Up", ...headerStyle }}
+      />
+    </SplitStack.Navigator>
+  );
+};
+
 // --- CONFIGURATION ---
 const DEFAULT_TAB_ORDER = [
   "HomeTab",
@@ -90,6 +131,7 @@ const DEFAULT_TAB_ORDER = [
   "Journal",
   "Social",
   "BucketList",
+  "SplitFund",
 ];
 
 const TAB_ICONS = {
@@ -101,6 +143,7 @@ const TAB_ICONS = {
   Journal: "notebook",
   Social: "account-group",
   BucketList: "star-four-points",
+  SplitFund: "account-cash",
 };
 
 const TAB_LABELS = {
@@ -112,6 +155,7 @@ const TAB_LABELS = {
   Journal: "Journal",
   Social: "Social",
   BucketList: "Bucket",
+  SplitFund: "Split",
 };
 
 // --- CUSTOM DRAGGABLE TAB BAR ---
@@ -341,6 +385,15 @@ const MainTabNavigator = () => {
                 name="BucketList"
                 component={BucketListScreen}
                 options={{ tabBarLabel: "Bucket" }}
+              />
+            );
+          case "SplitFund":
+            return (
+              <Tab.Screen
+                key={name}
+                name="SplitFund"
+                component={SplitFundStackNavigator}
+                options={{ tabBarLabel: "Split" }}
               />
             );
           default:

@@ -51,6 +51,7 @@ const JournalScreen = () => {
   const [selectedMonthData, setSelectedMonthData] = useState(null);
   const [detailEntry, setDetailEntry] = useState(null);
   const [entryToEdit, setEntryToEdit] = useState(null);
+  const [fullScreenImage, setFullScreenImage] = useState(null);
 
   const [selectedFilterTag, setSelectedFilterTag] = useState("All");
   const [availableTags, setAvailableTags] = useState([
@@ -670,6 +671,33 @@ const JournalScreen = () => {
         initialData={entryToEdit}
       />
 
+      {/* FULL SCREEN IMAGE MODAL */}
+      <Modal
+        isVisible={!!fullScreenImage}
+        onBackdropPress={() => setFullScreenImage(null)}
+        onSwipeComplete={() => setFullScreenImage(null)}
+        swipeDirection={["down", "up", "left", "right"]}
+        style={{ margin: 0 }}
+        backdropOpacity={1}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+      >
+        <View style={{ flex: 1, backgroundColor: "#000", justifyContent: "center" }}>
+          <TouchableOpacity 
+            style={{ position: "absolute", top: 40, right: 20, zIndex: 10, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}
+            onPress={() => setFullScreenImage(null)}
+          >
+             <MaterialCommunityIcons name="close" size={30} color="#fff" />
+          </TouchableOpacity>
+          {fullScreenImage && (
+             <Image 
+               source={{ uri: fullScreenImage }} 
+               style={{ width: "100%", height: "100%", resizeMode: "contain" }} 
+             />
+          )}
+        </View>
+      </Modal>
+
       {/* Detail Modal Overlay - NOW SWIPEABLE */}
       {detailEntry && (
         <Modal
@@ -689,10 +717,12 @@ const JournalScreen = () => {
 
             <ScrollView>
               {detailEntry.image && (
-                <Image
-                  source={{ uri: detailEntry.image }}
-                  style={styles.detailImage}
-                />
+                <TouchableOpacity onPress={() => setFullScreenImage(detailEntry.image)} activeOpacity={0.9}>
+                  <Image
+                    source={{ uri: detailEntry.image }}
+                    style={styles.detailImage}
+                  />
+                </TouchableOpacity>
               )}
               <View style={styles.detailBody}>
                 <View style={styles.rowBetween}>
@@ -843,7 +873,7 @@ const styles = StyleSheet.create({
   },
   // FIX: Reduced Height for "smaller" cards
   imageContainer: {
-    height: 140, // Was 180
+    height: 140, 
     width: "100%",
     position: "relative",
   },
@@ -985,7 +1015,7 @@ const styles = StyleSheet.create({
   },
   detailImage: {
     width: "100%",
-    height: 350, // Increased image height
+    height: 350, 
     resizeMode: "cover",
   },
   detailBody: { padding: 25, paddingBottom: 60 },

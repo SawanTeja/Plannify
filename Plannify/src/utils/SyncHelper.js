@@ -13,7 +13,10 @@ const COLLECTIONS = {
   // Gamification
   gamification: 'user_gamification',
   // Budget Settings (Currency, Categories, Recurring, etc.)
-  budget: 'budget_data'
+  budget: 'budget_data',
+  // SplitFund
+  splitGroups: 'splitfund_groups',
+  splitExpenses: 'splitfund_expenses'
 };
 
 export const SyncHelper = {
@@ -29,7 +32,9 @@ export const SyncHelper = {
  
         bucketList: [],
         gamification: [],
-        budget: []  // Add budget settings container 
+        budget: [],  // Add budget settings container 
+        splitGroups: [],
+        splitExpenses: []
     };
     
     const lastSync = lastSyncTime ? new Date(lastSyncTime).getTime() : 0;
