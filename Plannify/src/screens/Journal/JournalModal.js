@@ -74,9 +74,24 @@ const JournalModal = ({
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaType.Images,
-      allowsEditing: false,
+      allowsEditing: false, // Ensure full aspect ratio
       quality: 1,
     });
+    if (!result.canceled) setSelectedImage(result.assets[0].uri);
+  };
+
+  const pickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Camera access is required to take photos.");
+      return;
+    }
+    
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false, // Ensure full aspect ratio
+      quality: 1,
+    });
+    
     if (!result.canceled) setSelectedImage(result.assets[0].uri);
   };
 
@@ -404,41 +419,58 @@ const JournalModal = ({
               onChangeText={setNote}
             />
 
-            {/* Image Picker */}
-            <TouchableOpacity
-              style={[
-                styles.imgBtn,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
-              onPress={pickImage}
-            >
-              {selectedImage ? (
+            {/* Image Picker Buttons */}
+            <View style={styles.mediaButtonsRow}>
+              {/* Camera Button */}
+              <TouchableOpacity
+                style={[
+                  styles.mediaBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={pickFromCamera}
+              >
+                <MaterialCommunityIcons
+                  name="camera"
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={[styles.mediaBtnText, { color: colors.textPrimary }]}>
+                  Camera
+                </Text>
+              </TouchableOpacity>
+
+              {/* Gallery Button */}
+              <TouchableOpacity
+                style={[
+                  styles.mediaBtn,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                onPress={pickImage}
+              >
+                <MaterialCommunityIcons
+                  name="image"
+                  size={24}
+                  color={colors.secondary}
+                />
+                <Text style={[styles.mediaBtnText, { color: colors.textPrimary }]}>
+                  Gallery
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {/* Image Preview */}
+            {selectedImage && (
+              <View style={styles.previewContainer}>
                 <Image
                   source={{ uri: selectedImage }}
                   style={styles.previewImage}
                 />
-              ) : (
-                <View style={{ alignItems: "center", padding: 20 }}>
-                  <MaterialCommunityIcons
-                    name="camera-plus-outline"
-                    size={32}
-                    color={colors.textSecondary}
-                  />
-                  <Text
-                    style={[styles.imgBtnText, dynamicStyles.textSecondary]}
-                  >
-                    Add Photo
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            {selectedImage && (
-              <TouchableOpacity
-                onPress={() => setSelectedImage(null)}
-                style={{ alignSelf: "center", marginTop: 10 }}
-              >
-                <Text style={{ color: colors.danger }}>Remove Photo</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setSelectedImage(null)}
+                  style={styles.removeImageBtn}
+                >
+                  <MaterialCommunityIcons name="close-circle" size={24} color={colors.danger || "#EF4444"} />
+                </TouchableOpacity>
+              </View>
             )}
           </ScrollView>
         </KeyboardAvoidingView>
@@ -557,6 +589,47 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   imgBtnText: { marginTop: 8, fontWeight: "600" },
+  
+  // New Media Buttons Styles
+  mediaButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 20,
+  },
+  mediaBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  mediaBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  previewContainer: {
+    marginTop: 10,
+    borderRadius: 16,
+    overflow: "hidden",
+    position: "relative",
+  },
+  previewImage: {
+    width: "100%",
+    height: 300,
+    resizeMode: "contain", // Show full aspect ratio
+    backgroundColor: "#000", // Background for non-square aspect ratios
+  },
+  removeImageBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    borderRadius: 12,
+  },
 });
 
 export default JournalModal;

@@ -1,7 +1,7 @@
 import { getData } from '../utils/storageHelper';
 
 // IMPORTANT: This should match your ApiService URL configuration
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://plannify-red.vercel.app/api';
 
 export const SocialService = {
   // ============================================
