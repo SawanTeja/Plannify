@@ -3,7 +3,8 @@ import { getData } from '../utils/storageHelper';
 // CHANGE THIS to your machine's IP if testing on real device!
 // For Android Emulator, use 'http://10.0.2.2:5000/api'
 // const API_URL = 'http://10.0.2.2:5000/api'; 
-const API_URL = 'http://localhost:5000/api';
+// const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://plannify-red.vercel.app/api';
 
 export const ApiService = {
   // 1. Authenticate with Backend

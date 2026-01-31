@@ -29,6 +29,7 @@ import BudgetSetup from "../screens/Budget/BudgetSetup";
 import HabitScreen from "../screens/Habits/HabitScreen";
 import SummaryDashboard from "../screens/Home/SummaryDashboard";
 import JournalScreen from "../screens/Journal/JournalScreen";
+import SocialScreen from "../screens/Social/SocialScreen";
 import TaskScreen from "../screens/Tasks/TaskScreen";
 
 const Tab = createMaterialTopTabNavigator();
@@ -87,6 +88,7 @@ const DEFAULT_TAB_ORDER = [
   "Attendance",
   "BudgetTab",
   "Journal",
+  "Social",
   "BucketList",
 ];
 
@@ -97,6 +99,7 @@ const TAB_ICONS = {
   Attendance: "school",
   BudgetTab: "wallet",
   Journal: "notebook",
+  Social: "account-group",
   BucketList: "star-four-points",
 };
 
@@ -107,6 +110,7 @@ const TAB_LABELS = {
   Attendance: "Attend",
   BudgetTab: "Budget",
   Journal: "Journal",
+  Social: "Social",
   BucketList: "Bucket",
 };
 
@@ -325,6 +329,10 @@ const MainTabNavigator = () => {
           case "Journal":
             return (
               <Tab.Screen key={name} name="Journal" component={JournalScreen} />
+            );
+          case "Social":
+            return (
+              <Tab.Screen key={name} name="Social" component={SocialScreen} />
             );
           case "BucketList":
             return (
