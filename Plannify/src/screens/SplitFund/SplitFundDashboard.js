@@ -37,17 +37,23 @@ const SplitFundDashboard = () => {
     );
 
     const loadData = async () => {
+        if (!user?.idToken) {
+            console.log('SplitFund: No auth token, skipping load');
+            return;
+        }
+
         setIsRefreshing(true);
         try {
-            const loadedGroups = await SplitService.getGroups();
+            const loadedGroups = await SplitService.getGroups(user.idToken);
             setGroups(loadedGroups);
             
             // Calculate total net balance across all groups
             let total = 0;
             for (const group of loadedGroups) {
-                const balances = await SplitService.calculateBalances(group.id);
-                if (balances[currentUser.id]) {
-                    total += balances[currentUser.id];
+                const balances = await SplitService.calculateBalances(user.idToken, group._id || group.id);
+                const myId = user.user?.id || user.user?._id;
+                if (myId && balances[myId]) {
+                    total += balances[myId];
                 }
             }
             setNetBalance(total);
@@ -61,20 +67,28 @@ const SplitFundDashboard = () => {
 
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;
+        if (!user?.idToken) {
+            Alert.alert("Error", "You must be logged in to create groups.");
+            return;
+        }
         try {
-            await SplitService.createGroup(newGroupName, [currentUser]);
+            await SplitService.createGroup(user.idToken, newGroupName);
             setCreateModalVisible(false);
             setNewGroupName('');
             loadData();
         } catch (e) {
-            Alert.alert("Error", "Could not create group");
+            Alert.alert("Error", e.message || "Could not create group");
         }
     };
 
     const handleJoinGroup = async () => {
         if (!joinCode.trim()) return;
+        if (!user?.idToken) {
+            Alert.alert("Error", "You must be logged in to join groups.");
+            return;
+        }
         try {
-            await SplitService.joinGroup(joinCode.toUpperCase(), currentUser);
+            await SplitService.joinGroup(user.idToken, joinCode.toUpperCase());
             setJoinModalVisible(false);
             setJoinCode('');
             loadData();
@@ -132,9 +146,9 @@ const SplitFundDashboard = () => {
                 ) : (
                     groups.map(g => (
                         <TouchableOpacity 
-                            key={g.id} 
+                            key={g._id || g.id} 
                             style={[styles.groupCard, dynamicStyles.card]}
-                            onPress={() => navigation.navigate('GroupDetails', { groupId: g.id, groupName: g.name })}
+                            onPress={() => navigation.navigate('GroupDetails', { groupId: g._id || g.id, groupName: g.name })}
                         >
                             <View style={styles.groupIconBg}>
                                 <MaterialCommunityIcons name="account-group" size={24} color={colors.white} />

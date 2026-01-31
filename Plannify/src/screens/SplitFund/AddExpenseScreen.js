@@ -13,11 +13,12 @@ const AddExpenseScreen = ({ route }) => {
     const { groupId, members } = route.params;
     const navigation = useNavigation();
     
-    const currentUser = { id: user?.id || 'local_user' };
+    // Get user ID consistently - backend returns _id, some places use id
+    const currentUserId = user?.user?.id || user?.user?._id || 'local_user';
 
     const [desc, setDesc] = useState('');
     const [amount, setAmount] = useState('');
-    const [payer, setPayer] = useState(currentUser.id);
+    const [payer, setPayer] = useState(currentUserId);
     const [splitType, setSplitType] = useState('Equally');
     
     const [isLoading, setIsLoading] = useState(false);
@@ -43,17 +44,17 @@ const AddExpenseScreen = ({ route }) => {
             setIsLoading(true);
             switch (splitType) {
                 case 'Equally':
-                    finalSplits = splitEqually(totalAmt, members);
+                    finalSplits = splitEqually(totalAmt, members.map(m => ({ id: m._id || m.id, name: m.name })));
                     break;
                 case 'Percent':
                     // Validate total % is 100? Or just warn?
-                    finalSplits = splitByPercentage(totalAmt, members, splitInputs);
+                    finalSplits = splitByPercentage(totalAmt, members.map(m => ({ id: m._id || m.id, name: m.name })), splitInputs);
                     break;
                 case 'Shares':
-                    finalSplits = splitByShares(totalAmt, members, splitInputs);
+                    finalSplits = splitByShares(totalAmt, members.map(m => ({ id: m._id || m.id, name: m.name })), splitInputs);
                     break;
                 case 'Adjust':
-                    finalSplits = splitByAdjustment(totalAmt, members, splitInputs);
+                    finalSplits = splitByAdjustment(totalAmt, members.map(m => ({ id: m._id || m.id, name: m.name })), splitInputs);
                     break;
                 case 'Exact':
                     const sum = Object.values(splitInputs).reduce((a,b) => a + Number(b), 0);
@@ -95,16 +96,21 @@ const AddExpenseScreen = ({ route }) => {
     };
 
     const renderSplitInputs = () => {
-        if (splitType === 'Equally') return (
-            <Text style={[styles.infoText, dynamicStyles.subText]}>
-                Split equally between {members.length} people ({colors.currency}{amount ? (amount/members.length).toFixed(2) : 0}/person)
-            </Text>
-        );
+        if (splitType === 'Equally') {
+            const perPerson = amount ? (parseFloat(amount)/members.length).toFixed(2) : 0;
+            return (
+                <Text style={[styles.infoText, dynamicStyles.subText]}>
+                    Split equally between {members.length} people ({colors.currency}{perPerson}/person)
+                </Text>
+            );
+        }
 
-        return members.map(m => (
-            <View key={m.id} style={styles.memberRow}>
+        return members.map(m => {
+            const memberId = m._id || m.id;
+            return (
+            <View key={memberId} style={styles.memberRow}>
                 <View style={styles.avatar}>
-                     <Text style={{color:'white', fontWeight:'bold'}}>{m.name[0]}</Text>
+                     <Text style={{color:'white', fontWeight:'bold'}}>{m.name?.[0] || '?'}</Text>
                 </View>
                 <Text style={[styles.memberName, dynamicStyles.text]}>{m.name}</Text>
                 
@@ -113,11 +119,11 @@ const AddExpenseScreen = ({ route }) => {
                     placeholder={splitType === 'Percent' ? '%' : splitType === 'Shares' ? '1' : '0'}
                     placeholderTextColor={colors.textMuted}
                     keyboardType="numeric"
-                    value={splitInputs[m.id] ? String(splitInputs[m.id]) : ''}
-                    onChangeText={(val) => setSplitInputs(prev => ({ ...prev, [m.id]: val }))}
+                    value={splitInputs[memberId] ? String(splitInputs[memberId]) : ''}
+                    onChangeText={(val) => setSplitInputs(prev => ({ ...prev, [memberId]: val }))}
                 />
             </View>
-        ));
+        )});
     };
 
     return (
@@ -152,15 +158,17 @@ const AddExpenseScreen = ({ route }) => {
             {/* PAYER SELECTION */}
             <Text style={[styles.label, dynamicStyles.subText]}>Paid by</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-                {members.map(m => (
+                {members.map(m => {
+                    const memberId = m._id || m.id;
+                    return (
                     <TouchableOpacity 
-                        key={m.id}
-                        style={[styles.chip, payer === m.id ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
-                        onPress={() => setPayer(m.id)}
+                        key={memberId}
+                        style={[styles.chip, payer === memberId ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                        onPress={() => setPayer(memberId)}
                     >
-                        <Text style={{ color: payer === m.id ? 'white' : colors.textPrimary }}>{m.id === currentUser.id ? 'You' : m.name}</Text>
+                        <Text style={{ color: payer === memberId ? 'white' : colors.textPrimary }}>{memberId === currentUserId ? 'You' : m.name}</Text>
                     </TouchableOpacity>
-                ))}
+                )})}
             </ScrollView>
 
             {/* SPLIT TYPE TABS */}

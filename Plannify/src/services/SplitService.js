@@ -9,6 +9,9 @@ export const SplitService = {
     // ===================================
 
     createGroup: async (token, name) => {
+        if (!token) {
+            throw new Error('Authentication required');
+        }
         try {
             const response = await fetch(`${API_URL}/split/groups`, {
                 method: 'POST',
@@ -28,6 +31,9 @@ export const SplitService = {
     },
 
     joinGroup: async (token, inviteCode) => {
+        if (!token) {
+            throw new Error('Authentication required');
+        }
         try {
             const response = await fetch(`${API_URL}/split/groups/join`, {
                 method: 'POST',
@@ -51,6 +57,9 @@ export const SplitService = {
     },
 
     getGroups: async (token) => {
+        if (!token) {
+            throw new Error('Authentication required');
+        }
         try {
             const response = await fetch(`${API_URL}/split/groups`, {
                 method: 'GET',
@@ -61,7 +70,18 @@ export const SplitService = {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to fetch groups');
-            return data.groups;
+            
+            // Normalize groups: ensure both _id and id are available for compatibility
+            const normalizedGroups = (data.groups || []).map(group => ({
+                ...group,
+                id: group._id || group.id, // Ensure 'id' exists for frontend
+                members: (group.members || []).map(m => ({
+                    ...m,
+                    id: m._id || m.id // Normalize member ids too
+                }))
+            }));
+            
+            return normalizedGroups;
         } catch (error) {
             console.error('SplitService Get Groups Error:', error);
             throw error;

@@ -10,9 +10,9 @@ const SettleUpScreen = ({ route }) => {
     const { colors, theme, user } = useContext(AppContext);
     const { groupId, balances, members } = route.params;
     const navigation = useNavigation();
-    const currentUser = { id: user?.id || 'local_user' };
-
-    const [payer, setPayer] = useState(currentUser.id);
+    // Get user ID consistently
+    const currentUserId = user?.user?.id || user?.user?._id || 'local_user';
+    const [payer, setPayer] = useState(currentUserId);
     const [payee, setPayee] = useState(''); // Default empty
     const [amount, setAmount] = useState('');
     
@@ -24,15 +24,15 @@ const SettleUpScreen = ({ route }) => {
             setSuggestions(simplified);
             
             // Auto-select a suggestion involving current user if exists
-            const mySuggestion = simplified.find(s => s.from === currentUser.id || s.to === currentUser.id);
+            const mySuggestion = simplified.find(s => s.from === currentUserId || s.to === currentUserId);
             if (mySuggestion) {
-                if (mySuggestion.from === currentUser.id) {
-                    setPayer(currentUser.id);
+                if (mySuggestion.from === currentUserId) {
+                    setPayer(currentUserId);
                     setPayee(mySuggestion.to);
                     setAmount(String(mySuggestion.amount));
                 } else {
                     setPayer(mySuggestion.from);
-                    setPayee(currentUser.id);
+                    setPayee(currentUserId);
                     setAmount(String(mySuggestion.amount));
                 }
             } else if (simplified.length > 0) {
@@ -82,8 +82,9 @@ const SettleUpScreen = ({ route }) => {
     };
 
     const getName = (id) => {
-        if (id === currentUser.id) return 'You';
-        return members.find(m => m.id === id)?.name || 'Unknown';
+        if (id === currentUserId) return 'You';
+        const member = members.find(m => (m._id || m.id) === id);
+        return member?.name || 'Unknown';
     };
 
     return (
@@ -123,15 +124,17 @@ const SettleUpScreen = ({ route }) => {
                 <View style={styles.row}>
                     <Text style={[styles.rowLabel, dynamicStyles.subText]}>From</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {members.map(m => (
+                        {members.map(m => {
+                            const memberId = m._id || m.id;
+                            return (
                             <TouchableOpacity 
-                                key={m.id}
-                                style={[styles.chip, payer === m.id ? { backgroundColor: colors.primary } : { borderWidth: 1, borderColor: colors.border }]}
-                                onPress={() => setPayer(m.id)}
+                                key={memberId}
+                                style={[styles.chip, payer === memberId ? { backgroundColor: colors.primary } : { borderWidth: 1, borderColor: colors.border }]}
+                                onPress={() => setPayer(memberId)}
                             >
-                                <Text style={{ color: payer === m.id ? 'white' : colors.textPrimary }}>{m.id === currentUser.id ? 'You' : m.name}</Text>
+                                <Text style={{ color: payer === memberId ? 'white' : colors.textPrimary }}>{memberId === currentUserId ? 'You' : m.name}</Text>
                             </TouchableOpacity>
-                        ))}
+                        )})}
                     </ScrollView>
                 </View>
 
@@ -146,15 +149,17 @@ const SettleUpScreen = ({ route }) => {
                 <View style={styles.row}>
                     <Text style={[styles.rowLabel, dynamicStyles.subText]}>To</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {members.map(m => (
+                        {members.map(m => {
+                            const memberId = m._id || m.id;
+                            return (
                             <TouchableOpacity 
-                                key={m.id}
-                                style={[styles.chip, payee === m.id ? { backgroundColor: colors.success } : { borderWidth: 1, borderColor: colors.border }]}
-                                onPress={() => setPayee(m.id)}
+                                key={memberId}
+                                style={[styles.chip, payee === memberId ? { backgroundColor: colors.success } : { borderWidth: 1, borderColor: colors.border }]}
+                                onPress={() => setPayee(memberId)}
                             >
-                                <Text style={{ color: payee === m.id ? 'white' : colors.textPrimary }}>{m.id === currentUser.id ? 'You' : m.name}</Text>
+                                <Text style={{ color: payee === memberId ? 'white' : colors.textPrimary }}>{memberId === currentUserId ? 'You' : m.name}</Text>
                             </TouchableOpacity>
-                        ))}
+                        )})}
                     </ScrollView>
                 </View>
                 

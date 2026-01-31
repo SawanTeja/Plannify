@@ -77,7 +77,8 @@ const GroupScreen = ({ route }) => {
 
     const renderExpenseItem = ({ item }) => {
         // Backend stores paidBy as User ID
-        const isPayer = item.paidBy === user.user?.id;
+        const myId = user.user?.id || user.user?._id;
+        const isPayer = item.paidBy === myId;
         const month = new Date(item.date).toLocaleString('default', { month: 'short', day: 'numeric' });
         
         return (
@@ -113,9 +114,9 @@ const GroupScreen = ({ route }) => {
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 10 }}>
                          {Object.entries(balances).map(([uid, amount]) => {
                              if (Math.abs(amount) < 0.01) return null; // Hide approximate zeros
-                             // Find member name
-                             const member = group.members.find(m => m._id === uid);
-                             const isMe = uid === user.user?.id;
+                             const member = group.members.find(m => (m._id || m.id) === uid);
+                             const myId = user.user?.id || user.user?._id;
+                             const isMe = uid === myId;
                              
                              return (
                                  <View key={uid} style={[styles.balanceChip, { backgroundColor: amount > 0 ? colors.success + '20' : colors.danger + '20' }]}>
@@ -152,7 +153,7 @@ const GroupScreen = ({ route }) => {
             {/* EXPENSES LIST */}
             <SectionList
                 sections={[{ title: 'Recent Activity', data: expenses }]}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item._id || item.id}
                 renderItem={renderExpenseItem}
                 renderSectionHeader={({ section: { title } }) => (
                     <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>{title}</Text>
