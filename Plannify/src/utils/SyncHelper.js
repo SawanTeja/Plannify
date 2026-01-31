@@ -107,13 +107,26 @@ export const SyncHelper = {
           if (backendKey === 'budget') {
               // For budget, we must merge carefully to NOT lose local transactions
               const currentBudget = (await getData("budget_data")) || {};
-              // We update everything EXCEPT transactions
+              
+              // Important: Merge ALL server budget settings while preserving local transactions
+              // Server provides: currency, totalBudget, currentMonth, categories, recurringPayments, history
               const newBudget = { 
-                  ...currentBudget, 
-                  ...latest, 
-                  transactions: currentBudget.transactions || [], // Preserve transactions
-                  // Ensure categories are at least empty array if missing
-                  categories: latest.categories || currentBudget.categories || []
+                  // Start with current local data (to preserve any local-only fields)
+                  ...currentBudget,
+                  // Apply all server settings
+                  _id: latest._id || 'budget_settings',
+                  currency: latest.currency || currentBudget.currency || '$',
+                  totalBudget: latest.totalBudget !== undefined ? latest.totalBudget : (currentBudget.totalBudget || 0),
+                  currentMonth: latest.currentMonth || currentBudget.currentMonth || new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                  // Merge categories from server (server wins)
+                  categories: latest.categories || currentBudget.categories || [],
+                  // Merge recurring payments from server
+                  recurringPayments: latest.recurringPayments || currentBudget.recurringPayments || [],
+                  // Merge history from server  
+                  history: latest.history || currentBudget.history || [],
+                  // CRITICAL: Preserve local transactions - they sync separately
+                  transactions: currentBudget.transactions || [],
+                  updatedAt: latest.updatedAt || new Date()
               };
              await storeData("budget_data", newBudget);
           } else if (backendKey === 'timetable') {
@@ -168,14 +181,27 @@ export const SyncHelper = {
 
     // 2. SPECIAL HANDLE: Budget Transactions
     if (serverData.transactions && serverData.transactions.length > 0) {
-        const budgetData = (await getData("budget_data")) || { transactions: [], categories: [] };
+        // Get existing budget data or create a proper default structure
+        let budgetData = await getData("budget_data");
+        if (!budgetData) {
+            // Initialize with proper default structure for fresh installs
+            budgetData = { 
+                transactions: [], 
+                categories: [],
+                currency: '$',
+                totalBudget: 0,
+                currentMonth: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                recurringPayments: [],
+                history: []
+            };
+        }
         
         // Merge the transactions array
         budgetData.transactions = mergeArrays(budgetData.transactions || [], serverData.transactions);
         
         // Recalculate 'Spent' for Categories
         // This ensures the UI progress bars update immediately without a restart
-        if (budgetData.categories) {
+        if (budgetData.categories && budgetData.categories.length > 0) {
             budgetData.categories = budgetData.categories.map(cat => {
                 const totalSpent = budgetData.transactions
                     .filter(t => t.category === cat.name && t.type === 'expense')

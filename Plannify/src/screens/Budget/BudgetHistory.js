@@ -2,15 +2,17 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
 import {
   FlatList,
-  Modal,
+  // Modal, // Removed standard modal
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Platform
 } from "react-native";
+import Modal from "react-native-modal"; // Enhanced Modal
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";
 
@@ -39,8 +41,8 @@ const BudgetHistory = () => {
         currentSpent = data.categories.reduce((acc, c) => acc + c.spent, 0);
       } else if (data.transactions) {
         currentSpent = data.transactions
-          .filter((t) => t.type !== "credit")
-          .reduce((acc, t) => acc + t.amount, 0);
+          .filter((t) => t.type === "expense")
+          .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
       }
 
       const currentMonthLog = {
@@ -223,14 +225,23 @@ const BudgetHistory = () => {
         />
       </View>
 
-      {/* --- FULL DETAILS MODAL --- */}
+      {/* --- SWIPEABLE DETAILS MODAL --- */}
       <Modal
-        visible={detailsVisible}
-        animationType="slide"
-        onRequestClose={() => setDetailsVisible(false)}
-        presentationStyle="pageSheet" // Looks better on iOS
+        isVisible={detailsVisible}
+        onSwipeComplete={() => setDetailsVisible(false)}
+        swipeDirection={["down"]} // Swipe DOWN to close
+        onBackdropPress={() => setDetailsVisible(false)}
+        style={styles.detailModal}
+        backdropOpacity={0.5}
+        propagateSwipe={true} // Allow scrolling inside
       >
-        <View style={[styles.modalContainer, dynamicStyles.modalContainer]}>
+        <View style={[styles.detailCard, dynamicStyles.modalContainer]}>
+          
+          {/* Drag Handle */}
+          <View style={styles.dragHandleContainer}>
+            <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
+          </View>
+
           {selectedMonth && (
             <>
               {/* Modal Header */}
@@ -312,7 +323,7 @@ const BudgetHistory = () => {
                             styles.iconBox,
                             {
                               backgroundColor:
-                                tx.type === "credit"
+                                tx.type === "income"
                                   ? colors.success + "20"
                                   : colors.danger + "20",
                             },
@@ -320,13 +331,13 @@ const BudgetHistory = () => {
                         >
                           <MaterialCommunityIcons
                             name={
-                              tx.type === "credit"
+                              tx.type === "income"
                                 ? "arrow-down-left"
                                 : "arrow-up-right"
                             }
                             size={20}
                             color={
-                              tx.type === "credit"
+                              tx.type === "income"
                                 ? colors.success
                                 : colors.danger
                             }
@@ -336,10 +347,10 @@ const BudgetHistory = () => {
                           <Text
                             style={[styles.txDesc, dynamicStyles.headerText]}
                           >
-                            {tx.desc}
+                            {tx.description || tx.desc}
                           </Text>
                           <Text style={[styles.txDate, dynamicStyles.subText]}>
-                            {tx.date} • {tx.category || "General"}
+                            {new Date(tx.date).toLocaleDateString()} • {tx.category || "General"}
                           </Text>
                         </View>
                       </View>
@@ -349,13 +360,13 @@ const BudgetHistory = () => {
                           styles.txAmount,
                           {
                             color:
-                              tx.type === "credit"
+                              tx.type === "income"
                                 ? colors.success
                                 : colors.textPrimary,
                           },
                         ]}
                       >
-                        {tx.type === "credit" ? "+" : "-"} {currency}
+                        {tx.type === "income" ? "+" : "-"} {currency}
                         {tx.amount}
                       </Text>
                     </View>
@@ -445,6 +456,31 @@ const styles = StyleSheet.create({
   txDesc: { fontSize: 16, fontWeight: "600" },
   txDate: { fontSize: 12, marginTop: 2 },
   txAmount: { fontSize: 16, fontWeight: "bold" },
+  
+  // NEW: Swipeable Modal Styles
+  detailModal: {
+    justifyContent: "flex-end",
+    margin: 0,
+  },
+  detailCard: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: "90%",
+    overflow: "hidden",
+    width: "100%",
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    paddingVertical: 10,
+    width: "100%",
+    backgroundColor: "transparent",
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
 });
 
 export default BudgetHistory;

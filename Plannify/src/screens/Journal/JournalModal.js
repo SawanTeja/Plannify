@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system"; // Fixed import for newer Expo versions
+import * as FileSystem from "expo-file-system/legacy"; // Fixed: Use legacy explicitly for SDK 54
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useContext, useEffect, useState } from "react";
@@ -73,7 +73,7 @@ const JournalModal = ({
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: false,
       quality: 1,
     });
