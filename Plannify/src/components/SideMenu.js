@@ -28,7 +28,7 @@ const SideMenu = ({ visible, onClose }) => {
     colors,
     theme,
     user, 
-    logout, // Import logout function
+    logout,
   } = useContext(AppContext);
 
   const [storageSize, setStorageSize] = useState("Calculating...");

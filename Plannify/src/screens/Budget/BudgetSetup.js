@@ -122,9 +122,9 @@ const BudgetSetup = () => {
       categories: useCategories
         ? finalCategories.map((c) => ({
             ...c,
-            limit: parseFloat(c.limit),
+            limit: parseFloat(c.limit) || 0,
             spent:
-              oldData?.categories?.find((oc) => oc.id === c.id)?.spent || 0,
+              oldData?.categories?.find((oc) => oc.id === c.id || oc.name === c.name)?.spent || 0,
           }))
         : [],
       updatedAt: new Date(), // Fix: Ensure settings sync

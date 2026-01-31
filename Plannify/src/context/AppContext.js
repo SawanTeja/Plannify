@@ -27,7 +27,7 @@ export const AppProvider = ({ children }) => {
   
   // Sync State
   const [isSyncing, setIsSyncing] = useState(false);
-  const [lastRefreshed, setLastRefreshed] = useState(0); // <-- NEW: Used to force UI updates
+  const [lastRefreshed, setLastRefreshed] = useState(0);
 
   // Unified User Data State (Local profile data)
   const [userData, setUserData] = useState({
@@ -270,7 +270,7 @@ export const AppProvider = ({ children }) => {
         // Sync Values
         syncNow: () => performSync(),
         isSyncing,
-        lastRefreshed // <-- Pass this to your screens!
+        lastRefreshed
       }}
     >
       <StatusBar

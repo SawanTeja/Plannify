@@ -105,14 +105,16 @@ export const SyncHelper = {
           const latest = sorted[0];
           
           if (backendKey === 'budget') {
-             // For budget, we must merge carefully to NOT lose local transactions
-             const currentBudget = (await getData("budget_data")) || {};
-             // We update everything EXCEPT transactions
-             const newBudget = { 
-                 ...currentBudget, 
-                 ...latest, 
-                 transactions: currentBudget.transactions || [] // Preserve transactions
-             };
+              // For budget, we must merge carefully to NOT lose local transactions
+              const currentBudget = (await getData("budget_data")) || {};
+              // We update everything EXCEPT transactions
+              const newBudget = { 
+                  ...currentBudget, 
+                  ...latest, 
+                  transactions: currentBudget.transactions || [], // Preserve transactions
+                  // Ensure categories are at least empty array if missing
+                  categories: latest.categories || currentBudget.categories || []
+              };
              await storeData("budget_data", newBudget);
           } else if (backendKey === 'timetable') {
              // SYNC FIX: Normalize timetable format and merge schedules
@@ -177,7 +179,7 @@ export const SyncHelper = {
             budgetData.categories = budgetData.categories.map(cat => {
                 const totalSpent = budgetData.transactions
                     .filter(t => t.category === cat.name && t.type === 'expense')
-                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+                    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
                 return { ...cat, spent: totalSpent };
             });
         }

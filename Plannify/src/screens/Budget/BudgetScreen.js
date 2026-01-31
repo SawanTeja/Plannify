@@ -200,18 +200,16 @@ const BudgetScreen = () => {
   const hasCategories = budget.categories && budget.categories.length > 0;
   
   const totalSpent = hasCategories
-    ? budget.categories.reduce((acc, item) => acc + item.spent, 0)
+    ? budget.categories.reduce((acc, item) => acc + (parseFloat(item.spent) || 0), 0)
     : budget.transactions
-        // UPDATED: Check for 'expense'
         .filter((t) => t.type === "expense") 
-        .reduce((acc, item) => acc + item.amount, 0);
+        .reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
 
   const totalIncome = budget.transactions
-    // UPDATED: Check for 'income'
     .filter((t) => t.type === "income")
-    .reduce((acc, item) => acc + item.amount, 0);
+    .reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
 
-  const remaining = budget.totalBudget + totalIncome - totalSpent;
+  const remaining = (parseFloat(budget.totalBudget) || 0) + totalIncome - totalSpent;
 
   // --- DYNAMIC STYLES ---
   const dynamicStyles = {
