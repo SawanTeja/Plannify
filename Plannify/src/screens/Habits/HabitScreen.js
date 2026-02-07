@@ -57,7 +57,7 @@ const CATEGORIES = [
 ];
 
 const HabitScreen = () => {
-  const { colors, theme, syncNow } = useContext(AppContext);
+  const { colors, theme, syncNow, lastRefreshed } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -94,6 +94,13 @@ const HabitScreen = () => {
   useEffect(() => {
     generateHeatmap();
   }, [habits, theme, selectedDate]);
+
+  // Reload data when sync completes
+  useEffect(() => {
+    if (lastRefreshed) {
+      loadData();
+    }
+  }, [lastRefreshed]);
 
   const loadData = async () => {
     const h = await getData("habits_data");

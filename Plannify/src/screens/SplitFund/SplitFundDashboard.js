@@ -8,7 +8,7 @@ import Modal from 'react-native-modal';
 import { SplitService } from '../../services/SplitService';
 
 const SplitFundDashboard = () => {
-    const { colors, theme, userData, user } = useContext(AppContext);
+    const { colors, theme, userData, user, lastRefreshed } = useContext(AppContext);
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     
@@ -36,6 +36,13 @@ const SplitFundDashboard = () => {
             loadData();
         }, [loadData])
     );
+
+    // Auto-refresh when sync finishes
+    useEffect(() => {
+        if (lastRefreshed) {
+            loadData();
+        }
+    }, [lastRefreshed, loadData]);
 
     const loadData = useCallback(async () => {
         // Allow loading without token for offline groups

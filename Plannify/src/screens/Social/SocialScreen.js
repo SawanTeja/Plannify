@@ -36,7 +36,7 @@ if (
 const { width } = Dimensions.get("window");
 
 const SocialScreen = () => {
-  const { colors, theme, user } = useContext(AppContext);
+  const { colors, theme, user, lastRefreshed } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -81,6 +81,17 @@ const SocialScreen = () => {
       loadPosts(selectedGroup._id);
     }
   }, [selectedGroup]);
+
+  // Reload data when sync completes
+  useEffect(() => {
+    if (lastRefreshed && user?.idToken) {
+      console.log('🔄 Social: Reloading after sync...');
+      loadGroups();
+      if (selectedGroup) {
+        loadPosts(selectedGroup._id);
+      }
+    }
+  }, [lastRefreshed]);
 
   const loadGroups = async () => {
     if (!user?.idToken) return;

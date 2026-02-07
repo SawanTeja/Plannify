@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useEffect, useState } from "react";
-import { Appearance, StatusBar } from "react-native";
+import { AppState } from "react-native";
 import allColors from "../constants/colors";
 import { getData, storeData } from "../utils/storageHelper";
 
@@ -8,6 +8,7 @@ import { getData, storeData } from "../utils/storageHelper";
 import {
   configureGoogleSignIn,
   getCurrentUser,
+  refreshGoogleToken,
   signInWithGoogle,
   signOutGoogle,
 } from "../services/AuthService";
@@ -60,6 +61,32 @@ export const AppProvider = ({ children }) => {
     };
   }, [user]); // Re-run when user logs in/out
 
+  // 2. APP STATE LISTENER (Auto-Refresh Token on Resume)
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log("📱 App has come to the foreground!");
+        if (user) {
+          console.log("🔄 Refreshing Token...", user.user?.email);
+          const freshUser = await refreshGoogleToken();
+          if (freshUser && freshUser.idToken) {
+             console.log("✅ Token Refreshed Successfully");
+             setUser(freshUser);
+             performSync(freshUser.idToken);
+          } else {
+             console.log("⚠️ Token Refresh Failed or Cancelled");
+          }
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [user]);
+
   useEffect(() => {
     // Initialize Google Auth Config
     configureGoogleSignIn();
@@ -91,17 +118,27 @@ export const AppProvider = ({ children }) => {
   // --- Auth Helper Functions ---
   const checkUser = async () => {
     try {
-      const currentUser = await getCurrentUser();
-      if (currentUser) {
-        // Adapt structure to match what login() returns
-        const userObj = {
-            user: currentUser.user || currentUser,
-            idToken: currentUser.idToken // Ensure this exists if checking silently
-        };
-        setUser(userObj);
-        
-        // Trigger immediate sync on app launch
-        if (userObj.idToken) performSync(userObj.idToken);
+      // PROACTIVELY TRY TO REFRESH TOKEN ON STARTUP
+      const refreshedUser = await refreshGoogleToken();
+      
+      if (refreshedUser) {
+        console.log("✅ Auto-Login with Fresh Token");
+        setUser(refreshedUser);
+        if (refreshedUser.idToken) performSync(refreshedUser.idToken);
+      } else {
+        // Fallback to standard check if silent sign-in fails (e.g. no internet but maybe cached?)
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          // Adapt structure to match what login() returns
+          const userObj = {
+              user: currentUser.user || currentUser,
+              idToken: currentUser.idToken // Ensure this exists if checking silently
+          };
+          setUser(userObj);
+          
+          // Trigger immediate sync on app launch
+          if (userObj.idToken) performSync(userObj.idToken);
+        }
       }
     } catch (e) {
       console.log("Auth Check Error:", e);

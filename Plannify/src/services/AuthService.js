@@ -74,6 +74,26 @@ export const getCurrentUser = async () => {
   }
 };
 
+export const refreshGoogleToken = async () => {
+  try {
+    await GoogleSignin.hasPlayServices();
+    const userInfo = await GoogleSignin.signInSilently();
+    
+    // Structure compatible with our app
+    return {
+      idToken: userInfo.idToken || userInfo.data?.idToken,
+      user: userInfo.user || userInfo.data?.user,
+    };
+  } catch (error) {
+    if (error.code === statusCodes.SIGN_IN_REQUIRED) {
+      console.log("User must sign in explicitly");
+    } else {
+      console.error("Token Refresh Error:", error);
+    }
+    return null;
+  }
+};
+
 export const getGoogleAccessToken = async () => {
   try {
     const tokens = await GoogleSignin.getTokens();
