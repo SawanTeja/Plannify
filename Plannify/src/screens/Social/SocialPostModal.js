@@ -21,7 +21,7 @@ import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 const MOODS = ["😊", "😢", "😡", "😴", "🤔", "🥳", "😌", "🤩", "😰", "🥰"];
 
 const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
-  const { colors } = useContext(AppContext);
+  const { colors, user } = useContext(AppContext);
 
   const [topic, setTopic] = useState("");
   const [text, setText] = useState("");
@@ -141,14 +141,21 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
       let finalImage = image;
       let uploadStatus = "complete";
 
-      // Upload new image to Cloudinary
+      // Upload new image to Cloudinary ONLY IF LOGGED IN
+      const isLoggedIn = !!(user && user.idToken);
+      
       if (image && !image.includes("cloudinary.com")) {
-        try {
-          finalImage = await uploadToCloudinary(image);
-        } catch (error) {
-          console.error("Upload failed:", error);
-          // Keep local image and mark as pending
-          uploadStatus = "pending";
+        if (isLoggedIn) {
+            try {
+              finalImage = await uploadToCloudinary(image);
+            } catch (error) {
+              console.error("Upload failed:", error);
+              // Keep local image and mark as pending
+              uploadStatus = "pending";
+            }
+        } else {
+            console.log("👤 Not logged in - skipping Cloudinary upload for now");
+            uploadStatus = "pending"; // Will try to sync later when logged in
         }
       }
 
