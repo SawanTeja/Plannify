@@ -178,8 +178,8 @@ const JournalScreen = () => {
     setModalVisible(false);
     setEntryToEdit(null);
 
-    // If upload is pending, handle background upload
-    if (savedEntry && savedEntry.uploadStatus === 'pending' && savedEntry.image) {
+    // If upload is pending AND USER IS LOGGED IN, handle background upload
+    if (savedEntry && savedEntry.uploadStatus === 'pending' && savedEntry.image && user?.idToken) {
       console.log('📤 Starting background upload for entry:', savedEntry.id);
       
       try {
