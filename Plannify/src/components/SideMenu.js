@@ -29,6 +29,8 @@ const SideMenu = ({ visible, onClose }) => {
     theme,
     user, 
     logout,
+    isMaterialYou,
+    toggleMaterialYou,
   } = useContext(AppContext);
 
   const [storageSize, setStorageSize] = useState("Calculating...");
@@ -312,6 +314,24 @@ const SideMenu = ({ visible, onClose }) => {
                 thumbColor={"#FFF"}
                 value={theme === "dark"}
                 onValueChange={toggleTheme}
+              />
+            </View>
+
+            {/* Material You Toggle */}
+            <View style={styles.row}>
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+                  Material You
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.textSecondary }}>
+                  Sync with wallpaper (Android 12+)
+                </Text>
+              </View>
+              <Switch
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={"#FFF"}
+                value={isMaterialYou}
+                onValueChange={toggleMaterialYou}
               />
             </View>
             {/* NEW: Clear Database Option */}

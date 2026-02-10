@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
 import allColors from "../constants/colors";
 import { getData, storeData } from "../utils/storageHelper";
 
@@ -21,6 +23,8 @@ export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState("dark");
+  const [isMaterialYou, setIsMaterialYou] = useState(true); // Default to true
+  const { theme: materialTheme } = useMaterial3Theme();
 
   // Auth State
   const [user, setUser] = useState(null);
@@ -39,9 +43,34 @@ export const AppProvider = ({ children }) => {
     notifyTasks: true,
   });
 
+  // Calculate generic colors
+  const baseColors = allColors[theme];
+  // Calculate Material You overrides if available AND enabled
+  const materialColors = (isMaterialYou && materialTheme) ? materialTheme[theme] : null;
+
   const activeColors = {
     ...allColors.common,
-    ...allColors[theme],
+    ...baseColors,
+    // Override with Material You colors if available
+    ...(materialColors ? {
+      primary: materialColors.primary,
+      primaryLight: materialColors.primaryContainer,
+      secondary: materialColors.secondary, // Or tertiary
+      accent: materialColors.tertiary,
+      
+      background: materialColors.background,
+      surface: materialColors.surface,
+      surfaceHighlight: materialColors.surfaceVariant,
+      
+      textPrimary: materialColors.onBackground,
+      textSecondary: materialColors.onSurfaceVariant,
+      textMuted: materialColors.outline,
+
+      border: materialColors.outlineVariant,
+      divider: materialColors.outlineVariant,
+      
+      // Keep app-specific custom mappings if needed
+    } : {})
   };
 
   // 1. AUTO-SYNC TIMER
@@ -111,7 +140,13 @@ export const AppProvider = ({ children }) => {
       setUserData((prev) => ({ ...prev, ...storedUserData }));
     }
 
-    // 3. Check Google Login Status
+    // 3. Load Material You Setting
+    const storedMaterialYou = await getData("is_material_you");
+    if (storedMaterialYou !== null) { // Check for null because false is valid
+      setIsMaterialYou(storedMaterialYou);
+    }
+    
+    // 4. Check Google Login Status
     await checkUser();
   };
 
@@ -266,6 +301,14 @@ export const AppProvider = ({ children }) => {
     await storeData("app_theme", newTheme);
   };
 
+  const toggleMaterialYou = async () => {
+    setIsMaterialYou(prev => {
+        const newVal = !prev;
+        storeData("is_material_you", newVal);
+        return newVal;
+    });
+  };
+
   const updateUserData = async (newData) => {
     setUserData((prev) => {
       const updatedState = { ...prev, ...newData };
@@ -293,6 +336,8 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider
       value={{
         theme,
+        isMaterialYou,
+        toggleMaterialYou,
         colors: activeColors,
         toggleTheme,
         userData,

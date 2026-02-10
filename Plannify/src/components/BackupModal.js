@@ -14,7 +14,7 @@ import { AppContext } from "../context/AppContext";
 import { backupToDrive, restoreFromDrive } from "../services/DriveService";
 
 const BackupModal = ({ visible, onClose }) => {
-  const { user, login, logout, colors, theme } = useContext(AppContext);
+  const { user, userData, login, logout, colors, theme } = useContext(AppContext);
 
   // loadingAction tracks which button is spinning: 'login', 'backup', 'restore'
   const [loadingAction, setLoadingAction] = useState(null);
@@ -104,15 +104,15 @@ const BackupModal = ({ visible, onClose }) => {
               // LOGGED IN VIEW
               <>
                 <Image
-                  source={{ uri: user.user.photo }}
+                  source={{ uri: userData?.image }}
                   style={styles.avatar}
                 />
                 <View style={styles.userInfo}>
                   <Text style={[styles.userName, textStyle]}>
-                    {user.user.name}
+                    {userData?.name || "User"}
                   </Text>
                   <Text style={[styles.userEmail, subTextStyle]}>
-                    {user.user.email}
+                    {user?.user?.email || "Signed In"}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
