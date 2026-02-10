@@ -36,7 +36,7 @@ if (
 
 const TaskScreen = () => {
   // 1. GET lastRefreshed FROM CONTEXT
-  const { theme, colors, lastRefreshed, syncNow } = useContext(AppContext);
+  const { theme, colors, lastRefreshed, syncNow, appStyles } = useContext(AppContext);
   const isDark = theme === "dark";
 
   const insets = useSafeAreaInsets();
@@ -368,7 +368,7 @@ const TaskScreen = () => {
     <View
       style={[
         styles.screen,
-        { backgroundColor: colors.background, paddingTop: insets.top },
+        { backgroundColor: colors.background, paddingTop: insets.top + 10 },
       ]}
     >
       <StatusBar
@@ -380,7 +380,7 @@ const TaskScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }, appStyles.headerTitleStyle]}>
             Tasks
           </Text>
           <Text style={[styles.headerSub, { color: colors.textSecondary }]}>
@@ -618,15 +618,12 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 10,
     paddingBottom: 15,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
   },
   headerSub: {
     fontSize: 14,

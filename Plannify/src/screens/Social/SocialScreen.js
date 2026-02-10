@@ -36,7 +36,7 @@ if (
 const { width } = Dimensions.get("window");
 
 const SocialScreen = () => {
-  const { colors, theme, user, lastRefreshed } = useContext(AppContext);
+  const { colors, theme, user, lastRefreshed, appStyles } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -465,7 +465,10 @@ const SocialScreen = () => {
 
   // --- DYNAMIC STYLES ---
   const dynamicStyles = {
-    container: { backgroundColor: colors.background },
+    container: { 
+      backgroundColor: colors.background,
+      paddingTop: insets.top + 10,
+    },
     headerText: { color: colors.textPrimary },
     subText: { color: colors.textSecondary },
     card: {
@@ -1069,7 +1072,7 @@ const SocialScreen = () => {
         <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} />
         
         <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, dynamicStyles.headerText]}>Social</Text>
+          <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>Social</Text>
         </View>
 
         <View style={styles.centerContent}>
@@ -1118,7 +1121,7 @@ const SocialScreen = () => {
 
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={[styles.headerTitle, dynamicStyles.headerText]}>Social</Text>
+        <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>Social</Text>
         <TouchableOpacity onPress={() => {
           setModalMode("menu");
           setShowGroupModal(true);
@@ -1228,7 +1231,6 @@ const SocialScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 50,
   },
   centerContent: {
     flex: 1,
@@ -1244,8 +1246,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
   },
   groupSelector: {
     marginBottom: 15,

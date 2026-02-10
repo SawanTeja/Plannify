@@ -8,7 +8,7 @@ import Modal from 'react-native-modal';
 import { SplitService } from '../../services/SplitService';
 
 const SplitFundDashboard = () => {
-    const { colors, theme, userData, user, lastRefreshed } = useContext(AppContext);
+    const { colors, theme, userData, user, lastRefreshed, appStyles } = useContext(AppContext);
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     
@@ -124,9 +124,9 @@ const SplitFundDashboard = () => {
     };
 
     return (
-        <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
+        <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top + 10 }]}>
             <View style={styles.header}>
-                <Text style={[styles.title, dynamicStyles.text]}>SplitFund</Text>
+                <Text style={[styles.title, dynamicStyles.text, appStyles.headerTitleStyle]}>SplitFund</Text>
                 <View style={{ flexDirection: 'row', gap: 15 }}>
                      <TouchableOpacity onPress={() => setJoinModalVisible(true)}>
                         <MaterialCommunityIcons name="account-plus-outline" size={28} color={colors.primary} />
@@ -236,7 +236,7 @@ const SplitFundDashboard = () => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
-    title: { fontSize: 28, fontWeight: 'bold' },
+    title: { },
     balanceCard: { marginHorizontal: 20, marginBottom: 20, padding: 20, borderRadius: 20, alignItems: 'center', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
     balanceLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' },
     balanceAmount: { color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 8 },

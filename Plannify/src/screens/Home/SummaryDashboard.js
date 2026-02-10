@@ -15,6 +15,7 @@ import {
   UIManager,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SideMenu from "../../components/SideMenu";
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";
@@ -61,7 +62,8 @@ const ALL_FEATURES = [
 
 const SummaryDashboard = () => {
   const navigation = useNavigation();
-  const { userData, colors, theme } = useContext(AppContext);
+  const { userData, colors, theme, appStyles } = useContext(AppContext);
+  const safeAreaInsets = useSafeAreaInsets();
 
   // --- STATE ---
   const [globalStreak, setGlobalStreak] = useState(0);
@@ -170,12 +172,14 @@ const SummaryDashboard = () => {
     }
   };
 
+
+  
   // --- STYLES GENERATOR ---
   const dynamicStyles = {
     screen: {
       flex: 1,
       backgroundColor: colors.background,
-      paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+      paddingTop: safeAreaInsets.top + 10,
     },
     headerText: { color: colors.textPrimary },
     subText: { color: colors.textSecondary },
@@ -229,7 +233,7 @@ const SummaryDashboard = () => {
         <Text style={[styles.greetingText, dynamicStyles.subText]}>
           Good Morning,
         </Text>
-        <Text style={[styles.nameText, dynamicStyles.headerText]}>
+        <Text style={[styles.nameText, dynamicStyles.headerText, appStyles.headerTitleStyle]}>
           {userData.name}
         </Text>
       </View>
@@ -662,10 +666,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 25,
-    marginTop: 10,
   },
   greetingText: { fontSize: 16, fontWeight: "500" },
-  nameText: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  nameText: { letterSpacing: -0.5 },
   menuBtn: { padding: 8, borderRadius: 12, borderWidth: 1 },
   bentoContainer: { flexDirection: "row", gap: 15 },
   cardValue: { fontSize: 32, fontWeight: "800" },

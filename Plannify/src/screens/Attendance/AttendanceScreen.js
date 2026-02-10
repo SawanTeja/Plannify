@@ -57,7 +57,7 @@ const getDayNameFromDateStr = (dateStr) => {
 };
 
 const AttendanceScreen = () => {
-  const { userData, colors, theme, syncNow, lastRefreshed } = useContext(AppContext);
+  const { userData, colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
   const { dateStr: todayStr, dayName: todayDayName } = getLocalToday();
@@ -437,9 +437,9 @@ const AttendanceScreen = () => {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={styles.headerContainer}>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Attendance</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }, appStyles.headerTitleStyle]}>Attendance</Text>
         <View style={[styles.segmentContainer, { backgroundColor: colors.surface }]}>
           {["Today", "History", "Manage"].map((t) => (
             <TouchableOpacity
@@ -643,8 +643,8 @@ const AttendanceScreen = () => {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  headerContainer: { paddingHorizontal: 20, paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 10 : 20, paddingBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: "bold", marginBottom: 15 },
+  headerContainer: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
+  headerTitle: { fontWeight: "bold", marginBottom: 15 },
   segmentContainer: { flexDirection: "row", borderRadius: 30, padding: 4 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 25, alignItems: "center" },
   segmentText: { fontWeight: "700", fontSize: 14 },

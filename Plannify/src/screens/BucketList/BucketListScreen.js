@@ -36,7 +36,7 @@ const CATEGORIES = [
 ];
 
 const BucketListScreen = () => {
-  const { colors, syncNow, lastRefreshed } = useContext(AppContext);
+  const { colors, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -176,13 +176,13 @@ const BucketListScreen = () => {
   };
 
   return (
-    <View style={[styles.container, dynamicStyles.container]}>
+    <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top + 10 }]}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
       {/* Header */}
       <View style={styles.headerArea}>
         <View>
-          <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+          <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>
             Bucket List
           </Text>
           <Text style={[styles.headerSub, dynamicStyles.subText]}>
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 60,
+    paddingHorizontal: 20,
   },
   headerArea: {
     flexDirection: "row",
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  headerTitle: { fontSize: 32, fontWeight: "800", letterSpacing: -1 },
+  headerTitle: { letterSpacing: -1 },
   headerSub: { fontSize: 14, fontWeight: "500", marginTop: 4 },
   progressCircle: {
     width: 45,

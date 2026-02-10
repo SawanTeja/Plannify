@@ -18,7 +18,7 @@ import { getData, storeData } from "../../utils/storageHelper";
 
 const BudgetScreen = () => {
   const navigation = useNavigation();
-  const { colors, theme, syncNow, lastRefreshed } = useContext(AppContext);
+  const { colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
 
   const insets = useSafeAreaInsets();
   const FLOATING_TAB_BAR_HEIGHT = 90;
@@ -263,7 +263,7 @@ const BudgetScreen = () => {
           />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+        <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>
           My Wallet
         </Text>
 
@@ -828,10 +828,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginTop: 10,
-    marginBottom: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
-  headerTitle: { fontSize: 22, fontWeight: "bold" },
+  headerTitle: { },
   iconBtn: {
     padding: 10,
     borderRadius: 12,

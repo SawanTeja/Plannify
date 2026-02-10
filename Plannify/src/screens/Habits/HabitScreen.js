@@ -57,7 +57,7 @@ const CATEGORIES = [
 ];
 
 const HabitScreen = () => {
-  const { colors, theme, syncNow, lastRefreshed } = useContext(AppContext);
+  const { colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -347,7 +347,10 @@ const HabitScreen = () => {
   };
 
   const dynamicStyles = {
-    screen: { backgroundColor: colors.background },
+    screen: { 
+        backgroundColor: colors.background,
+        paddingTop: insets.top 
+    },
     textPrimary: { color: colors.textPrimary },
     modalContent: {
       backgroundColor: colors.surface,
@@ -366,7 +369,7 @@ const HabitScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={[styles.title, dynamicStyles.textPrimary]}>
+          <Text style={[styles.title, dynamicStyles.textPrimary, appStyles.headerTitleStyle]}>
             Habit Tracker
           </Text>
           <TouchableOpacity
@@ -643,7 +646,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight + 20 : 20,
+    paddingTop: 10, // Standardize to just 10, since wrapper handles insets? No, wait.
   },
   headerRow: {
     flexDirection: "row",
@@ -651,7 +654,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 15,
   },
-  title: { fontSize: 28, fontWeight: "bold" },
+  title: { fontWeight: "bold" },
   habitRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
   deleteBtn: { padding: 10, marginLeft: 5, justifyContent: "center" },
 

@@ -352,7 +352,15 @@ export const AppProvider = ({ children }) => {
         // Sync Values
         syncNow: () => performSync(),
         isSyncing,
-        lastRefreshed
+        lastRefreshed,
+        // Global Styles
+        appStyles: {
+            headerTitleStyle: {
+                fontSize: 28,
+                fontWeight: "bold",
+                letterSpacing: 0.5,
+            }
+        }
       }}
     >
       <StatusBar
