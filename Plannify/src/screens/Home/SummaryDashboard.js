@@ -4,7 +4,6 @@ import { useCallback, useContext, useState } from "react";
 import {
   Image,
   LayoutAnimation,
-  Modal,
   Platform,
   RefreshControl,
   ScrollView,
@@ -15,6 +14,7 @@ import {
   UIManager,
   View,
 } from "react-native";
+import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SideMenu from "../../components/SideMenu";
 import { AppContext } from "../../context/AppContext";
@@ -219,13 +219,11 @@ const SummaryDashboard = () => {
     quickBtn: {
       backgroundColor: colors.surfaceHighlight,
       borderRadius: 24,
-      padding: 15,
-      alignItems: "center",
-      justifyContent: "center",
       width: "30%",
       aspectRatio: 1,
       borderWidth: 1,
       borderColor: colors.border,
+      overflow: "hidden",
     },
     profileAvatar: {
       width: 45,
@@ -550,29 +548,31 @@ const SummaryDashboard = () => {
               />
             </TouchableOpacity>
           </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             {activeFeatures.map((f) => (
               <TouchableOpacity
                 key={f.id}
                 style={dynamicStyles.quickBtn}
                 onPress={() => navigation.navigate(f.route)}
               >
-                <MaterialCommunityIcons
-                  name={f.icon}
-                  size={28}
-                  color={colors.primary}
-                />
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "600",
-                    color: colors.textSecondary,
-                    marginTop: 8,
-                    textAlign: "center",
-                  }}
-                >
-                  {f.name}
-                </Text>
+                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                  <MaterialCommunityIcons
+                    name={f.icon}
+                    size={28}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "600",
+                      color: colors.textSecondary,
+                      marginTop: 8,
+                      textAlign: "center",
+                    }}
+                  >
+                    {f.name}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -582,40 +582,33 @@ const SummaryDashboard = () => {
       {/* --- FLOATING POPOVER (Replaces Old Sidebar) --- */}
       <SideMenu visible={menuVisible} onClose={() => setMenuVisible(false)} />
 
-      {/* --- EDIT MODAL (Simple Styling for now) --- */}
+      {/* --- EDIT MODAL (Draggable Bottom Sheet) --- */}
       <Modal
-        animationType="slide"
-        transparent={true}
-        visible={editModalVisible}
-        onRequestClose={() => setEditModalVisible(false)}
+        isVisible={editModalVisible}
+        onSwipeComplete={() => setEditModalVisible(false)}
+        swipeDirection={["down"]}
+        onBackdropPress={() => setEditModalVisible(false)}
+        style={styles.bottomModal}
+        avoidKeyboard={true}
+        backdropOpacity={0.7}
+        propagateSwipe={true}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            justifyContent: "flex-end",
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: 30,
-              borderTopRightRadius: 30,
-              padding: 25,
-              maxHeight: "60%",
-            }}
+        <View style={[styles.bottomModalContent, { backgroundColor: colors.surface }]}>
+          {/* Drag Handle */}
+          <View style={styles.dragHandleContainer}>
+            <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
+          </View>
+
+          <Text
+            style={[
+              styles.modalTitle,
+              { color: colors.textPrimary }
+            ]}
           >
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "bold",
-                color: colors.textPrimary,
-                marginBottom: 20,
-              }}
-            >
-              Edit Shortcuts
-            </Text>
-            <ScrollView>
+            Edit Shortcuts
+          </Text>
+          <View style={{ maxHeight: 400 }}>
+            <ScrollView showsVerticalScrollIndicator={false}>
               {ALL_FEATURES.map((f) => {
                 if (f.studentOnly && userData.userType !== "student")
                   return null;
@@ -652,21 +645,21 @@ const SummaryDashboard = () => {
                 );
               })}
             </ScrollView>
-            <TouchableOpacity
-              style={{
-                backgroundColor: colors.primary,
-                padding: 15,
-                borderRadius: 15,
-                alignItems: "center",
-                marginTop: 20,
-              }}
-              onPress={() => setEditModalVisible(false)}
-            >
-              <Text style={{ color: colors.white, fontWeight: "bold" }}>
-                Done
-              </Text>
-            </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary,
+              padding: 15,
+              borderRadius: 15,
+              alignItems: "center",
+              marginTop: 20,
+            }}
+            onPress={() => setEditModalVisible(false)}
+          >
+            <Text style={{ color: colors.white, fontWeight: "bold" }}>
+              Done
+            </Text>
+          </TouchableOpacity>
         </View>
       </Modal>
     </View>
@@ -687,6 +680,31 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 32, fontWeight: "800" },
   cardValueSmall: { fontSize: 22, fontWeight: "800" },
   cardLabel: { fontSize: 13, fontWeight: "600", marginTop: 2 },
+  
+  // --- MODAL STYLES ---
+  bottomModal: {
+    justifyContent: "flex-end",
+    margin: 0,
+  },
+  bottomModalContent: {
+    padding: 25,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    paddingBottom: 40,
+  },
+  dragHandleContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+    marginTop: -10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 10,
+    opacity: 0.5,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
 });
 
 export default SummaryDashboard;
