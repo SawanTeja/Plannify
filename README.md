@@ -8,8 +8,8 @@ This document provides instructions on how to set up, configure, and run the Pla
 - **Task Management**
 - **Budget Planner**
 - **Split Fund with friends**
-- **Journal**
-- **Social**
+- **Daily Journal**
+- **Social to share your life with friends in private groups**
 - **Bucket List**
 - **Attendance**
 
