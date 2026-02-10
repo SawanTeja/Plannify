@@ -58,6 +58,18 @@ const ALL_FEATURES = [
     route: "Attendance",
     studentOnly: true,
   },
+  {
+    id: "social",
+    name: "Social",
+    icon: "account-group-outline",
+    route: "Social",
+  },
+  {
+    id: "splitfund",
+    name: "Split Fund",
+    icon: "account-cash-outline",
+    route: "SplitFund",
+  },
 ];
 
 const SummaryDashboard = () => {
@@ -556,6 +568,7 @@ const SummaryDashboard = () => {
                     fontWeight: "600",
                     color: colors.textSecondary,
                     marginTop: 8,
+                    textAlign: "center",
                   }}
                 >
                   {f.name}
