@@ -15,6 +15,7 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+import { scheduleAutoPayNotification } from "../../services/NotificationService";
 
 const BudgetScreen = () => {
   const navigation = useNavigation();
@@ -69,29 +70,40 @@ const BudgetScreen = () => {
     const todayDay = new Date().getDate();
 
     if (data.recurringPayments) {
-      data.recurringPayments = data.recurringPayments.map((rp) => {
+      const updatedPayments = [];
+      
+      for (let rp of data.recurringPayments) {
+        // MIGRATION: Schedule notification if missing
+        if (!rp.notificationId) {
+            const notifId = await scheduleAutoPayNotification(rp.desc, rp.amount, rp.day, data.currency);
+            if (notifId) rp.notificationId = notifId;
+        }
+
+        // EXECUTION: Check if due today
         if (rp.lastPaidMonth !== realMonth && todayDay >= rp.day) {
           const newTx = {
-            _id: new Date().getTime().toString() + Math.random(), // Unique ID
+            _id: new Date().getTime().toString() + Math.random(),
             description: `⚡ Auto: ${rp.desc}`,
             amount: rp.amount,
             category: "Recurring",
-            type: "expense", // FIXED: use 'expense'
-            date: new Date(), // FIXED: use Date object
-            updatedAt: new Date(), // FIXED: Sync requirement
+            type: "expense",
+            date: new Date(),
+            updatedAt: new Date(),
           };
           data.transactions.unshift(newTx);
           autoPaidItems.push(rp.desc);
-          return { ...rp, lastPaidMonth: realMonth };
+          rp.lastPaidMonth = realMonth;
         }
-        return rp;
-      });
+        updatedPayments.push(rp);
+      }
+      data.recurringPayments = updatedPayments;
     }
 
-    if (autoPaidItems.length > 0) {
+    if (autoPaidItems.length > 0 || data.recurringPayments) {
       await storeData("budget_data", data);
       syncNow();
-      Alert.alert("⚡ Auto-Pay Executed", `Paid: ${autoPaidItems.join(", ")}`);
+      if (autoPaidItems.length > 0)
+        Alert.alert("⚡ Auto-Pay Executed", `Paid: ${autoPaidItems.join(", ")}`);
     }
 
     setBudget(data);
@@ -168,12 +180,17 @@ const BudgetScreen = () => {
       return;
     }
     const newBudget = { ...budget };
+
+    // Schedule Notification
+    const notifId = await scheduleAutoPayNotification(desc, parseFloat(amount), day, budget.currency);
+
     const newRecurring = {
       id: Date.now(),
       desc,
       amount: parseFloat(amount),
       day,
       lastPaidMonth: "",
+      notificationId: notifId, // Store ID
     };
     newBudget.recurringPayments = [
       ...(newBudget.recurringPayments || []),

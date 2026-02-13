@@ -218,3 +218,42 @@ export const cancelTaskNotifications = async (notificationIds) => {
         await Notifications.cancelScheduledNotificationAsync(id);
     }
 };
+
+// --- AUTO PAY NOTIFICATIONS ---
+export const scheduleAutoPayNotification = async (title, amount, day, currency) => {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return null;
+
+    // Trigger: Monthly on the specific day at 9:00 AM
+    // Note: Expo `calendar` trigger with `repeats: true` works for this.
+    try {
+        const id = await Notifications.scheduleNotificationAsync({
+            content: {
+                title: "Auto-Pay Alert ⚡",
+                body: `${currency}${amount} for ${title} has been debited from your wallet.`,
+                sound: true,
+            },
+            trigger: {
+                day: day,
+                hour: 9, 
+                minute: 0,
+                repeats: true,
+            },
+        });
+        console.log(`Auto-Pay reminder scheduled for day ${day}: ${id}`);
+        return id;
+    } catch (error) {
+        console.log("Error scheduling auto-pay:", error);
+        return null;
+    }
+};
+
+export const cancelNotification = async (id) => {
+    if (!id) return;
+    try {
+        await Notifications.cancelScheduledNotificationAsync(id);
+        console.log(`Notification ${id} cancelled.`);
+    } catch (e) {
+        console.log("Error cancelling notification:", e);
+    }
+};
