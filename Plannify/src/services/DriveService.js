@@ -10,12 +10,15 @@ const getAccessToken = async () => {
 };
 
 // --- BACKUP ---
-export const backupToDrive = async () => {
+export const backupToDrive = async (onProgress) => {
   try {
     const token = await getAccessToken();
     const zip = new JSZip();
 
-    // 1. Backup App Data
+    // 1. Preparation
+    if (onProgress) onProgress({ status: "Preparing data...", progress: 0.1 });
+    
+    // Backup App Data
     const allKeys = await AsyncStorage.getAllKeys();
     const allData = await AsyncStorage.multiGet(allKeys);
     const dataObj = {};
@@ -24,16 +27,23 @@ export const backupToDrive = async () => {
     });
     zip.file("app_data.json", JSON.stringify(dataObj));
 
-    // 2. Backup Images
+    // Backup Images
     const dirContent = await FileSystem.readDirectoryAsync(
       FileSystem.documentDirectory,
     );
-    const imageFiles = dirContent.filter(
-      (file) =>
-        file.endsWith(".jpg") ||
-        file.endsWith(".png") ||
-        file.endsWith(".jpeg"),
-    );
+    
+    // Enhanced image filtering (case-insensitive + more types)
+    const imageFiles = dirContent.filter((file) => {
+        const lower = file.toLowerCase();
+        return (
+            lower.endsWith(".jpg") ||
+            lower.endsWith(".jpeg") ||
+            lower.endsWith(".png") ||
+            lower.endsWith(".heic") ||
+            lower.endsWith(".webp") ||
+            lower.endsWith(".gif")
+        );
+    });
 
     const imgFolder = zip.folder("images");
 
@@ -48,69 +58,157 @@ export const backupToDrive = async () => {
       }),
     );
 
-    const zipBase64 = await zip.generateAsync({ type: "base64" });
+    // 2. Compression
+    if (onProgress) onProgress({ status: "Compressing backup...", progress: 0.3 });
+    
+    const zipBase64 = await zip.generateAsync(
+      { type: "base64" },
+      (metadata) => {
+        if (onProgress && metadata.percent) {
+          // Map compression (0-100) to overall progress (0.3 - 0.6)
+          const compressionProgress = 0.3 + (metadata.percent / 100) * 0.3;
+          onProgress({ 
+            status: `Compressing: ${metadata.percent.toFixed(0)}%`, 
+            progress: compressionProgress 
+          });
+        }
+      }
+    );
 
-    // 3. Upload to Drive
-    const fileId = await findExistingBackupId(token);
-    const boundary = "foo_bar_baz";
+    // 3. Cleanup Old Backups
+    if (onProgress) onProgress({ status: "Cleaning old backups...", progress: 0.6 });
+    await deleteBackupFromDrive();
 
-    // Metadata logic: Parents only on CREATE
-    const metadata = {
-      name: "personal_planner_backup.zip",
-      mimeType: "application/zip",
-    };
+    // 4. Upload to Drive using XMLHttpRequest for progress
+    if (onProgress) onProgress({ status: "Starting upload...", progress: 0.65 });
+    
+    // Rough estimate before upload starts (base64 size is approx)
+    let totalSizeMB = (zipBase64.length / (1024 * 1024)).toFixed(2);
 
-    let method = "POST";
-    let url =
-      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const boundary = "foo_bar_baz";
+      
+      const metadata = {
+        name: "personal_planner_backup.zip",
+        mimeType: "application/zip",
+        parents: ["appDataFolder"], // Hidden app data folder
+      };
 
-    if (fileId) {
-      method = "PATCH";
-      url = `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`;
-    } else {
-      metadata.parents = ["appDataFolder"];
-    }
+      const body =
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        `${JSON.stringify(metadata)}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Type: application/zip\r\n` +
+        `Content-Transfer-Encoding: base64\r\n\r\n` +
+        `${zipBase64}\r\n` +
+        `--${boundary}--`;
 
-    const body =
-      `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${JSON.stringify(metadata)}\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Type: application/zip\r\n` +
-      `Content-Transfer-Encoding: base64\r\n\r\n` +
-      `${zipBase64}\r\n` +
-      `--${boundary}--`;
+      xhr.open(
+        "POST",
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+      );
+      
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.setRequestHeader("Content-Type", `multipart/related; boundary=${boundary}`);
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": `multipart/related; boundary=${boundary}`,
-      },
-      body,
+      if (onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            // Map upload (0-100) to overall progress (0.65 - 1.0)
+            const uploadPercentage = event.loaded / event.total;
+            const overallProgress = 0.65 + uploadPercentage * 0.35;
+            
+            // Calculate upload size progress using ACTUAL bytes
+            const uploadedMB = (event.loaded / (1024 * 1024)).toFixed(2);
+            
+            // Update totalSizeMB with exact value from event
+            totalSizeMB = (event.total / (1024 * 1024)).toFixed(2);
+            
+            onProgress({
+              status: `Uploading: ${uploadedMB}MB / ${totalSizeMB}MB`,
+              progress: overallProgress,
+              details: { uploaded: uploadedMB, total: totalSizeMB }
+            });
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          if (onProgress) onProgress({ status: "Backup Complete!", progress: 1.0, details: { uploaded: totalSizeMB, total: totalSizeMB } });
+          resolve({ success: true, date: new Date(), size: totalSizeMB });
+        } else {
+          try {
+            const error = JSON.parse(xhr.responseText);
+            reject(new Error(error.error?.message || "Upload failed"));
+          } catch (e) {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error("Network error during upload"));
+      };
+
+      xhr.send(body);
     });
 
-    const result = await response.json();
-    if (result.error) throw new Error(result.error.message);
-
-    return { success: true, date: new Date() };
   } catch (error) {
     console.error("Backup Failed:", error);
     throw error;
   }
 };
 
-// --- RESTORE ---
-export const restoreFromDrive = async () => {
+// --- DELETE BACKUP ---
+export const deleteBackupFromDrive = async () => {
   try {
     const token = await getAccessToken();
-    const fileId = await findExistingBackupId(token);
+    const files = await findExistingBackups(token);
+    
+    if (files.length === 0) return { success: true, count: 0 };
+    
+    console.log(`Found ${files.length} existing backups to delete.`);
+    
+    // Delete all found backup files
+    await Promise.all(
+      files.map(file => 
+        fetch(`https://www.googleapis.com/drive/v3/files/${file.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      )
+    );
+    
+    return { success: true, count: files.length };
+  } catch (error) {
+    console.error("Delete Backup Failed:", error);
+    throw error;
+  }
+};
 
-    if (!fileId) {
+// --- RESTORE ---
+export const restoreFromDrive = async (onProgress) => {
+  try {
+    const token = await getAccessToken();
+    
+    if (onProgress) onProgress({ status: "Searching for backup..." });
+    
+    const files = await findExistingBackups(token);
+    
+    if (!files || files.length === 0) {
       throw new Error("No backup found on Drive.");
     }
+    
+    // Use the most recent backup if multiple exist (though we now delete duplicates)
+    // Files from Google Drive API are not guaranteed order, but typically we just take the first one
+    const fileId = files[0].id; // Simplified for now
 
     // 1. Download
+    if (onProgress) onProgress({ status: "Downloading backup..." });
+    
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
       {
@@ -124,11 +222,15 @@ export const restoreFromDrive = async () => {
     return new Promise((resolve, reject) => {
       reader.onload = async () => {
         try {
+          if (onProgress) onProgress({ status: "Processing backup file..." });
+          
           const base64Data = reader.result.split(",")[1];
           const zip = new JSZip();
           const unzipped = await zip.loadAsync(base64Data, { base64: true });
 
           // 2. Restore Data
+          if (onProgress) onProgress({ status: "Restoring app data..." });
+          
           const dataFile = unzipped.file("app_data.json");
           if (dataFile) {
             const jsonStr = await dataFile.async("string");
@@ -138,6 +240,8 @@ export const restoreFromDrive = async () => {
           }
 
           // 3. Restore Images (Wait for all to finish)
+          if (onProgress) onProgress({ status: "Restoring images..." });
+          
           const imgFolder = unzipped.folder("images");
           if (imgFolder) {
             const imagePromises = [];
@@ -156,6 +260,7 @@ export const restoreFromDrive = async () => {
             await Promise.all(imagePromises);
           }
 
+          if (onProgress) onProgress({ status: "Restore Complete!" });
           resolve({ success: true });
         } catch (e) {
           reject(e);
@@ -170,7 +275,7 @@ export const restoreFromDrive = async () => {
   }
 };
 
-const findExistingBackupId = async (token) => {
+const findExistingBackups = async (token) => {
   const query =
     "name = 'personal_planner_backup.zip' and 'appDataFolder' in parents and trashed = false";
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&spaces=appDataFolder`;
@@ -181,7 +286,7 @@ const findExistingBackupId = async (token) => {
   const data = await response.json();
 
   if (data.files && data.files.length > 0) {
-    return data.files[0].id;
+    return data.files;
   }
-  return null;
+  return [];
 };
