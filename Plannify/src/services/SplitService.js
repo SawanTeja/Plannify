@@ -4,6 +4,13 @@ import { getData, storeData } from '../utils/storageHelper';
 // Reuse the base URL from ApiService or define a helper
 const API_URL = 'https://plannify-red.vercel.app/api'; 
 
+const CACHE_KEYS = {
+    GROUPS: 'splitfund_groups',      // Matches SyncHelper
+    EXPENSES: 'splitfund_expenses',  // Matches SyncHelper
+    ONLINE_GROUPS_CACHE: 'split_online_groups_cache', // Separate cache for online groups to avoid conflicts during sync
+    ONLINE_EXPENSES_CACHE_PREFIX: 'split_online_expenses_cache_'
+};
+
 export const SplitService = {
     // ===================================
     // GROUP MANAGEMENT
@@ -59,20 +66,61 @@ export const SplitService = {
 
 
 
+    // --- MIGRATION UTILS ---
+    migrateLegacyData: async () => {
+        try {
+            // Check if we have data in new keys
+            const hasNewGroups = await getData(CACHE_KEYS.GROUPS);
+            const hasNewExpenses = await getData(CACHE_KEYS.EXPENSES);
+            
+            if (hasNewGroups || hasNewExpenses) {
+                // Migration likely already done or new data exists. 
+                // We could merge, but let's assume if new data exists we are good.
+                // Or we can double check if old data exists and is not in new.
+                // For safety, let's just do it if new is EMPTY.
+                 return;
+            }
+
+            // Check old keys
+            const oldGroups = await getData('split_offline_groups');
+            const oldExpenses = await getData('split_offline_expenses');
+
+            if (oldGroups && oldGroups.length > 0) {
+                console.log("Migrating Split Groups...");
+                // Add 'updatedAt' if missing
+                const migratedGroups = oldGroups.map(g => ({
+                    ...g,
+                    updatedAt: g.updatedAt || new Date() 
+                }));
+                await storeData(CACHE_KEYS.GROUPS, migratedGroups);
+            }
+
+            if (oldExpenses && Object.keys(oldExpenses).length > 0) {
+                console.log("Migrating Split Expenses...");
+                await storeData(CACHE_KEYS.EXPENSES, oldExpenses);
+            }
+            
+        } catch (e) {
+            console.error("Migration Failed:", e);
+        }
+    },
+
     // --- OFFLINE GROUPS ---
     createLocalGroup: async (name, members) => {
         try {
-            const localGroups = await getData('split_offline_groups') || [];
+            const localGroups = await getData(CACHE_KEYS.GROUPS) || [];
             const newGroup = {
                 id: `local_group_${Date.now()}`,
                 _id: `local_group_${Date.now()}`,
                 name,
                 members: members.map(m => ({ ...m, id: m.id || m._id })),
                 isOffline: true,
-                createdAt: new Date()
+                createdAt: new Date(),
+                updatedAt: new Date() // Important for sync
             };
+            // Add to beginning
             localGroups.unshift(newGroup);
-            await storeData('split_offline_groups', localGroups);
+            await storeData(CACHE_KEYS.GROUPS, localGroups);
             return newGroup;
         } catch (e) {
             console.error('Create Local Group Error:', e);
@@ -82,7 +130,7 @@ export const SplitService = {
 
     addLocalMember: async (groupId, memberName) => {
         try {
-            const localGroups = await getData('split_offline_groups') || [];
+            const localGroups = await getData(CACHE_KEYS.GROUPS) || [];
             const groupIndex = localGroups.findIndex(g => (g._id === groupId || g.id === groupId));
             
             if (groupIndex === -1) throw new Error("Group not found locally");
@@ -93,8 +141,13 @@ export const SplitService = {
                 name: memberName
             };
             
+            // Update member list
             localGroups[groupIndex].members.push(newMember);
-            await storeData('split_offline_groups', localGroups);
+            
+            // Update timestamp for sync
+            localGroups[groupIndex].updatedAt = new Date();
+
+            await storeData(CACHE_KEYS.GROUPS, localGroups);
             return newMember;
         } catch (e) {
             console.error('Add Local Member Error:', e);
@@ -104,16 +157,33 @@ export const SplitService = {
 
     getLocalGroups: async () => {
         try {
-            return await getData('split_offline_groups') || [];
+            return await getData(CACHE_KEYS.GROUPS) || [];
         } catch (e) {
             console.error('Get Local Groups Error:', e);
             return [];
         }
     },
 
+    // Get cached online groups (for instant load)
+    getCachedOnlineGroups: async () => {
+        try {
+            return await getData(CACHE_KEYS.ONLINE_GROUPS_CACHE) || [];
+        } catch (e) {
+            return [];
+        }
+    },
+
     getGroups: async (token) => {
-        // Fetch both online and offline
+        // 1. Fetch Offline Groups (Always source of truth for local)
+        const offlineGroups = await SplitService.getLocalGroups();
+
+        // 2. Fetch Online Groups
         let onlineGroups = [];
+        
+        // Try loading cached online groups first if we want to return early, 
+        // but this function is usually called when we WANT to refresh.
+        // So we will just perform the fetch and update cache.
+        
         if (token) {
             try {
                 const response = await fetch(`${API_URL}/split/groups`, {
@@ -134,14 +204,21 @@ export const SplitService = {
                             ...(group.virtualMembers || [])
                         ]
                     }));
+
+                    // Update Cache
+                    await storeData(CACHE_KEYS.ONLINE_GROUPS_CACHE, onlineGroups);
                 }
             } catch (error) {
                 console.error('SplitService Get Groups Error (Online):', error);
-                // Don't throw if just offline, but if token provided we expect online
+                // Fallback to cache if network fails
+                onlineGroups = await SplitService.getCachedOnlineGroups();
             }
+        } else {
+             // If no token, maybe we still have cached online groups from before?
+             // Best to just show offline if not logged in, or show cached if user just lost internet but was logged in.
+             onlineGroups = await SplitService.getCachedOnlineGroups();
         }
         
-        const offlineGroups = await SplitService.getLocalGroups();
         return [...offlineGroups, ...onlineGroups];
     },
 
@@ -175,17 +252,17 @@ export const SplitService = {
 
     deleteGroup: async (token, groupId) => {
         // Handle Offline Deletion
-        if (!token) {
+        if (!token || (groupId && groupId.toString().startsWith('local_'))) {
             try {
-                // Delete Group
+                // Delete Group from Local Storage
                 const localGroups = await SplitService.getLocalGroups();
-                const filteredGroups = localGroups.filter(g => g.id !== groupId);
-                await storeData('split_offline_groups', filteredGroups);
+                const filteredGroups = localGroups.filter(g => g.id !== groupId && g._id !== groupId);
+                await storeData(CACHE_KEYS.GROUPS, filteredGroups);
                 
                 // Delete Expenses
-                const allExpenses = await getData('split_offline_expenses') || {};
+                const allExpenses = await getData(CACHE_KEYS.EXPENSES) || {};
                 delete allExpenses[groupId]; // Remove expenses for this specific group
-                await storeData('split_offline_expenses', allExpenses);
+                await storeData(CACHE_KEYS.EXPENSES, allExpenses);
                 
                 return true;
             } catch (e) {
@@ -217,23 +294,22 @@ export const SplitService = {
     // EXPENSE MANAGEMENT
     // ===================================
 
-
-
     addLocalExpense: async (expenseData) => {
         try {
-            const allExpenses = await getData('split_offline_expenses') || {};
+            const allExpenses = await getData(CACHE_KEYS.EXPENSES) || {};
             const groupExpenses = allExpenses[expenseData.groupId] || [];
             
             const newExpense = {
                 ...expenseData,
                 id: `local_exp_${Date.now()}`,
                 _id: `local_exp_${Date.now()}`,
-                date: new Date()
+                date: new Date(),
+                updatedAt: new Date()
             };
             
             groupExpenses.unshift(newExpense);
             allExpenses[expenseData.groupId] = groupExpenses;
-            await storeData('split_offline_expenses', allExpenses);
+            await storeData(CACHE_KEYS.EXPENSES, allExpenses);
             return newExpense;
         } catch (e) {
              console.error('Add Local Expense Error:', e);
@@ -266,12 +342,18 @@ export const SplitService = {
         }
     },
 
-
-
     getLocalExpenses: async (groupId) => {
          try {
-            const allExpenses = await getData('split_offline_expenses') || {};
+            const allExpenses = await getData(CACHE_KEYS.EXPENSES) || {};
             return allExpenses[groupId] || [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    getCachedOnlineExpenses: async (groupId) => {
+        try {
+            return await getData(`${CACHE_KEYS.ONLINE_EXPENSES_CACHE_PREFIX}${groupId}`) || [];
         } catch (e) {
             return [];
         }
@@ -292,10 +374,15 @@ export const SplitService = {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to fetch expenses');
+            
+            // Cache successful response
+            await storeData(`${CACHE_KEYS.ONLINE_EXPENSES_CACHE_PREFIX}${groupId}`, data.expenses);
+            
             return data.expenses;
         } catch (error) {
             console.error('SplitService Get Expenses Error:', error);
-            throw error;
+            // Fallback to cache
+            return await SplitService.getCachedOnlineExpenses(groupId);
         }
     },
 
@@ -305,14 +392,8 @@ export const SplitService = {
 
     calculateBalances: async (token, groupId) => {
         try {
+            // Note: getExpenses now handles caching/fallback internally
             const expenses = await SplitService.getExpenses(token, groupId);
-            
-            // Note: Ideally we should pass members list to this function or fetch group here
-            // But to save calls, we are relying on "paidBy" appearing in expenses or frontend handling 0s
-            // However, to show 0 balance for virtual members who haven't participated yet, 
-            // the frontend logic (GroupScreen) now iterates over group.members.
-            // So this function just needs to return accurate non-zero diffs.
-            // But let's be safe and return what we know.
             
             const balances = {};
             

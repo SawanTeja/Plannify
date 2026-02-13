@@ -44,33 +44,109 @@ const SplitFundDashboard = () => {
         }
     }, [lastRefreshed, loadData]);
 
-    const loadData = useCallback(async () => {
-        // Allow loading without token for offline groups
-        setIsRefreshing(true);
+    // Initial Migration & Load
+    useEffect(() => {
+        const init = async () => {
+            await SplitService.migrateLegacyData();
+            loadData();
+        };
+        init();
+    }, []);
+
+    const loadData = useCallback(async (isManualRefresh = false) => {
+        // Only show spinner on manual pull-to-refresh
+        if (isManualRefresh) setIsRefreshing(true);
+        
         try {
-            const loadedGroups = await SplitService.getGroups(user?.idToken); // Token optional
+            // 1. FAST LOAD: Load from cache immediately to show something
+            // This prevents "flicker" and blank screens
+            const offlineGroups = await SplitService.getLocalGroups();
+            const cachedOnlineGroups = await SplitService.getCachedOnlineGroups();
+            
+            // Combine and Dedup (in case sync messed up)
+            const allCachedGroups = [...offlineGroups, ...cachedOnlineGroups];
+            // Remove duplicates by ID just in case
+            const uniqueGroups = Array.from(new Map(allCachedGroups.map(item => [item._id || item.id, item])).values());
+            
+            setGroups(uniqueGroups);
+            
+            // Calculate balances from CACHED expenses first
+            calculateTotalBalance(uniqueGroups, true); // true = use cache only
+
+            // 2. NETWORK LOAD: Fetch fresh data silently (or with spinner if manual)
+            const loadedGroups = await SplitService.getGroups(user?.idToken); 
+            
+            // Update state with fresh data
             setGroups(loadedGroups);
             
-            // Calculate total net balance across all groups
-            let total = 0;
-            for (const group of loadedGroups) {
-                // Determine token to use (none for offline)
-                const token = group.isOffline ? null : user?.idToken;
-                if (!group.isOffline && !token) continue;
+            // Recalculate balances with FRESH data
+            await calculateTotalBalance(loadedGroups, false); // false = allow network fetch for expenses
 
-                const balances = await SplitService.calculateBalances(token, group._id || group.id);
-                const myId = user?.user?.id || user?.user?._id || 'local_user';
-                if (myId && balances[myId]) {
-                    total += balances[myId];
-                }
-            }
-            setNetBalance(total);
         } catch (e) {
             console.error("Failed to load SplitFund data", e);
         } finally {
-            setIsRefreshing(false);
+            if (isManualRefresh) setIsRefreshing(false);
         }
     }, [user?.idToken, user?.user?.id]);
+
+    const calculateTotalBalance = async (currentGroups, useCacheOnly = false) => {
+        let total = 0;
+        for (const group of currentGroups) {
+            // Determine token to use (none for offline)
+            const token = group.isOffline ? null : user?.idToken;
+            if (!group.isOffline && !token) continue;
+
+            const groupId = group._id || group.id;
+            // Get balances
+            // If useCacheOnly is true, we need to ensure calculateBalances doesn't hit network
+            // But SplitService.calculateBalances calls getExpenses which hits network if token present.
+            // We optimized getExpenses to fallback to cache, but it still TRIES network first if token is there.
+            // Hack: Validated that calculateBalances uses getExpenses. 
+            // To force cache-only would require a change in Service or we just accept that 
+            // the second pass will clarify the balance.
+            // Actually, for the "Fast Load" pass, we want to avoid network delay.
+            // So we can manually fetch cached expenses and calc balance here? 
+            // OR rely on the service's optimized caching.
+            
+            // For now, let's rely on standard service but it might be slow for the first pass if it awaits network.
+            // Optimization: Let's assume the Service update handled the fallback logic.
+            // BUT wait, getExpenses(token) WILL fetch network first. 
+            // We should use `getCachedOnlineExpenses` if we want instant result.
+            
+            let balances = {};
+            if (useCacheOnly && !group.isOffline) {
+                 const expenses = await SplitService.getCachedOnlineExpenses(groupId);
+                 // We need to reproduce the balance logic here locally to be truly instant
+                 // Or we can rely on the fact that the first render of "groups" is better than nothing,
+                 // and the balance will update in a second.
+                 // Let's replicate the simple balance logic here for speed:
+                 balances = {};
+                 expenses.forEach(exp => {
+                    const payerId = exp.paidBy;
+                    const amount = parseFloat(exp.amount);
+                    if (balances[payerId] === undefined) balances[payerId] = 0;
+                    balances[payerId] += amount;
+                    if (exp.splits) {
+                        Object.entries(exp.splits).forEach(([uid, owed]) => {
+                             if (balances[uid] === undefined) balances[uid] = 0;
+                             balances[uid] -= parseFloat(owed);
+                        });
+                    }
+                });
+            } else {
+                 balances = await SplitService.calculateBalances(token, groupId);
+            }
+
+            const myId = user?.user?.id || user?.user?._id || 'local_user';
+            
+            // Handle potentially different ID formats (mongo _id vs string id)
+            // Try to find my balance in the object keys
+            if (balances[myId]) {
+                total += balances[myId];
+            }
+        }
+        setNetBalance(total);
+    };
 
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;
@@ -149,7 +225,7 @@ const SplitFundDashboard = () => {
 
             <ScrollView 
                 contentContainerStyle={styles.content}
-                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={loadData} tintColor={colors.primary} />}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadData(true)} tintColor={colors.primary} />}
             >
                 <Text style={[styles.sectionTitle, dynamicStyles.text]}>Your Groups</Text>
                 {groups.length === 0 ? (

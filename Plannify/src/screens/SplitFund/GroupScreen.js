@@ -43,10 +43,42 @@ const GroupScreen = ({ route }) => {
         });
     }, [group]);
 
-    const loadGroupData = async () => {
-        setIsRefreshing(true);
+    const loadGroupData = async (isManualRefresh = false) => {
+        if (isManualRefresh) setIsRefreshing(true);
         try {
-            // Fetch all groups to find current one
+            // 0. FAST LOAD (Cache)
+            // Try to find group in cache
+            const offlineGroups = await SplitService.getLocalGroups();
+            const cachedOnlineGroups = await SplitService.getCachedOnlineGroups();
+            const allCached = [...offlineGroups, ...cachedOnlineGroups];
+            const cachedGroup = allCached.find(g => (g._id === groupId || g.id === groupId));
+            
+            if (cachedGroup) {
+                setGroup(cachedGroup);
+                // Load cached expenses
+                const cachedExpenses = await SplitService.getCachedOnlineExpenses(groupId) || [];
+                // If offline group, getLocalExpenses is essentially the same as getCachedOnlineExpenses wrapper logic 
+                // (or we can just call getExpenses since it handles cache fallback)
+                // But for explicit speed:
+                if (cachedGroup.isOffline) {
+                     const localExp = await SplitService.getLocalExpenses(groupId);
+                     setExpenses(localExp);
+                } else {
+                     setExpenses(cachedExpenses);
+                }
+                
+                // Calc balances on cache
+                // We rely on service for calculation logic, but we can pass a flag if we want cache-only?
+                // SplitService.calculateBalances calls getExpenses.
+                // Since getExpenses now CACHES results, if we just called it above (or if we trust cache),
+                // we can just run it. 
+                // However, without a token it might fail for online groups if not cached?
+                // Actually, calculateBalances calls getExpenses(token). 
+                // optimizing calculateBalances to use cache if network fails is done in Service.
+            }
+
+            // 1. NETWORK REFRESH
+            // Fetch all groups to find current one (updates cache)
             const allGroups = await SplitService.getGroups(user?.idToken);
             const currentGroup = allGroups.find(g => (g._id === groupId || g.id === groupId));
             setGroup(currentGroup);
@@ -54,6 +86,7 @@ const GroupScreen = ({ route }) => {
             // Determine token (null if offline)
             const token = currentGroup?.isOffline ? null : user?.idToken;
 
+            // This will fetch fresh expenses and update cache
             const exp = await SplitService.getExpenses(token, groupId);
             setExpenses(exp);
 
@@ -62,9 +95,9 @@ const GroupScreen = ({ route }) => {
 
         } catch (e) {
             console.error("Error loading group details", e);
-            Alert.alert("Error", "Could not load group data.");
+            // Alert.alert("Error", "Could not load group data."); // Silent fail is better for background refresh
         } finally {
-            setIsRefreshing(false);
+            if (isManualRefresh) setIsRefreshing(false);
         }
     };
 

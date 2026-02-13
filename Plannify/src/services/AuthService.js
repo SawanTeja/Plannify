@@ -87,6 +87,9 @@ export const refreshGoogleToken = async () => {
   } catch (error) {
     if (error.code === statusCodes.SIGN_IN_REQUIRED) {
       console.log("User must sign in explicitly");
+    } else if (error.message && (error.message.includes('NETWORK_ERROR') || error.code === '7')) {
+        // Code 7 is commonly Network Error in Play Services
+        console.log("⚠️ Token Refresh Skipped (Network unavailable)");
     } else {
       console.error("Token Refresh Error:", error);
     }
