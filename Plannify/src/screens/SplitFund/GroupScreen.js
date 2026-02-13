@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from 'react-native-modal';
 import { View, Text, StyleSheet, TouchableOpacity, SectionList, RefreshControl, Clipboard, Alert, ScrollView, TextInput } from 'react-native';
 import { AppContext } from '../../context/AppContext';
@@ -172,11 +172,35 @@ const GroupScreen = ({ route }) => {
     const regularExpenses = expenses.filter(item => item.type !== 'payment' && item.splitType !== 'Payment');
     const settlementExpenses = expenses.filter(item => item.type === 'payment' || item.splitType === 'Payment');
 
-    const getName = (id) => {
+    const getName = useCallback((id) => {
         const myId = user?.user?._id || user?.user?.id || 'guest';
         if (String(id) === String(myId)) return 'You';
         return group?.members?.find(m => String(m._id || m.id) === String(id))?.name || 'Someone';
-    };
+    }, [group?.members, user]);
+
+    // Calculate total spendings per member
+    const memberSpendings = useMemo(() => {
+        const spendingMap = {};
+        
+        // Initialize
+        group?.members?.forEach(m => {
+            const id = m._id || m.id;
+            spendingMap[String(id)] = 0;
+        });
+
+        regularExpenses.forEach(item => {
+            const payerId = String(item.paidBy);
+            // Add to map, initializing if strictly needed (though we did above)
+            spendingMap[payerId] = (spendingMap[payerId] || 0) + parseFloat(item.amount || 0);
+        });
+
+        // Convert to array
+        return Object.entries(spendingMap).map(([id, amount]) => ({
+            id,
+            amount,
+            name: getName(id)
+        })).sort((a, b) => b.amount - a.amount);
+    }, [regularExpenses, group?.members, getName]);
 
     const renderExpenseItem = ({ item }) => {
         const myId = user?.user?._id || user?.user?.id || 'guest'; // Prioritize _id
@@ -334,30 +358,33 @@ const GroupScreen = ({ route }) => {
 
             {/* SPENDINGS MODAL */}
              <Modal isVisible={spendingsModalVisible} onBackdropPress={() => setSpendingsModalVisible(false)} style={{ margin: 0, justifyContent: 'flex-end' }}>
-                <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '80%', padding: 20 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <Text style={[dynamicStyles.text, { fontSize: 20, fontWeight: 'bold' }]}>Significant Spendings</Text>
+                <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '60%', padding: 20 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text style={[dynamicStyles.text, { fontSize: 20, fontWeight: 'bold' }]}>Total Spending</Text>
                         <TouchableOpacity onPress={() => setSpendingsModalVisible(false)}>
                             <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
                     
-                    <View style={{flex: 1}}>
-                        <SectionList
-                            sections={[{ title: 'Recent Activity', data: regularExpenses }]}
-                            keyExtractor={(item) => item._id || item.id}
-                            renderItem={renderExpenseItem}
-                            renderSectionHeader={({ section: { title } }) => (
-                                <Text style={[styles.sectionHeader, { color: colors.textSecondary, marginTop: 10 }]}>{title}</Text>
-                            )}
-                            contentContainerStyle={{ paddingBottom: 50 }}
-                            ListEmptyComponent={
-                                <View style={{ alignItems: 'center', marginTop: 50 }}>
-                                    <Text style={{ color: colors.textMuted }}>No expenses yet.</Text>
-                                </View>
-                            }
-                        />
-                    </View>
+                    <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+                        {memberSpendings.map((member, index) => (
+                             <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                                 <View style={{flexDirection:'row', alignItems:'center'}}>
+                                     <View style={[styles.avatar, {backgroundColor: colors.primary+'20', marginRight: 10}]}>
+                                         <Text style={{color: colors.primary, fontWeight:'bold'}}>{member.name[0]}</Text>
+                                     </View>
+                                     <Text style={[dynamicStyles.text, {fontSize: 16, fontWeight: '600'}]}>{member.name}</Text>
+                                 </View>
+                                 <Text style={{color: colors.primary, fontWeight: 'bold', fontSize: 16}}>{formatMoney(member.amount)}</Text>
+                             </View>
+                        ))}
+                        
+                        {memberSpendings.length === 0 && (
+                            <View style={{ alignItems: 'center', marginTop: 30 }}>
+                                <Text style={{ color: colors.textMuted }}>No expenses recorded yet.</Text>
+                            </View>
+                        )}
+                    </ScrollView>
                 </View>
             </Modal>
 
