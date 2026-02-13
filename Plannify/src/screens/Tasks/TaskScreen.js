@@ -3,6 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
+  FlatList, // Add FlatList
   LayoutAnimation,
   Platform,
   SectionList,
@@ -22,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
+import { scheduleTaskNotification, cancelTaskNotifications } from "../../services/NotificationService";
 
 // Components
 import PriorityMatrix from "./components/PriorityMatrix";
@@ -56,6 +58,7 @@ const TaskScreen = () => {
   const [currentMonth, setCurrentMonth] = useState(today);
 
   const [addVisible, setAddVisible] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false); // NEW STATE
 
   const [title, setTitle] = useState("");
   const [duration, setDuration] = useState("");
@@ -188,6 +191,13 @@ const TaskScreen = () => {
     setCurrentMonth(day.dateString);
   };
 
+  const changeMonth = (increment) => {
+    const date = new Date(currentMonth);
+    date.setMonth(date.getMonth() + increment);
+    const newDateString = getLocalDateString(date);
+    setCurrentMonth(newDateString);
+  };
+
   const openAddModal = () => setAddVisible(true);
 
   const handleAddTask = async () => {
@@ -209,7 +219,12 @@ const TaskScreen = () => {
       date: selectedDate,         // Store Date explicitly
       isDeleted: false,
       updatedAt: new Date(),      // Sync Timestamp
+      notificationIds: [],        // Store notification IDs
     };
+
+    // Schedule Notifications
+    const notifIds = await scheduleTaskNotification(newTask.id, newTask.title, newTask.date);
+    if (notifIds) newTask.notificationIds = notifIds;
 
     const updatedTasks = [...tasks, newTask];
 
@@ -253,6 +268,10 @@ const TaskScreen = () => {
           // CHANGED: Soft Delete for Sync
           const updatedTasks = tasks.map(t => {
             if (t.id === id || t._id === id) {
+                // Cancel notifications
+                if (t.notificationIds) {
+                    cancelTaskNotifications(t.notificationIds);
+                }
                 return { ...t, isDeleted: true, updatedAt: new Date() };
             }
             return t;
@@ -520,9 +539,124 @@ const TaskScreen = () => {
               New Task
             </Text>
           </View>
-          <Text style={[styles.modalSub, { color: colors.textSecondary }]}>
-            {selectedDate}
-          </Text>
+          
+          {/* Custom Header & Calendar */}
+          <View style={{ marginBottom: 0, marginTop: 15 }}>
+            {/* Unified Custom Header (Always visible) */}
+            <View style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: 10,
+                paddingHorizontal: 10
+            }}>
+                <TouchableOpacity onPress={() => changeMonth(-1)} style={{ padding: 5 }}>
+                    <MaterialCommunityIcons name="chevron-left" size={30} color={colors.primary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    onPress={() => setShowYearPicker(!showYearPicker)}
+                    style={{ 
+                        flexDirection: 'row', 
+                        alignItems: 'center',
+                        backgroundColor: showYearPicker ? colors.surfaceHighlight : 'transparent',
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: 12
+                    }}
+                >
+                    <Text style={{ 
+                        fontSize: 18, 
+                        fontWeight: 'bold', 
+                        color: colors.primary,
+                        marginRight: 4
+                    }}>
+                        {new Date(currentMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} 
+                    </Text>
+                    <MaterialCommunityIcons name={showYearPicker ? "chevron-up" : "chevron-down"} size={20} color={colors.primary} />
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => changeMonth(1)} style={{ padding: 5 }}>
+                    <MaterialCommunityIcons name="chevron-right" size={30} color={colors.primary} />
+                </TouchableOpacity>
+            </View>
+
+            {showYearPicker ? (
+                /* YEAR/MONTH PICKER */
+                <View style={{ height: 300, backgroundColor: dynamicStyles.inputBg, borderRadius: 10 }}>
+                    <FlatList
+                        data={Array.from({ length: 60 }, (_, i) => { // Next 5 years
+                            const d = new Date();
+                            d.setMonth(d.getMonth() + i);
+                            return {
+                                id: i.toString(),
+                                dateString: getLocalDateString(d), // YYYY-MM-DD
+                                label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+                                year: d.getFullYear(),
+                                month: d.getMonth()
+                            };
+                        })}
+                        keyExtractor={item => item.id}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={{
+                                    padding: 15,
+                                    borderBottomWidth: 1,
+                                    borderBottomColor: colors.border,
+                                    backgroundColor: item.dateString.slice(0, 7) === currentMonth.slice(0, 7) ? colors.primary + '20' : 'transparent'
+                                }}
+                                onPress={() => {
+                                    setCurrentMonth(item.dateString); // Update Calendar's current month
+                                    setShowYearPicker(false);
+                                }}
+                            >
+                                <Text style={{ 
+                                    color: item.dateString.slice(0, 7) === currentMonth.slice(0, 7) ? colors.primary : colors.textPrimary,
+                                    fontWeight: item.dateString.slice(0, 7) === currentMonth.slice(0, 7) ? 'bold' : 'normal',
+                                    textAlign: 'center'
+                                }}>
+                                    {item.label}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                    />
+                </View>
+            ) : (
+                /* CALENDAR */
+                <Calendar
+                    current={currentMonth} 
+                    key={currentMonth} // Force re-render if month changes to ensure consistency
+                    onDayPress={(day) => setSelectedDate(day.dateString)}
+                    // We handle navigation externally via Header, but Swipe still works and updates 'current' internally
+                    // We need to sync swipes back to our state if we want the Header text to update!
+                    onMonthChange={(month) => setCurrentMonth(month.dateString)}
+                    
+                    // Hide default header components since we built our own
+                    renderHeader={() => null} // Hides title
+                    hideArrows={true}        // Hides arrows
+                    
+                    minDate={today}
+                    markedDates={{
+                        [selectedDate]: { selected: true, selectedColor: colors.primary }
+                    }}
+                    theme={{
+                        calendarBackground: 'transparent',
+                        textSectionTitleColor: colors.textSecondary,
+                        selectedDayBackgroundColor: colors.primary,
+                        selectedDayTextColor: '#ffffff',
+                        todayTextColor: colors.primary,
+                        dayTextColor: colors.textPrimary,
+                        textDisabledColor: colors.textMuted,
+                        dotColor: colors.primary,
+                        selectedDotColor: '#ffffff',
+                        arrowColor: colors.primary,
+                        monthTextColor: colors.textPrimary,
+                        indicatorColor: colors.primary,
+                    }}
+                    style={{ borderRadius: 10 }} 
+                />
+            )}
+          </View>
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             Title

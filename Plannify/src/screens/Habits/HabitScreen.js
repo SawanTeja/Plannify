@@ -21,6 +21,7 @@ import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+import { updateNightlyReminder } from "../../services/NotificationService";
 
 // Components
 import HabitCard from "../Tasks/components/HabitCard";
@@ -109,6 +110,24 @@ const HabitScreen = () => {
     const stats = await getData("user_gamification");
     if (stats) setUserStats(stats);
     else setUserStats(INITIAL_USER_STATS);
+    
+    // Check for night reminder
+    checkMissingHabits(h);
+  };
+
+  const checkMissingHabits = (currentHabits) => {
+    if (!currentHabits) return;
+    
+    // We only care about today's status for the night reminder
+    // getLocalToday() returns "YYYY-MM-DD"
+    const todayStr = getLocalToday();
+    
+    const hasMissing = currentHabits.some(h => {
+        // If it's done today, history[todayStr] will be true
+        return !h.history || !h.history[todayStr];
+    });
+
+    updateNightlyReminder(hasMissing);
   };
 
   // --- STREAK LOGIC ---
@@ -233,6 +252,7 @@ const HabitScreen = () => {
     setHabits(updated);
     await storeData("habits_data", updated);
     syncNow();
+    checkMissingHabits(updated);
   };
 
   // --- HEATMAP GENERATION ---
@@ -323,6 +343,7 @@ const HabitScreen = () => {
     setHabits(updated);
     await storeData("habits_data", updated);
     syncNow();
+    checkMissingHabits(updated);
     setTitle("");
     setHours("");
     setMinutes("");
@@ -341,6 +362,7 @@ const HabitScreen = () => {
           setHabits(updated);
           await storeData("habits_data", updated);
           syncNow();
+          checkMissingHabits(updated);
         },
       },
     ]);

@@ -20,6 +20,7 @@ import SideMenu from "../../components/SideMenu";
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";
 import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
+import { scheduleLocalNotification } from "../../services/NotificationService";
 
 // Enable LayoutAnimation for Android
 if (
@@ -577,6 +578,22 @@ const SummaryDashboard = () => {
             ))}
           </View>
         </View>
+
+        {/* --- TEST NOTIFICATION BUTTON --- */}
+        <TouchableOpacity
+          style={{
+            marginTop: 20,
+            backgroundColor: colors.primary,
+            padding: 15,
+            borderRadius: 12,
+            alignItems: "center",
+          }}
+          onPress={() => scheduleLocalNotification("Test Notification", "This is a test notification!")}
+        >
+          <Text style={{ color: "#FFF", fontWeight: "bold" }}>
+            Test Notification
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* --- FLOATING POPOVER (Replaces Old Sidebar) --- */}
