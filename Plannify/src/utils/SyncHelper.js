@@ -39,6 +39,13 @@ export const SyncHelper = {
     
     const lastSync = lastSyncTime ? new Date(lastSyncTime).getTime() : 0;
 
+    // --- GLOBAL PREMIUM LOCK ---
+    if (!isPremium) {
+        console.log("🔒 SyncHelper: Free Tier active - Sync disabled.");
+        return changes; // Return empty changes -> No upload
+    }
+    // ---------------------------
+
     // 1. Handle Standard Collections
     for (const [backendKey, storageKey] of Object.entries(COLLECTIONS)) {
       // --- PREMIUM GATING LOGIC ---
@@ -106,6 +113,13 @@ export const SyncHelper = {
   },
 
   applyServerChanges: async (serverData, isPremium = false) => {
+    // --- GLOBAL PREMIUM LOCK ---
+    if (!isPremium) {
+        console.log("🔒 SyncHelper: Free Tier active - Ignoring all server data.");
+        return false;
+    }
+    // ---------------------------
+    
     let hasChanges = false;
 
     // 1. Handle Standard Collections
