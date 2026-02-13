@@ -38,7 +38,7 @@ if (
 const { width, height } = Dimensions.get("window");
 
 const JournalScreen = () => {
-  const { colors, theme, syncNow, lastRefreshed, user } = useContext(AppContext);
+  const { colors, theme, syncNow, lastRefreshed, user, isPremium } = useContext(AppContext);
 
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
@@ -179,7 +179,28 @@ const JournalScreen = () => {
     setEntryToEdit(null);
 
     // If upload is pending AND USER IS LOGGED IN, handle background upload
+    // CHANGED: Only upload if user is PREMIUM
     if (savedEntry && savedEntry.uploadStatus === 'pending' && savedEntry.image && user?.idToken) {
+      
+      if (!isPremium) {
+          console.log('⚠️ User is NOT Premium. Skipping cloud upload.');
+          // We keep the local image but mark upload as 'skipped' or just leave it local?
+          // Let's mark it as 'local_only' or just don't try to upload. 
+          // If we leave it as 'pending', it might try again? 
+          // Let's just NOT trigger the upload logic.
+          // ideally we update the status so it doesn't look like it's pending forever.
+           setEntries(prevEntries => {
+              const newEntries = prevEntries.map(e =>
+                e.id === savedEntry.id 
+                  ? { ...e, uploadStatus: 'local' } 
+                  : e
+              );
+              storeData("journal_data", newEntries);
+              return newEntries;
+            });
+          return;
+      }
+
       console.log('📤 Starting background upload for entry:', savedEntry.id);
       
       try {
