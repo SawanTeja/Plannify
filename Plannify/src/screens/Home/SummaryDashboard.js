@@ -82,6 +82,7 @@ const SummaryDashboard = () => {
   const [globalStreak, setGlobalStreak] = useState(0);
   const [pendingTasks, setPendingTasks] = useState(0);
   const [attendanceAvg, setAttendanceAvg] = useState(null);
+  const [lowAttendanceCount, setLowAttendanceCount] = useState(0);
   const [budgetStatus, setBudgetStatus] = useState({
     spent: 0,
     limit: 0,
@@ -154,17 +155,39 @@ const SummaryDashboard = () => {
     setPendingTasks(count);
 
     // 3. Attendance
-    const subjects = (await getData("attendance_data")) || [];
+    const subjects = (await getData("att_subjects")) || [];
+    const settings = (await getData("att_settings")) || { minAttendance: 75 };
+    const minAtt = settings.minAttendance;
+
     if (subjects.length > 0) {
       let totalP = 0,
         totalC = 0;
+      let lowCount = 0;
+
       subjects.forEach((s) => {
-        const stats = Object.values(s.history);
-        totalC += stats.length;
-        totalP += stats.filter((v) => v === "present").length;
+        const stats = Object.values(s.history || {});
+        let subP = 0, subC = 0;
+        
+        stats.forEach((rec) => {
+             subP += rec.p;
+             subC += rec.p + rec.a;
+        });
+
+        totalC += subC;
+        totalP += subP;
+        
+        // Check for low attendance
+        if (subC > 0) {
+            const subPct = (subP / subC) * 100;
+            if (subPct < minAtt) lowCount++;
+        }
       });
       setAttendanceAvg(totalC === 0 ? 0 : (totalP / totalC) * 100);
-    } else setAttendanceAvg(null);
+      setLowAttendanceCount(lowCount);
+    } else {
+        setAttendanceAvg(null);
+        setLowAttendanceCount(0);
+    }
 
     // 4. Budget
     const budget = await getData("budget_data");
@@ -489,15 +512,15 @@ const SummaryDashboard = () => {
               </Text>
               <Text
                 style={{
-                  color: attendanceAvg >= 75 ? colors.success : colors.danger,
+                  color: lowAttendanceCount > 0 ? colors.danger : colors.success,
                   fontSize: 12,
                   marginTop: 4,
                   fontWeight: "600",
                 }}
               >
-                {attendanceAvg >= 75
-                  ? "Excellent Status"
-                  : "Warning: Low Attendance"}
+                {lowAttendanceCount > 0
+                  ? `Warning: Low in ${lowAttendanceCount} subject${lowAttendanceCount > 1 ? 's' : ''}`
+                  : "Excellent Status"}
               </Text>
             </View>
 

@@ -123,6 +123,42 @@ export const updateNightlyReminder = async (hasMissingHabits) => {
   }
 };
 
+export const scheduleLowAttendanceReminder = async (lowSubjects) => {
+  const hasPermission = await requestNotificationPermissions();
+  if (!hasPermission) return;
+
+  const NOTIF_TITLE = "Attendance Alert 📉";
+  
+  // 1. Cancel existing low attendance reminder
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const existingFn = scheduled.find(n => n.content.title === NOTIF_TITLE);
+  
+  if (existingFn) {
+    await Notifications.cancelScheduledNotificationAsync(existingFn.identifier);
+  }
+
+  // 2. If there are low attendance subjects, schedule daily at 7 AM
+  if (lowSubjects.length > 0) {
+      const subjectNames = lowSubjects.map(s => s.name).join(", ");
+      
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: NOTIF_TITLE,
+          body: `Your attendance is low in: ${subjectNames}. Don't miss classes!`,
+          sound: true,
+        },
+        trigger: {
+          hour: 7,
+          minute: 0,
+          repeats: true,
+        },
+      });
+      console.log("Low attendance reminder scheduled for 7 AM.");
+  } else {
+      console.log("No low attendance subjects. Reminder cancelled.");
+  }
+};
+
 export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return null;

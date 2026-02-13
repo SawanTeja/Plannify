@@ -19,6 +19,7 @@ import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { getData, storeData } from "../../utils/storageHelper";
+import { scheduleLowAttendanceReminder } from "../../services/NotificationService";
 
 if (
   Platform.OS === "android" &&
@@ -76,6 +77,8 @@ const AttendanceScreen = () => {
   const [classCount, setClassCount] = useState("1");
   const [editingDay, setEditingDay] = useState("Monday");
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
+  const [minAttendance, setMinAttendance] = useState(75);
+  const [minAttendanceInput, setMinAttendanceInput] = useState("75");
 
   useEffect(() => {
     loadData();
@@ -103,6 +106,39 @@ const AttendanceScreen = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setSubjects(s);
     setSchedule(schWrapper.schedule || {});
+    
+    // Load Settings
+    const settings = (await getData("att_settings")) || { minAttendance: 75 };
+    setMinAttendance(settings.minAttendance);
+    setMinAttendanceInput(settings.minAttendance.toString());
+  };
+
+  const checkAttendanceWarnings = (currentSubjects, limit) => {
+      const low = currentSubjects.filter(sub => {
+          let totalP = 0, totalC = 0;
+          if (sub.history) {
+              Object.values(sub.history).forEach(d => {
+                  totalP += d.p;
+                  totalC += d.p + d.a;
+              });
+          }
+          if (totalC === 0) return false;
+          const pct = (totalP / totalC) * 100;
+          return pct < limit;
+      });
+      scheduleLowAttendanceReminder(low);
+  };
+
+  const saveMinAttendance = async () => {
+      let val = parseInt(minAttendanceInput);
+      if (isNaN(val)) val = 75;
+      val = Math.max(0, Math.min(100, val));
+      
+      setMinAttendance(val);
+      setMinAttendanceInput(val.toString());
+      await storeData("att_settings", { minAttendance: val });
+      checkAttendanceWarnings(subjects, val);
+      Alert.alert("Saved", "Attendance requirement updated.");
   };
 
   const saveData = async (newSubjects, newScheduleData) => {
@@ -120,6 +156,13 @@ const AttendanceScreen = () => {
       };
       await storeData("att_schedule", wrapper);
     }
+
+    
+    const effectiveSubjects = newSubjects || subjects;
+    // We need to wait for state update or use effectiveSubjects direct? 
+    // State update is async batch. safe to use effective current variable.
+    checkAttendanceWarnings(effectiveSubjects, minAttendance);
+
     syncNow();
   };
 
@@ -523,6 +566,27 @@ const AttendanceScreen = () => {
       {/* MANAGE TAB */}
       {activeTab === "Manage" && (
         <ScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
+          
+          <View style={[styles.manageCard, { backgroundColor: colors.surface, marginBottom: 20 }]}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Settings</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                <View style={{flex: 1}}>
+                    <Text style={{color: colors.textPrimary, fontWeight: '600', fontSize: 16}}>Minimum Goal</Text>
+                    <Text style={{color: colors.textSecondary, fontSize: 12}}>Notify me if attendance drops below this %</Text>
+                </View>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                    <TextInput 
+                        value={minAttendanceInput} 
+                        onChangeText={setMinAttendanceInput} 
+                        keyboardType="numeric"
+                        onEndEditing={saveMinAttendance}
+                        style={[styles.input, {width: 60, marginBottom: 0, textAlign: 'center', padding: 8, height: 40}]}
+                    />
+                    <Text style={{color: colors.textPrimary, fontWeight: 'bold'}}>%</Text>
+                </View>
+            </View>
+          </View>
+
           <View style={[styles.manageCard, { backgroundColor: colors.surface }]}>
             <View style={styles.manageHeader}>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>My Subjects</Text>
