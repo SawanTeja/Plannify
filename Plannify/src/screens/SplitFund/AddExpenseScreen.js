@@ -1,5 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+
 import { AppContext } from '../../context/AppContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -20,15 +21,19 @@ const AddExpenseScreen = ({ route }) => {
     const [amount, setAmount] = useState('');
     const [payer, setPayer] = useState(currentUserId);
     const [splitType, setSplitType] = useState('Equally');
+    const [currency, setCurrency] = useState('$'); // Default
+    const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
     
     const [isLoading, setIsLoading] = useState(false);
     
     // Split Input States
     const [splitInputs, setSplitInputs] = useState({}); // Stores % or shares or exact amounts per user
 
+    const CURRENCIES = ['$', '₹', '€', '£', '¥', 'A$', 'C$'];
+
     const handleSave = async () => {
-        if (!desc || !amount) {
-            Alert.alert("Missing Fields", "Please enter description and amount.");
+        if (!amount) {
+            Alert.alert("Missing Amount", "Please enter an amount.");
             return;
         }
 
@@ -67,10 +72,14 @@ const AddExpenseScreen = ({ route }) => {
                     break;
             }
 
+            // Use "Expense" as default description if empty
+            const finalDesc = desc.trim() || "Expense";
+
             await SplitService.addExpense(user.idToken, {
                 groupId,
-                description: desc,
+                description: finalDesc,
                 amount: totalAmt,
+                currency: currency, // Save selected currency
                 paidBy: payer,
                 splitType,
                 splits: finalSplits,
@@ -134,7 +143,7 @@ const AddExpenseScreen = ({ route }) => {
                 <View style={styles.inputRow}>
                     <MaterialCommunityIcons name="format-text" size={24} color={colors.textSecondary} />
                     <TextInput 
-                        placeholder="Description"
+                        placeholder="Description (Optional)"
                         placeholderTextColor={colors.textMuted}
                         style={[styles.mainInput, { color: colors.textPrimary }]}
                         value={desc}
@@ -142,13 +151,58 @@ const AddExpenseScreen = ({ route }) => {
                     />
                 </View>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <View style={styles.inputRow}>
-                    <MaterialCommunityIcons name="currency-usd" size={24} color={colors.textSecondary} />
+                <View style={[styles.inputRow, { zIndex: 100 }]}>
+                    <View style={{ zIndex: 101 }}>
+                        <TouchableOpacity 
+                            onPress={() => setCurrencyModalVisible(!currencyModalVisible)}
+                            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, padding: 5, borderWidth: 1, borderColor: colors.border, borderRadius: 8, minWidth: 60, justifyContent: 'space-between' }}
+                        >
+                            <Text style={{ fontSize: 18, color: colors.textPrimary, fontWeight: 'bold' }}>{currency}</Text>
+                            <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
+                        </TouchableOpacity>
+
+                        {/* Floating Dropdown */}
+                        {currencyModalVisible && (
+                            <View style={{ 
+                                position: 'absolute', 
+                                top: 45, 
+                                left: 0, 
+                                backgroundColor: colors.surface, 
+                                borderWidth: 1, 
+                                borderColor: colors.border, 
+                                borderRadius: 8, 
+                                zIndex: 200, 
+                                elevation: 5, 
+                                shadowColor: '#000', 
+                                shadowOffset: {width: 0, height: 2}, 
+                                shadowOpacity: 0.2,
+                                shadowRadius: 4,
+                                minWidth: 60
+                            }}>
+                                {CURRENCIES.map((curr, index) => (
+                                    <TouchableOpacity 
+                                        key={curr} 
+                                        onPress={() => { setCurrency(curr); setCurrencyModalVisible(false); }} 
+                                        style={{ 
+                                            padding: 10, 
+                                            alignItems: 'center',
+                                            borderBottomWidth: index === CURRENCIES.length - 1 ? 0 : 0.5, 
+                                            borderBottomColor: colors.border 
+                                        }}
+                                    >
+                                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>{curr}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
                     <TextInput 
                         placeholder="0.00"
                         placeholderTextColor={colors.textMuted}
                         keyboardType="numeric"
-                        style={[styles.mainInput, { color: colors.textPrimary, fontSize: 24, fontWeight: 'bold' }]}
+                        // Fixed: Added height and padding to ensure text is fully visible
+                        style={[styles.mainInput, { color: colors.textPrimary, fontSize: 32, fontWeight: 'bold', height: 50, paddingVertical: 0 }]} 
                         value={amount}
                         onChangeText={setAmount}
                     />
@@ -157,7 +211,7 @@ const AddExpenseScreen = ({ route }) => {
 
             {/* PAYER SELECTION */}
             <Text style={[styles.label, dynamicStyles.subText]}>Paid by</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20, zIndex: -1 }}>
                 {members.map(m => {
                     const memberId = m._id || m.id;
                     return (
@@ -194,6 +248,8 @@ const AddExpenseScreen = ({ route }) => {
                 <Text style={styles.saveBtnText}>Save Expense</Text>
             </TouchableOpacity>
 
+
+            
         </ScrollView>
         </KeyboardAvoidingView>
     );

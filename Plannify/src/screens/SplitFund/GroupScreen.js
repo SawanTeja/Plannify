@@ -213,10 +213,14 @@ const GroupScreen = ({ route }) => {
     }, [regularExpenses, group?.members, getName]);
 
     const renderExpenseItem = ({ item }) => {
+        // Backend stores paidBy as User ID
         const myId = user?.user?._id || user?.user?.id || 'guest'; // Prioritize _id
         const isPayer = String(item.paidBy) === String(myId);
         const month = new Date(item.date).toLocaleString('default', { month: 'short', day: 'numeric' });
         
+        // Use expense specific currency or fallback to global default
+        const cur = item.currency || colors.currency || '₹';
+
         return (
             <TouchableOpacity style={[styles.expenseItem, dynamicStyles.card]}>
                 <View style={styles.dateBox}>
@@ -225,7 +229,7 @@ const GroupScreen = ({ route }) => {
                 <View style={{ flex: 1, paddingHorizontal: 12 }}>
                     <Text style={[styles.expDesc, dynamicStyles.text]}>{item.description}</Text>
                     <Text style={[styles.expPayer, dynamicStyles.subText]}>
-                        {isPayer ? 'You' : (group?.members?.find(m => String(m._id || m.id) === String(item.paidBy))?.name || 'Someone')} paid {formatMoney(item.amount)}
+                        {isPayer ? 'You' : (group?.members?.find(m => String(m._id || m.id) === String(item.paidBy))?.name || 'Someone')} paid {cur}{Math.abs(item.amount).toFixed(2)}
                     </Text>
                 </View>
                 <View>
@@ -234,7 +238,7 @@ const GroupScreen = ({ route }) => {
                     </Text>
                     <Text style={[styles.expVal, { color: isPayer ? colors.success : colors.danger }]}>
                          {/* This is simplified visual; real owed calculation per expense is complex */}
-                         {formatMoney(item.amount / (group?.members?.length || 2))}
+                         {cur}{(Math.abs(item.amount) / (group?.members?.length || 2)).toFixed(2)}
                     </Text>
                 </View>
             </TouchableOpacity>
@@ -353,10 +357,18 @@ const GroupScreen = ({ route }) => {
                     onPress={() => setAddMemberModalVisible(true)}
                     style={[styles.bigAddMemberBtn, { backgroundColor: colors.surfaceHighlight || '#f0f0f0', marginTop: 30 }]}
                 >
-                        <MaterialCommunityIcons name="account-plus" size={24} color={colors.primary} />
-                        <Text style={[styles.bigAddMemberText, { color: colors.primary }]}>
-                            Add Member {group?.isOffline ? '(Offline)' : '(Virtual)'}
+                        <MaterialCommunityIcons name="account-plus" size={24} color={colors.textPrimary} />
+                        <Text style={[styles.bigAddMemberText, { color: colors.textPrimary }]}>
+                            Add Member
                         </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    onPress={confirmDeleteGroup}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, marginBottom: 20 }}
+                >
+                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} style={{ marginRight: 8 }} />
+                    <Text style={{ color: colors.danger, fontWeight: 'bold' }}>Delete Group</Text>
                 </TouchableOpacity>
             </ScrollView>
 
@@ -371,7 +383,7 @@ const GroupScreen = ({ route }) => {
             {/* ADD MEMBER MODAL (OFFLINE ONLY) */}
             <Modal isVisible={addMemberModalVisible} onBackdropPress={() => setAddMemberModalVisible(false)} avoidKeyboard>
                 <View style={[styles.modalContent, dynamicStyles.card, { padding: 20, borderRadius: 15 }]}>
-                    <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }]}>Add Offline Member</Text>
+                    <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }]}>Add Member</Text>
                     <TextInput 
                         placeholder="Member Name"
                         placeholderTextColor={colors.textMuted}
