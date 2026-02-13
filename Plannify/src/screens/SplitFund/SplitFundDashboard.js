@@ -8,7 +8,7 @@ import Modal from 'react-native-modal';
 import { SplitService } from '../../services/SplitService';
 
 const SplitFundDashboard = () => {
-    const { colors, theme, userData, user, lastRefreshed, appStyles } = useContext(AppContext);
+    const { colors, theme, userData, user, lastRefreshed, appStyles, isPremium } = useContext(AppContext);
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     
@@ -70,17 +70,28 @@ const SplitFundDashboard = () => {
             setGroups(uniqueGroups);
             
             // 2. NETWORK LOAD: Fetch fresh data silently (or with spinner if manual)
-            const loadedGroups = await SplitService.getGroups(user?.idToken); 
-            
-            // Update state with fresh data
-            setGroups(loadedGroups);
+            // ONLY IF PREMIUM IS ENABLED
+            if (isPremium) {
+                const loadedGroups = await SplitService.getGroups(user?.idToken); 
+                // Update state with fresh data
+                setGroups(loadedGroups);
+            } else {
+                console.log("🔒 SplitFund: Premium disabled, skipping online fetch.");
+                // If not premium, ensure we only show offline groups (optional, but safer)
+                // Actually, if we just don't fetch, we show what we have in cache. 
+                // But strict requirement says "offline mode", so maybe we should filter out online groups from view?
+                // For now, let's just NOT fetch new ones. Existing cache might still show up.
+                // Requirement: "Split fund should only work in offline mode"
+                // Let's filter the displayed groups to be safe
+                 setGroups(uniqueGroups.filter(g => g.isOffline));
+            }
             
         } catch (e) {
             console.error("Failed to load SplitFund data", e);
         } finally {
             if (isManualRefresh) setIsRefreshing(false);
         }
-    }, [user?.idToken, user?.user?.id]);
+    }, [user?.idToken, user?.user?.id, isPremium]);
 
 
     const handleCreateGroup = async () => {
@@ -91,7 +102,12 @@ const SplitFundDashboard = () => {
                 // Create local group
                 await SplitService.createLocalGroup(newGroupName, [currentUser]);
             } else {
-                // Create online group
+                // Create online group - PREMUM ONLY
+                if (!isPremium) {
+                     Alert.alert("Premium Feature", "Online groups are a premium feature. Please create an Offline group.");
+                     return;
+                }
+
                 if (!user?.idToken) {
                     Alert.alert("Error", "You must be logged in to create online groups.");
                     return;
@@ -110,6 +126,12 @@ const SplitFundDashboard = () => {
 
     const handleJoinGroup = async () => {
         if (!joinCode.trim()) return;
+
+        if (!isPremium) {
+             Alert.alert("Premium Feature", "Joining online groups is a premium feature.");
+             return;
+        }
+
         if (!user?.idToken) {
             Alert.alert("Error", "You must be logged in to join groups.");
             return;

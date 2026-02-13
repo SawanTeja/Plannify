@@ -20,7 +20,7 @@ const COLLECTIONS = {
 };
 
 export const SyncHelper = {
-  getChanges: async (lastSyncTime) => {
+  getChanges: async (lastSyncTime, isPremium = false) => {
     // Initialize the changes object with ALL possible keys
     const changes = { 
         tasks: [], 
@@ -41,6 +41,16 @@ export const SyncHelper = {
 
     // 1. Handle Standard Collections
     for (const [backendKey, storageKey] of Object.entries(COLLECTIONS)) {
+      // --- PREMIUM GATING LOGIC ---
+      if (!isPremium) {
+          // If NOT premium, skip these keys (send empty array so backend doesn't update them)
+          if (['att_subjects', 'att_schedule', 'bucket_list', 'budget_data', 'habits_data', 'user_tasks', 'user_journal', 'split_groups', 'split_expenses'].includes(storageKey)) {
+              console.log(`🔒 SyncHelper: Skipping upload for ${backendKey} (Premium locked)`);
+              continue;
+          }
+      }
+      // -----------------------------
+
       let data = await getData(storageKey);
 
       // Handle Timetable, Gamification, & Budget Settings (Single Object Wrapper)
@@ -78,25 +88,40 @@ export const SyncHelper = {
 
     // 2. SPECIAL HANDLE: Budget Transactions
     // Budget is complex because it is nested inside "budget_data"
-    const budgetData = await getData("budget_data");
-    if (budgetData && budgetData.transactions) {
-        changes.transactions = budgetData.transactions.filter(tx => {
-            const txTime = tx.updatedAt ? new Date(tx.updatedAt).getTime() : 0;
-            if (!tx.updatedAt) return true; // Sync if timestamp is missing
-            return txTime > lastSync;
-        });
+    // --- PREMIUM GATING FOR TRANSACTIONS ---
+    if (isPremium) {
+        const budgetData = await getData("budget_data");
+        if (budgetData && budgetData.transactions) {
+            changes.transactions = budgetData.transactions.filter(tx => {
+                const txTime = tx.updatedAt ? new Date(tx.updatedAt).getTime() : 0;
+                if (!tx.updatedAt) return true; // Sync if timestamp is missing
+                return txTime > lastSync;
+            });
+        }
+    } else {
+        console.log(`🔒 SyncHelper: Skipping upload for transactions (Premium locked)`);
     }
 
     return changes;
   },
 
-  applyServerChanges: async (serverData) => {
+  applyServerChanges: async (serverData, isPremium = false) => {
     let hasChanges = false;
 
     // 1. Handle Standard Collections
     for (const [backendKey, storageKey] of Object.entries(COLLECTIONS)) {
       if (!serverData[backendKey] || serverData[backendKey].length === 0) continue;
       
+      // --- PREMIUM GATING LOGIC ---
+      if (!isPremium) {
+          // If NOT premium, ignore incoming changes for these keys
+          if (['att_subjects', 'att_schedule', 'bucket_list', 'budget_data', 'habits_data', 'user_tasks', 'user_journal', 'split_groups', 'split_expenses'].includes(storageKey)) {
+              console.log(`🔒 SyncHelper: Ignoring download for ${backendKey} (Premium locked)`);
+              continue;
+          }
+      }
+      // -----------------------------
+
       // Handle Timetable, Gamification, & Budget Settings Special Case (Replace Logic)
       if (backendKey === 'timetable' || backendKey === 'gamification' || backendKey === 'budget') { // Added 'budget'
           // Server sends an array. We must find the NEWEST one.
@@ -186,37 +211,42 @@ export const SyncHelper = {
 
     // 2. SPECIAL HANDLE: Budget Transactions
     if (serverData.transactions && serverData.transactions.length > 0) {
-        // Get existing budget data or create a proper default structure
-        let budgetData = await getData("budget_data");
-        if (!budgetData) {
-            // Initialize with proper default structure for fresh installs
-            budgetData = { 
-                transactions: [], 
-                categories: [],
-                currency: '$',
-                totalBudget: 0,
-                currentMonth: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
-                recurringPayments: [],
-                history: []
-            };
-        }
-        
-        // Merge the transactions array
-        budgetData.transactions = mergeArrays(budgetData.transactions || [], serverData.transactions);
-        
-        // Recalculate 'Spent' for Categories
-        // This ensures the UI progress bars update immediately without a restart
-        if (budgetData.categories && budgetData.categories.length > 0) {
-            budgetData.categories = budgetData.categories.map(cat => {
-                const totalSpent = budgetData.transactions
-                    .filter(t => t.category === cat.name && t.type === 'expense')
-                    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-                return { ...cat, spent: totalSpent };
-            });
-        }
+        // --- PREMIUM GATING FOR TRANSACTIONS ---
+        if (!isPremium) {
+             console.log(`🔒 SyncHelper: Ignoring download for transactions (Premium locked)`);
+        } else {
+            // Get existing budget data or create a proper default structure
+            let budgetData = await getData("budget_data");
+            if (!budgetData) {
+                // Initialize with proper default structure for fresh installs
+                budgetData = { 
+                    transactions: [], 
+                    categories: [],
+                    currency: '$',
+                    totalBudget: 0,
+                    currentMonth: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+                    recurringPayments: [],
+                    history: []
+                };
+            }
+            
+            // Merge the transactions array
+            budgetData.transactions = mergeArrays(budgetData.transactions || [], serverData.transactions);
+            
+            // Recalculate 'Spent' for Categories
+            // This ensures the UI progress bars update immediately without a restart
+            if (budgetData.categories && budgetData.categories.length > 0) {
+                budgetData.categories = budgetData.categories.map(cat => {
+                    const totalSpent = budgetData.transactions
+                        .filter(t => t.category === cat.name && t.type === 'expense')
+                        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+                    return { ...cat, spent: totalSpent };
+                });
+            }
 
-        await storeData("budget_data", budgetData);
-        hasChanges = true;
+            await storeData("budget_data", budgetData);
+            hasChanges = true;
+        }
     }
 
     return hasChanges;

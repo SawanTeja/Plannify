@@ -34,6 +34,9 @@ export const AppProvider = ({ children }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(0);
 
+  // Premium State (Temporary Toggle)
+  const [isPremium, setIsPremium] = useState(false); // Default to false
+
   // Unified User Data State (Local profile data)
   const [userData, setUserData] = useState({
     name: "Guest",
@@ -88,7 +91,7 @@ export const AppProvider = ({ children }) => {
     return () => {
         if (syncInterval) clearInterval(syncInterval);
     };
-  }, [user]); // Re-run when user logs in/out
+  }, [user, isPremium]); // Re-run when user logs in/out or premium status changes
 
   // 2. APP STATE LISTENER (Auto-Refresh Token on Resume)
   useEffect(() => {
@@ -114,7 +117,7 @@ export const AppProvider = ({ children }) => {
     return () => {
       subscription.remove();
     };
-  }, [user]);
+  }, [user, isPremium]);
 
   useEffect(() => {
     // Initialize Google Auth Config
@@ -146,7 +149,11 @@ export const AppProvider = ({ children }) => {
       setIsMaterialYou(storedMaterialYou);
     }
     
-    // 4. Check Google Login Status
+    // 4. Load Premium Status (if you want to persist it, for now using state only as requested)
+    // const storedPremium = await getData("is_premium");
+    // if (storedPremium !== null) setIsPremium(storedPremium);
+
+    // 5. Check Google Login Status
     await checkUser();
   };
 
@@ -264,16 +271,18 @@ export const AppProvider = ({ children }) => {
       const lastSyncTime = await getData('last_sync_timestamp');
       
       // 2. Gather Local Changes
-      const changes = await SyncHelper.getChanges(lastSyncTime);
+      // UPDATED: Pass isPremium to getChanges
+      const changes = await SyncHelper.getChanges(lastSyncTime, isPremium);
       
-      if (!silent) console.log(`Syncing... (Last: ${lastSyncTime || 'Never'})`);
+      if (!silent) console.log(`Syncing... (Last: ${lastSyncTime || 'Never'}) Premium: ${isPremium}`);
 
       // 3. Call API
       const response = await ApiService.sync(token, lastSyncTime, changes);
       
       if (response.success) {
         // 4. Apply Server Changes to Local Storage
-        const hasNewData = await SyncHelper.applyServerChanges(response.changes || {});
+        // UPDATED: Pass isPremium to applyServerChanges
+        const hasNewData = await SyncHelper.applyServerChanges(response.changes || {}, isPremium);
         
         // 5. Update Timestamp
         await storeData('last_sync_timestamp', response.timestamp);
@@ -353,6 +362,9 @@ export const AppProvider = ({ children }) => {
         syncNow: () => performSync(),
         isSyncing,
         lastRefreshed,
+        // Premium Values
+        isPremium,
+        setIsPremium,
         // Global Styles
         appStyles: {
             headerTitleStyle: {

@@ -31,6 +31,8 @@ const SideMenu = ({ visible, onClose }) => {
     logout,
     isMaterialYou,
     toggleMaterialYou,
+    isPremium,
+    setIsPremium,
   } = useContext(AppContext);
 
   const [storageSize, setStorageSize] = useState("Calculating...");
@@ -250,6 +252,24 @@ const SideMenu = ({ visible, onClose }) => {
 
           {/* --- SETTINGS ROWS --- */}
           <View style={styles.settingsList}>
+            {/* NEW: Premium Features Toggle */}
+            <View style={styles.row}>
+              <View>
+                <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
+                  Premium Features
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.textSecondary }}>
+                  Enable Online Sync for Pro Modules
+                </Text>
+              </View>
+              <Switch
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={"#FFF"}
+                value={isPremium}
+                onValueChange={setIsPremium}
+              />
+            </View>
+
             {/* NEW: Cloud Sync Option (Always visible so you can backup/restore) */}
             <TouchableOpacity
               style={styles.row}
