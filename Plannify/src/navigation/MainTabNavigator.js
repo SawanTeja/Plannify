@@ -328,96 +328,139 @@ const MainTabNavigator = () => {
       )}
       screenOptions={{
         tabBarStyle: { backgroundColor: "transparent" },
-        swipeEnabled: false, // Disable swipe to avoid conflict with draggable tabs
+        swipeEnabled: true, // Re-enable swipe as requested
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeStackNavigator}
-        options={{
-          tabBarIcon: "home-variant",
-          tabBarLabel: "Home",
-          tabBarColor: "#6366f1", // Indigo
-        }}
-      />
-      <Tab.Screen
-        name="Tasks"
-        component={TaskScreen}
-        options={{
-          tabBarIcon: "checkbox-marked-circle-outline",
-          tabBarLabel: "Tasks",
-          tabBarColor: "#10b981", // Emerald
-        }}
-      />
-      <Tab.Screen
-        name="Journal"
-        component={JournalScreen}
-        options={{
-          tabBarIcon: "notebook-outline",
-          tabBarLabel: "Journal",
-          tabBarColor: "#f59e0b", // Amber
-        }}
-      />
-      {/* SOCIAL TAB - ONLY SHOW IF PREMIUM */}
-      {isPremium && (
-        <Tab.Screen
-          name="Social"
-          component={SocialScreen}
-          options={{
-            tabBarIcon: "account-group-outline",
-            tabBarLabel: "Social",
-            tabBarColor: "#ec4899", // Pink
-          }}
-        />
-      )}
-      <Tab.Screen
-        name="Habits"
-        component={HabitScreen}
-        options={{
-          tabBarIcon: "chart-line-variant",
-          tabBarLabel: "Habits",
-          tabBarColor: "#8b5cf6", // Violet
-        }}
-      />
-      <Tab.Screen
-        name="Budget"
-        component={BudgetStackNavigator}
-        options={{
-          tabBarIcon: "wallet-outline",
-          tabBarLabel: "Budget",
-          tabBarColor: "#ef4444", // Red
-        }}
-      />
-      
-       <Tab.Screen
-        name="SplitFund"
-        component={SplitFundStackNavigator}
-        options={{
-            tabBarIcon: "bank-transfer",
-            tabBarLabel: "Split",
-            tabBarColor: "#0ea5e9" // Sky Blue
-        }}
-      />
 
-       <Tab.Screen
-        name="Attendance"
-        component={AttendanceScreen}
-        options={{
-          tabBarIcon: "calendar-check-outline",
-          tabBarLabel: "Attendance",
-          tabBarColor: "#14b8a6", // Teal
-        }}
-      />
+      {orderedTabs.map((name) => {
+        // Attendance Gating
+        if (name === "Attendance" && userData.userType !== "student") return null;
+        
+        // Social Gating (Premium)
+        if (name === "Social" && !isPremium) return null;
 
-        <Tab.Screen
-            name="BucketList"
-            component={BucketListScreen}
-            options={{
-            tabBarIcon: "flag-variant-outline",
-            tabBarLabel: "Goals",
-            tabBarColor: "#f43f5e", // Rose
-            }}
-        />
+        switch (name) {
+          case "Home":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Home"
+                component={HomeStackNavigator}
+                options={{
+                  tabBarIcon: "home-variant",
+                  tabBarLabel: "Home",
+                  tabBarColor: "#6366f1", // Indigo
+                }}
+              />
+            );
+          case "Tasks":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Tasks"
+                component={TaskScreen}
+                options={{
+                  tabBarIcon: "checkbox-marked-circle-outline",
+                  tabBarLabel: "Tasks",
+                  tabBarColor: "#10b981", // Emerald
+                }}
+              />
+            );
+          case "Journal":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Journal"
+                component={JournalScreen}
+                options={{
+                  tabBarIcon: "notebook-outline",
+                  tabBarLabel: "Journal",
+                  tabBarColor: "#f59e0b", // Amber
+                }}
+              />
+            );
+          case "Social":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Social"
+                component={SocialScreen}
+                options={{
+                  tabBarIcon: "account-group-outline",
+                  tabBarLabel: "Social",
+                  tabBarColor: "#ec4899", // Pink
+                }}
+              />
+            );
+          case "Habits":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Habits"
+                component={HabitScreen}
+                options={{
+                  tabBarIcon: "chart-line-variant",
+                  tabBarLabel: "Habits",
+                  tabBarColor: "#8b5cf6", // Violet
+                }}
+              />
+            );
+          case "Budget":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Budget"
+                component={BudgetStackNavigator}
+                options={{
+                  tabBarIcon: "wallet-outline",
+                  tabBarLabel: "Budget",
+                  tabBarColor: "#ef4444", // Red
+                }}
+              />
+            );
+          case "SplitFund":
+            return (
+              <Tab.Screen
+                key={name}
+                name="SplitFund"
+                component={SplitFundStackNavigator}
+                options={{
+                    tabBarIcon: "bank-transfer",
+                    tabBarLabel: "Split",
+                    tabBarColor: "#0ea5e9" // Sky Blue
+                }}
+              />
+            );
+          case "Attendance":
+            return (
+              <Tab.Screen
+                key={name}
+                name="Attendance"
+                component={AttendanceScreen}
+                options={{
+                  tabBarIcon: "calendar-check-outline",
+                  tabBarLabel: "Attendance",
+                  tabBarColor: "#14b8a6", // Teal
+                }}
+              />
+            );
+          case "BucketList":
+            return (
+              <Tab.Screen
+                key={name}
+                name="BucketList"
+                component={BucketListScreen}
+                options={{
+                  tabBarIcon: "flag-variant-outline",
+                  tabBarLabel: "Goals",
+                  tabBarColor: "#f43f5e", // Rose
+                }}
+              />
+            );
+          default:
+            return null;
+        }
+      })}
 
     </Tab.Navigator>
   );
