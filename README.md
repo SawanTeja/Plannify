@@ -78,7 +78,7 @@ To start the backend server locally:
 npm run dev
 ```
 
-This will start the server on port 5000 (usually `http://localhost:5000`).
+This will start the server on port 5000 `http://localhost:5000`.
 
 ## 2. Frontend Setup
 
