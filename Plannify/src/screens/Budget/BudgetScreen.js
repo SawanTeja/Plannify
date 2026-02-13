@@ -14,12 +14,14 @@ import {
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import { scheduleAutoPayNotification } from "../../services/NotificationService";
 
 const BudgetScreen = () => {
   const navigation = useNavigation();
   const { colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
+  const { showAlert } = useAlert();
 
   const insets = useSafeAreaInsets();
   const FLOATING_TAB_BAR_HEIGHT = 90;
@@ -103,7 +105,7 @@ const BudgetScreen = () => {
       await storeData("budget_data", data);
       syncNow();
       if (autoPaidItems.length > 0)
-        Alert.alert("⚡ Auto-Pay Executed", `Paid: ${autoPaidItems.join(", ")}`);
+        showAlert("⚡ Auto-Pay Executed", `Paid: ${autoPaidItems.join(", ")}`);
     }
 
     setBudget(data);
@@ -176,7 +178,7 @@ const BudgetScreen = () => {
     if (!amount || !desc || !payDay) return;
     const day = parseInt(payDay);
     if (day < 1 || day > 31) {
-      Alert.alert("Invalid Date", "Please enter a day between 1-31");
+      showAlert("Invalid Date", "Please enter a day between 1-31");
       return;
     }
     const newBudget = { ...budget };

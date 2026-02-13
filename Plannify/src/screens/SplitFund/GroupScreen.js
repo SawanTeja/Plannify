@@ -1,7 +1,9 @@
 import React, { useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from 'react-native-modal';
 import { View, Text, StyleSheet, TouchableOpacity, SectionList, RefreshControl, Clipboard, Alert, ScrollView, TextInput } from 'react-native';
+import { Utils } from 'react-native';
 import { AppContext } from '../../context/AppContext';
+import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +13,7 @@ import { simplifyDebts } from '../../utils/SplitLogic';
 
 const GroupScreen = ({ route }) => {
     const { colors, theme, userData, user } = useContext(AppContext);
+    const { showAlert } = useAlert();
     const { groupId, groupName } = route.params;
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
@@ -121,7 +124,7 @@ const GroupScreen = ({ route }) => {
     const copyCode = () => {
         if (group?.inviteCode) {
             Clipboard.setString(group.inviteCode);
-            Alert.alert("Copied!", `Group code ${group.inviteCode} copied to clipboard.`);
+            showAlert("Copied!", `Group code ${group.inviteCode} copied to clipboard.`);
         }
     };
 
@@ -135,14 +138,14 @@ const GroupScreen = ({ route }) => {
             setNewMemberName('');
             setAddMemberModalVisible(false);
             loadGroupData();
-            // Alert.alert("Success", "Member added successfully"); // Removed per user request
+            // showAlert("Success", "Member added successfully"); // Removed per user request
         } catch (e) {
-            Alert.alert("Error", e.message || "Could not add member.");
+            showAlert("Error", e.message || "Could not add member.");
         }
     };
 
     const confirmDeleteGroup = () => {
-        Alert.alert(
+        showAlert(
             "Delete Group",
             "Are you sure you want to delete this group? This action cannot be undone.",
             [
@@ -162,7 +165,7 @@ const GroupScreen = ({ route }) => {
             await SplitService.deleteGroup(token, groupId);
             navigation.goBack();
         } catch (e) {
-            Alert.alert("Error", e.message || "Could not delete group");
+            showAlert("Error", e.message || "Could not delete group");
         }
     };
 
@@ -246,7 +249,7 @@ const GroupScreen = ({ route }) => {
     };
 
     const handleDeleteMember = async (memberId, memberName) => {
-        Alert.alert(
+        showAlert(
             "Remove Member",
             `Are you sure you want to remove ${memberName}?`,
             [
@@ -260,7 +263,7 @@ const GroupScreen = ({ route }) => {
                             await SplitService.deleteMember(token, groupId, memberId);
                             loadGroupData();
                         } catch (e) {
-                            Alert.alert("Error", e.message || "Could not remove member");
+                            showAlert("Error", e.message || "Could not remove member");
                         }
                     } 
                 }

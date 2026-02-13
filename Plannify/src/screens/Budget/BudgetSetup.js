@@ -17,12 +17,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
 const BudgetSetup = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { colors, theme, syncNow } = useContext(AppContext);
+  const { showAlert } = useAlert();
   const isEditing = route.params?.isEditing;
 
   const insets = useSafeAreaInsets();
@@ -78,7 +80,7 @@ const BudgetSetup = () => {
   const handleSave = async () => {
     const budgetNum = parseFloat(totalBudget);
     if (!budgetNum || budgetNum <= 0) {
-      Alert.alert("Error", "Please enter a valid total monthly budget.");
+      showAlert("Error", "Please enter a valid total monthly budget.");
       return;
     }
 
@@ -91,14 +93,14 @@ const BudgetSetup = () => {
       finalCategories = categories.filter((c) => c.name.trim() !== "");
 
       if (finalCategories.length === 0) {
-        Alert.alert(
+        showAlert(
           "Error",
           "Please add at least one category or turn off 'Category Breakdown'.",
         );
         return;
       }
       if (Math.abs(allocated - budgetNum) > 1) {
-        Alert.alert(
+        showAlert(
           "Mismatch",
           `Categories sum to ${currency}${allocated}, but Total is ${currency}${budgetNum}. Please match them.`,
         );

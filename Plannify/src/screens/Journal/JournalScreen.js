@@ -21,6 +21,7 @@ import {
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 import { ApiService } from "../../services/ApiService";
@@ -39,6 +40,7 @@ const { width, height } = Dimensions.get("window");
 
 const JournalScreen = () => {
   const { colors, theme, syncNow, lastRefreshed, user, isPremium } = useContext(AppContext);
+  const { showAlert } = useAlert();
 
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
@@ -245,7 +247,7 @@ const JournalScreen = () => {
     // Find the entry to get its _id for backend
     const entryToDelete = entries.find(e => e.id === id);
     
-    Alert.alert("Delete", "Delete this memory? This will also remove the image from cloud storage.", [
+    showAlert("Delete", "Delete this memory? This will also remove the image from cloud storage.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",

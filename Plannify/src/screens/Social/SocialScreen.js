@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image } from "expo-image"; // Use expo-image for caching
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
-  Alert,
   Clipboard,
   Dimensions,
   FlatList,
@@ -22,6 +21,7 @@ import {
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { SocialService } from "../../services/SocialService";
 import { getData, storeData } from "../../utils/storageHelper"; // Import storage helpers
 import SocialPostModal from "./SocialPostModal";
@@ -38,6 +38,7 @@ const { width } = Dimensions.get("window");
 
 const SocialScreen = () => {
   const { colors, theme, user, lastRefreshed, appStyles } = useContext(AppContext);
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -165,7 +166,7 @@ const SocialScreen = () => {
 
   const handleCreateGroup = async () => {
     if (!createGroupName.trim()) {
-      Alert.alert("Error", "Please enter a group name");
+      showAlert("Error", "Please enter a group name");
       return;
     }
 
@@ -179,7 +180,7 @@ const SocialScreen = () => {
         setShowGroupModal(false);
         
         // Show invite code
-        Alert.alert(
+        showAlert(
           "Group Created! 🎉",
           `Share this code with friends:\n\n${result.group.inviteCode}`,
           [
@@ -189,13 +190,13 @@ const SocialScreen = () => {
         );
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to create group");
+      showAlert("Error", "Failed to create group");
     }
   };
 
   const handleJoinGroup = async () => {
     if (!joinCode.trim()) {
-      Alert.alert("Error", "Please enter an invite code");
+      showAlert("Error", "Please enter an invite code");
       return;
     }
 
@@ -206,7 +207,7 @@ const SocialScreen = () => {
         
         // Handle "Already a member" case
         if (result.message === 'Already a member') {
-             Alert.alert("Already Joined", `You are already a member of "${result.group.name}"`);
+             showAlert("Already Joined", `You are already a member of "${result.group.name}"`);
              // We still switch to it
              if (!groups.find(g => g._id === result.group._id)) {
                 setGroups([result.group, ...groups]);
@@ -224,15 +225,15 @@ const SocialScreen = () => {
         setSelectedGroup(result.group);
         setJoinCode("");
         setShowGroupModal(false);
-        Alert.alert("Success", `Joined "${result.group.name}"!`);
+        showAlert("Success", `Joined "${result.group.name}"!`);
       }
     } catch (error) {
-      Alert.alert("Error", error.message || "Invalid invite code");
+      showAlert("Error", error.message || "Invalid invite code");
     }
   };
 
   const handleLeaveGroup = async (groupId) => {
-    Alert.alert(
+    showAlert(
       "Leave Group",
       "Are you sure you want to leave this group?",
       [
@@ -250,7 +251,7 @@ const SocialScreen = () => {
                 setPosts([]);
               }
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to leave group");
+              showAlert("Error", error.message || "Failed to leave group");
             }
           }
         }
@@ -259,7 +260,7 @@ const SocialScreen = () => {
   };
 
   const handleDeleteGroup = async (groupId) => {
-    Alert.alert(
+    showAlert(
       "Delete Group",
       "Are you sure? This will permanently delete the group and ALL posts. This cannot be undone!",
       [
@@ -278,9 +279,9 @@ const SocialScreen = () => {
                 setPosts([]);
               }
               setShowGroupModal(false);
-              Alert.alert("Deleted", "Group has been permanently deleted");
+              showAlert("Deleted", "Group has been permanently deleted");
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to delete group");
+              showAlert("Error", error.message || "Failed to delete group");
             }
           }
         }
@@ -299,7 +300,7 @@ const SocialScreen = () => {
         setShowMembersModal(true);
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to load members");
+      showAlert("Error", "Failed to load members");
     }
   };
 
@@ -315,13 +316,13 @@ const SocialScreen = () => {
       });
     } catch (error) {
       if (error.message !== 'User did not share') {
-        Alert.alert("Error", "Failed to share invite");
+        showAlert("Error", "Failed to share invite");
       }
     }
   };
 
   const handleRemoveMember = async (memberId) => {
-    Alert.alert(
+    showAlert(
       "Remove Member",
       "Remove this person from the group?",
       [
@@ -334,7 +335,7 @@ const SocialScreen = () => {
               await SocialService.removeMember(user.idToken, selectedGroup._id, memberId);
               setGroupMembers(groupMembers.filter(m => m._id !== memberId));
             } catch (error) {
-              Alert.alert("Error", "Failed to remove member");
+              showAlert("Error", "Failed to remove member");
             }
           }
         }
@@ -361,12 +362,12 @@ const SocialScreen = () => {
       setShowPostModal(false);
       setEditingPost(null);
     } catch (error) {
-      Alert.alert("Error", "Failed to save post");
+      showAlert("Error", "Failed to save post");
     }
   };
 
   const handleDeletePost = async (postId) => {
-    Alert.alert(
+    showAlert(
       "Delete Post",
       "Delete this memory?",
       [
@@ -381,7 +382,7 @@ const SocialScreen = () => {
               setPosts(posts.filter(p => p._id !== postId));
               if (detailPost?._id === postId) setDetailPost(null);
             } catch (error) {
-              Alert.alert("Error", "Failed to delete post");
+              showAlert("Error", "Failed to delete post");
             }
           }
         }
@@ -403,7 +404,7 @@ const SocialScreen = () => {
       }
       setShowReactionPicker(null);
     } catch (error) {
-      Alert.alert("Error", "Failed to add reaction");
+      showAlert("Error", "Failed to add reaction");
     }
   };
 
@@ -419,7 +420,7 @@ const SocialScreen = () => {
         }
       }
     } catch (error) {
-      Alert.alert("Error", "Failed to remove reaction");
+      showAlert("Error", "Failed to remove reaction");
     }
   };
 
@@ -433,17 +434,17 @@ const SocialScreen = () => {
         setGroups(groups.map(g => g._id === selectedGroup._id ? result.group : g));
         setSelectedGroup(result.group);
         setRenameGroupName("");
-        Alert.alert("Success", "Group renamed!");
+        showAlert("Success", "Group renamed!");
       }
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to rename group");
+      showAlert("Error", error.message || "Failed to rename group");
     }
   };
 
   const handleTransferOwnership = async (newOwnerId) => {
     if (!selectedGroup) return;
     
-    Alert.alert(
+    showAlert(
       "Transfer Ownership",
       "Are you sure? You will no longer be the owner.",
       [
@@ -459,10 +460,10 @@ const SocialScreen = () => {
                 setSelectedGroup(result.group);
                 setShowTransferModal(false);
                 setIsGroupOwner(false);
-                Alert.alert("Success", "Ownership transferred!");
+                showAlert("Success", "Ownership transferred!");
               }
             } catch (error) {
-              Alert.alert("Error", error.message || "Failed to transfer ownership");
+              showAlert("Error", error.message || "Failed to transfer ownership");
             }
           }
         }

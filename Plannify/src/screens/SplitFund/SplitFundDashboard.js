@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, RefreshControl } from 'react-native';
 import { AppContext } from '../../context/AppContext';
+import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ import { SplitService } from '../../services/SplitService';
 
 const SplitFundDashboard = () => {
     const { colors, theme, userData, user, lastRefreshed, appStyles, isPremium } = useContext(AppContext);
+    const { showAlert } = useAlert();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     
@@ -104,12 +106,12 @@ const SplitFundDashboard = () => {
             } else {
                 // Create online group - PREMUM ONLY
                 if (!isPremium) {
-                     Alert.alert("Premium Feature", "Online groups are a premium feature. Please create an Offline group.");
+                     showAlert("Premium Feature", "Online groups are a premium feature. Please create an Offline group.");
                      return;
                 }
 
                 if (!user?.idToken) {
-                    Alert.alert("Error", "You must be logged in to create online groups.");
+                    showAlert("Error", "You must be logged in to create online groups.");
                     return;
                 }
                 await SplitService.createGroup(user.idToken, newGroupName);
@@ -120,7 +122,7 @@ const SplitFundDashboard = () => {
             setIsOfflineGroup(false); // Reset
             loadData();
         } catch (e) {
-            Alert.alert("Error", e.message || "Could not create group");
+            showAlert("Error", e.message || "Could not create group");
         }
     };
 
@@ -128,12 +130,12 @@ const SplitFundDashboard = () => {
         if (!joinCode.trim()) return;
 
         if (!isPremium) {
-             Alert.alert("Premium Feature", "Joining online groups is a premium feature.");
+             showAlert("Premium Feature", "Joining online groups is a premium feature.");
              return;
         }
 
         if (!user?.idToken) {
-            Alert.alert("Error", "You must be logged in to join groups.");
+            showAlert("Error", "You must be logged in to join groups.");
             return;
         }
         try {
@@ -141,9 +143,9 @@ const SplitFundDashboard = () => {
             setJoinModalVisible(false);
             setJoinCode('');
             loadData();
-            Alert.alert("Success", "Joined group successfully!");
+            showAlert("Success", "Joined group successfully!");
         } catch (e) {
-            Alert.alert("Error", e.message || "Could not join group");
+            showAlert("Error", e.message || "Could not join group");
         }
     };
 

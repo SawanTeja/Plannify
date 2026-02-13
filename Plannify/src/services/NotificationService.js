@@ -60,13 +60,6 @@ export const scheduleDailyMorningReminder = async () => {
     body: "Time to start your day and check your habits!",
     sound: true,
   };
-
-  // Check if already scheduled to avoid duplicates (optional, but good practice)
-  // For simplicity, we can rely on using a unique identifier if the API supported it, 
-  // but Expo doesn't support strict IDs for scheduling repeats easily without managing them.
-  // Instead, we will cancel all 'morning-reminder' notifications before adding (if we could tag them).
-  // Current valid approach: Just schedule it. To avoid duplicates on every app launch, 
-  // we could check `getAllScheduledNotificationsAsync`.
   
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const alreadyScheduled = scheduled.find(n => n.content.title === content.title);
@@ -88,8 +81,7 @@ export const updateNightlyReminder = async (hasMissingHabits) => {
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
-  const NIGHT_REMINDER_ID = "night-reminder-id"; // We can't force ID in scheduleAsync, but we can't easily track it without data.
-  // Workaround: We will use a specific title to identify it.
+  const NIGHT_REMINDER_ID = "night-reminder-id";
   const title = "Daily Wrap-up 🌙";
 
   // 1. Cancel existing night reminder for today

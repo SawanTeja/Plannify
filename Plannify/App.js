@@ -5,6 +5,10 @@ import { useEffect } from "react";
 import "./src/services/NotificationService";
 import { scheduleDailyMorningReminder } from "./src/services/NotificationService";
 
+// Import Alert Context & Component
+import { AlertProvider } from "./src/context/AlertContext"; 
+import PremiumAlert from "./src/components/PremiumAlert";
+
 export default function App() {
   useEffect(() => {
     scheduleDailyMorningReminder();
@@ -13,7 +17,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <AppNavigator />
+        <AlertProvider>
+            <AppNavigator />
+            <PremiumAlert /> 
+        </AlertProvider>
       </AppProvider>
     </SafeAreaProvider>
   );

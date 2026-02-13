@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 
 import { AppContext } from '../../context/AppContext';
+import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SplitService } from '../../services/SplitService';
@@ -11,6 +12,7 @@ const SPLIT_TYPES = ['Equally', 'Percent', 'Shares', 'Adjust', 'Exact'];
 
 const AddExpenseScreen = ({ route }) => {
     const { colors, theme, user } = useContext(AppContext);
+    const { showAlert } = useAlert();
     const { groupId, members } = route.params;
     const navigation = useNavigation();
     
@@ -33,12 +35,12 @@ const AddExpenseScreen = ({ route }) => {
 
     const handleSave = async () => {
         if (!amount) {
-            Alert.alert("Missing Amount", "Please enter an amount.");
+            showAlert("Missing Amount", "Please enter an amount.");
             return;
         }
 
         if (!user?.idToken) {
-            Alert.alert("Error", "You must be logged in to add expenses.");
+            showAlert("Error", "You must be logged in to add expenses.");
             return;
         }
 
@@ -64,7 +66,7 @@ const AddExpenseScreen = ({ route }) => {
                 case 'Exact':
                     const sum = Object.values(splitInputs).reduce((a,b) => a + Number(b), 0);
                     if (Math.abs(sum - totalAmt) > 0.05) {
-                        Alert.alert("Error", `Total must equal ${totalAmt}. Current: ${sum}`);
+                        showAlert("Error", `Total must equal ${totalAmt}. Current: ${sum}`);
                         setIsLoading(false);
                         return;
                     }
@@ -86,10 +88,10 @@ const AddExpenseScreen = ({ route }) => {
                 date: new Date()
             });
             
-            Alert.alert("Success", "Expense added!", [{ text: "OK", onPress: () => navigation.goBack() }]);
+            showAlert("Success", "Expense added!", [{ text: "OK", onPress: () => navigation.goBack() }]);
 
         } catch (e) {
-            Alert.alert("Error", "Could not save expense. Please try again.");
+            showAlert("Error", "Could not save expense. Please try again.");
             console.error(e);
         } finally {
             setIsLoading(false);

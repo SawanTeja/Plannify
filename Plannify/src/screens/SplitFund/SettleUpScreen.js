@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
 import { AppContext } from '../../context/AppContext';
+import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SplitService } from '../../services/SplitService';
@@ -9,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SettleUpScreen = ({ route }) => {
     const { colors, theme, user } = useContext(AppContext);
+    const { showAlert } = useAlert();
     // Initial balances from params, but we will refresh them locally too
     const { groupId, balances: initialBalances, members } = route.params;
     const navigation = useNavigation();
@@ -58,7 +60,7 @@ const SettleUpScreen = ({ route }) => {
 
     const processPayment = async (payerId, payeeId, amountAmount) => {
         if (!user?.idToken && !groupId.toString().startsWith('local_')) {
-            Alert.alert("Error", "You must be logged in to record payments.");
+            showAlert("Error", "You must be logged in to record payments.");
             return;
         }
 
@@ -83,11 +85,12 @@ const SettleUpScreen = ({ route }) => {
             // Refund/Refresh logic
             // We fetch the latest balances to update the list immediately
             await fetchLatestBalances();
-            // Alert.alert("Success", "Payment recorded! List updated."); // Removed per user request
+            await fetchLatestBalances();
+            // showAlert("Success", "Payment recorded! List updated."); // Removed per user request
 
         } catch (e) {
             console.error(e);
-            Alert.alert("Error", "Could not record payment.");
+            showAlert("Error", "Could not record payment.");
         } finally {
             setLoading(false);
         }
