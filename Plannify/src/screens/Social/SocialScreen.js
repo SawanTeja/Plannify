@@ -1,11 +1,11 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image"; // Use expo-image for caching
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Alert,
   Clipboard,
   Dimensions,
   FlatList,
-  Image,
   LayoutAnimation,
   Platform,
   RefreshControl,
@@ -23,6 +23,7 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { SocialService } from "../../services/SocialService";
+import { getData, storeData } from "../../utils/storageHelper"; // Import storage helpers
 import SocialPostModal from "./SocialPostModal";
 
 // Enable Layout Animation
@@ -98,6 +99,17 @@ const SocialScreen = () => {
     
     try {
       setIsLoading(true);
+
+      // 1. Try to load from cache first
+      const cachedGroups = await getData(`user_groups_${user.localId}`);
+      if (cachedGroups) {
+        setGroups(cachedGroups);
+        if (cachedGroups.length > 0 && !selectedGroup) {
+          setSelectedGroup(cachedGroups[0]);
+        }
+      }
+
+      // 2. Fetch fresh data from API
       const result = await SocialService.getGroups(user.idToken);
       if (result.success) {
         setGroups(result.groups);
@@ -105,6 +117,8 @@ const SocialScreen = () => {
         if (result.groups.length > 0 && !selectedGroup) {
           setSelectedGroup(result.groups[0]);
         }
+        // 3. Update cache
+        await storeData(`user_groups_${user.localId}`, result.groups);
       }
     } catch (error) {
       console.error("Load Groups Error:", error);
@@ -118,10 +132,20 @@ const SocialScreen = () => {
 
     try {
       setIsLoading(true);
+      
+      // 1. Try to load from cache first
+      const cachedPosts = await getData(`group_posts_${groupId}`);
+      if (cachedPosts) {
+        setPosts(cachedPosts);
+      }
+
+      // 2. Fetch fresh data from API
       const result = await SocialService.getPosts(user.idToken, groupId);
       if (result.success) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setPosts(result.posts);
+        // 3. Update cache
+        await storeData(`group_posts_${groupId}`, result.posts);
       }
     } catch (error) {
       console.error("Load Posts Error:", error);
@@ -533,7 +557,7 @@ const SocialScreen = () => {
     >
       <View style={styles.authorRow}>
         {item.authorAvatar ? (
-          <Image source={{ uri: item.authorAvatar }} style={styles.authorAvatar} />
+          <Image source={{ uri: item.authorAvatar }} style={styles.authorAvatar} cachePolicy="disk" />
         ) : (
           <View style={[styles.authorAvatar, { backgroundColor: colors.primary }]}>
             <Text style={{ color: colors.white, fontWeight: "bold" }}>
@@ -561,7 +585,7 @@ const SocialScreen = () => {
       </View>
 
       {item.image && (
-        <Image source={{ uri: item.image }} style={styles.postImage} />
+        <Image source={{ uri: item.image }} style={styles.postImage} cachePolicy="disk" />
       )}
 
       <View style={styles.postContent}>
@@ -914,7 +938,7 @@ const SocialScreen = () => {
           renderItem={({ item }) => (
             <View style={styles.memberRow}>
               {item.avatar ? (
-                <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
+                <Image source={{ uri: item.avatar }} style={styles.memberAvatar} cachePolicy="disk" />
               ) : (
                 <View style={[styles.memberAvatar, { backgroundColor: colors.primary }]}>
                   <Text style={{ color: colors.white, fontWeight: "bold" }}>
@@ -970,7 +994,7 @@ const SocialScreen = () => {
             {/* Author */}
             <View style={styles.authorRow}>
               {detailPost.authorAvatar ? (
-                <Image source={{ uri: detailPost.authorAvatar }} style={styles.authorAvatar} />
+                <Image source={{ uri: detailPost.authorAvatar }} style={styles.authorAvatar} cachePolicy="disk" />
               ) : (
                 <View style={[styles.authorAvatar, { backgroundColor: colors.primary }]}>
                   <Text style={{ color: colors.white, fontWeight: "bold" }}>
@@ -988,7 +1012,7 @@ const SocialScreen = () => {
 
             {detailPost.image && (
               <TouchableOpacity onPress={() => setFullScreenImage(detailPost.image)} activeOpacity={0.9}>
-                 <Image source={{ uri: detailPost.image }} style={styles.detailImage} />
+                 <Image source={{ uri: detailPost.image }} style={styles.detailImage} contentFit="cover" cachePolicy="disk" />
               </TouchableOpacity>
             )}
 
@@ -1209,7 +1233,9 @@ const SocialScreen = () => {
           {fullScreenImage && (
              <Image 
                source={{ uri: fullScreenImage }} 
-               style={{ width: "100%", height: "100%", resizeMode: "contain" }} 
+               style={{ width: "100%", height: "100%" }} 
+               contentFit="contain"
+               cachePolicy="disk"
              />
           )}
         </View>
@@ -1301,7 +1327,6 @@ const styles = StyleSheet.create({
   postImage: {
     width: "100%",
     height: 200,
-    resizeMode: "cover",
   },
   postContent: {
     padding: 12,
@@ -1501,7 +1526,6 @@ const styles = StyleSheet.create({
   detailImage: {
     width: "100%",
     height: 300,
-    resizeMode: "cover",
   },
   detailBody: {
     padding: 20,

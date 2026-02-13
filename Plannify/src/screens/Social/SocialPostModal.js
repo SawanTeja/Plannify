@@ -2,9 +2,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useContext, useEffect, useState } from "react";
+import { Image } from "expo-image";
 import {
   Alert,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -223,7 +223,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
             <View style={styles.imageSection}>
               {image ? (
                 <View style={styles.imagePreview}>
-                  <Image source={{ uri: image }} style={styles.previewImage} />
+                  <Image source={{ uri: image }} style={styles.previewImage} cachePolicy="disk" contentFit="cover" />
                   <TouchableOpacity
                     style={styles.removeImageBtn}
                     onPress={() => setImage(null)}
