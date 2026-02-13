@@ -29,6 +29,7 @@ const GroupScreen = ({ route }) => {
     // Modals
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
     const [spendingsModalVisible, setSpendingsModalVisible] = useState(false);
+    const [membersModalVisible, setMembersModalVisible] = useState(false);
 
     useFocusEffect(
         useCallback(() => {
@@ -40,12 +41,19 @@ const GroupScreen = ({ route }) => {
         navigation.setOptions({
             title: groupName || 'Group',
             headerRight: () => (
-                <TouchableOpacity onPress={copyCode}>
-                    <MaterialCommunityIcons name="content-copy" size={20} color={colors.textPrimary} />
-                </TouchableOpacity>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                    <TouchableOpacity onPress={() => setMembersModalVisible(true)}>
+                        <MaterialCommunityIcons name="account-group" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    {group && !group.isOffline && (
+                        <TouchableOpacity onPress={copyCode}>
+                            <MaterialCommunityIcons name="content-copy" size={20} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    )}
+                </View>
             )
         });
-    }, [group]);
+    }, [group, colors.textPrimary]); // Added dependencies
 
     const loadGroupData = async (isManualRefresh = false) => {
         if (isManualRefresh) setIsRefreshing(true);
@@ -55,37 +63,38 @@ const GroupScreen = ({ route }) => {
             const offlineGroups = await SplitService.getLocalGroups();
             const cachedOnlineGroups = await SplitService.getCachedOnlineGroups();
             const allCached = [...offlineGroups, ...cachedOnlineGroups];
-            const cachedGroup = allCached.find(g => (g._id === groupId || g.id === groupId));
+            // Fix: Use loose string comparison for IDs to ensure cache hit
+            const cachedGroup = allCached.find(g => String(g._id || g.id) === String(groupId));
             
             if (cachedGroup) {
                 setGroup(cachedGroup);
                 // Load cached expenses
                 const cachedExpenses = await SplitService.getCachedOnlineExpenses(groupId) || [];
-                // If offline group, getLocalExpenses is essentially the same as getCachedOnlineExpenses wrapper logic 
-                // (or we can just call getExpenses since it handles cache fallback)
-                // But for explicit speed:
+
                 if (cachedGroup.isOffline) {
                      const localExp = await SplitService.getLocalExpenses(groupId);
                      setExpenses(localExp);
+                     // Calculate balances immediately from cache
+                     const cachedBalances = await SplitService.calculateBalances(null, groupId, localExp);
+                     setBalances(cachedBalances);
+                     setSimplifiedDebts(simplifyDebts(cachedBalances));
                 } else {
                      setExpenses(cachedExpenses);
+                     if (cachedExpenses.length > 0) {
+                         const cachedBalances = await SplitService.calculateBalances(null, groupId, cachedExpenses);
+                         setBalances(cachedBalances);
+                         setSimplifiedDebts(simplifyDebts(cachedBalances));
+                     }
                 }
-                
-                // Calc balances on cache
-                // We rely on service for calculation logic, but we can pass a flag if we want cache-only?
-                // SplitService.calculateBalances calls getExpenses.
-                // Since getExpenses now CACHES results, if we just called it above (or if we trust cache),
-                // we can just run it. 
-                // However, without a token it might fail for online groups if not cached?
-                // Actually, calculateBalances calls getExpenses(token). 
-                // optimizing calculateBalances to use cache if network fails is done in Service.
             }
 
             // 1. NETWORK REFRESH
             // Fetch all groups to find current one (updates cache)
             const allGroups = await SplitService.getGroups(user?.idToken);
-            const currentGroup = allGroups.find(g => (g._id === groupId || g.id === groupId));
-            setGroup(currentGroup);
+            const currentGroup = allGroups.find(g => String(g._id || g.id) === String(groupId));
+            if (currentGroup) {
+                setGroup(currentGroup);
+            }
             
             // Determine token (null if offline)
             const token = currentGroup?.isOffline ? null : user?.idToken;
@@ -94,7 +103,8 @@ const GroupScreen = ({ route }) => {
             const exp = await SplitService.getExpenses(token, groupId);
             setExpenses(exp);
 
-            const bals = await SplitService.calculateBalances(token, groupId);
+            // Use the freshly fetched 'exp' to calculate balances (avoids double network call)
+            const bals = await SplitService.calculateBalances(token, groupId, exp);
             setBalances(bals);
             
             // Calculate Simplified Debts for Homepage
@@ -231,16 +241,35 @@ const GroupScreen = ({ route }) => {
         );
     };
 
+    const handleDeleteMember = async (memberId, memberName) => {
+        Alert.alert(
+            "Remove Member",
+            `Are you sure you want to remove ${memberName}?`,
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Remove", 
+                    style: "destructive", 
+                    onPress: async () => {
+                        try {
+                            const token = group?.isOffline ? null : user?.idToken;
+                            await SplitService.deleteMember(token, groupId, memberId);
+                            loadGroupData();
+                        } catch (e) {
+                            Alert.alert("Error", e.message || "Could not remove member");
+                        }
+                    } 
+                }
+            ]
+        );
+    };
+
     return (
         <View style={[styles.container, dynamicStyles.container]}>
             {/* HEADEr */}
             {group && (
                 <View style={[styles.headerCard, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
                     <View style={{ marginBottom: 15 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 5 }}>
-                            <Text style={[styles.groupCode, { color: colors.primary }]}>{group.name}</Text>
-                        </View>
-                        
                         {!group.isOffline && (
                             <Text style={[styles.groupCode, { color: colors.textSecondary, fontSize: 11, marginBottom: 10 }]}>
                                 Invite Code: {group.inviteCode}
@@ -353,6 +382,40 @@ const GroupScreen = ({ route }) => {
                     <TouchableOpacity style={{ backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={handleAddMember}>
                         <Text style={{ color: 'white', fontWeight: 'bold' }}>Add Member</Text>
                     </TouchableOpacity>
+                </View>
+            </Modal>
+
+            {/* MEMBERS MODAL */}
+            <Modal isVisible={membersModalVisible} onBackdropPress={() => setMembersModalVisible(false)} avoidKeyboard>
+                <View style={[styles.modalContent, dynamicStyles.card, { padding: 20, borderRadius: 15 }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: 'bold' }]}>Group Members</Text>
+                        <TouchableOpacity onPress={() => setMembersModalVisible(false)}>
+                            <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    </View>
+                    <ScrollView style={{maxHeight: 400}}>
+                        {group?.members?.map((member, index) => {
+                            const isMe = String(member._id || member.id) === String(user?.user?._id || user?.user?.id);
+                            return (
+                                <View key={index} style={{flexDirection: 'row', alignItems:'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: colors.border}}>
+                                    <View style={{flexDirection: 'row', alignItems:'center'}}>
+                                        <View style={[styles.avatar, {backgroundColor: colors.primary+'20', marginRight: 15}]}>
+                                            <Text style={{color: colors.primary, fontWeight:'bold'}}>{(member.name || '?')[0]}</Text>
+                                        </View>
+                                        <Text style={[dynamicStyles.text, {fontSize: 16, fontWeight: '500'}]}>
+                                            {member.name || 'Unknown'} {isMe && '(You)'}
+                                        </Text>
+                                    </View>
+                                    {(!isMe || group.isOffline) && (
+                                        <TouchableOpacity onPress={() => handleDeleteMember(member._id || member.id, member.name)}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={24} color={colors.danger} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            );
+                        })}
+                    </ScrollView>
                 </View>
             </Modal>
 

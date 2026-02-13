@@ -250,6 +250,52 @@ export const SplitService = {
         }
     },
 
+    deleteLocalMember: async (groupId, memberId) => {
+        try {
+            const localGroups = await getData(CACHE_KEYS.GROUPS) || [];
+            const groupIndex = localGroups.findIndex(g => (g._id === groupId || g.id === groupId));
+            
+            if (groupIndex === -1) throw new Error("Group not found locally");
+            
+            const group = localGroups[groupIndex];
+            const updatedMembers = group.members.filter(m => (m._id || m.id) !== memberId);
+            
+            localGroups[groupIndex].members = updatedMembers;
+            localGroups[groupIndex].updatedAt = new Date();
+
+            await storeData(CACHE_KEYS.GROUPS, localGroups);
+            return true;
+        } catch (e) {
+            console.error('Delete Local Member Error:', e);
+            throw e;
+        }
+    },
+
+    deleteMember: async (token, groupId, memberId) => {
+        // If offline group
+        if (groupId && groupId.toString().startsWith('local_')) {
+            return SplitService.deleteLocalMember(groupId, memberId);
+        }
+
+        // If online group
+        if (!token) throw new Error('Authentication required');
+
+        try {
+            const response = await fetch(`${API_URL}/split/groups/${groupId}/members/${memberId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to remove member');
+            return data;
+        } catch (error) {
+            console.error('SplitService Delete Member Error:', error);
+            throw error;
+        }
+    },
+
     deleteGroup: async (token, groupId) => {
         // Handle Offline Deletion
         if (!token || (groupId && groupId.toString().startsWith('local_'))) {
@@ -390,10 +436,10 @@ export const SplitService = {
     // BALANCES
     // ===================================
 
-    calculateBalances: async (token, groupId) => {
+    calculateBalances: async (token, groupId, explicitExpenses = null) => {
         try {
-            // Note: getExpenses now handles caching/fallback internally
-            const expenses = await SplitService.getExpenses(token, groupId);
+            // Use provided expenses if available to save a network call
+            const expenses = explicitExpenses || await SplitService.getExpenses(token, groupId);
             
             const balances = {};
             
