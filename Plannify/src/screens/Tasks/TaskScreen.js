@@ -242,9 +242,17 @@ const TaskScreen = () => {
   const toggleTask = async (id) => {
     const updatedTasks = tasks.map(t => {
         if (t.id === id || t._id === id) {
+            const newStatus = !t.completed;
+            
+            // If marking as completed, cancel notifications
+            if (newStatus && t.notificationIds) {
+                cancelTaskNotifications(t.notificationIds);
+            }
+            // (Optional) If un-completing, we could re-schedule, but simple logic for now: only cancel on complete.
+
             return { 
                 ...t, 
-                completed: !t.completed, 
+                completed: newStatus, 
                 updatedAt: new Date() // Sync Timestamp
             };
         }

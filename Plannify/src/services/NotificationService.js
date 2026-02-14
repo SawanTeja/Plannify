@@ -54,88 +54,79 @@ export const scheduleDailyMorningReminder = async () => {
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
-  // content
+  const MORNING_ID = "morning-reminder-id";
   const content = {
     title: "Good Morning! ☀️",
     body: "Time to start your day and check your habits!",
     sound: true,
   };
   
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const alreadyScheduled = scheduled.find(n => n.content.title === content.title);
+  // 1. Cancel existing to ensure no duplicates
+  await Notifications.cancelScheduledNotificationAsync(MORNING_ID);
+
+  // 2. Schedule new
+  await Notifications.scheduleNotificationAsync({
+    identifier: MORNING_ID,
+    content,
+    trigger: {
+      hour: 6,
+      minute: 0,
+      repeats: true,
+    },
+  });
+  console.log("Morning reminder scheduled (6:00 AM daily).");
+};
+
+export const scheduleNightlyReminder = async () => {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return;
   
-  if (!alreadyScheduled) {
+    const NIGHT_ID = "night-reminder-recurring-id";
+    const content = {
+      title: "Daily Wrap-up 🌙",
+      body: "Don't forget to mark your habits for today!",
+      sound: true,
+    };
+    
+    // 1. Cancel existing to ensure no duplicates
+    await Notifications.cancelScheduledNotificationAsync(NIGHT_ID);
+  
+    // 2. Schedule new
     await Notifications.scheduleNotificationAsync({
+      identifier: NIGHT_ID,
       content,
       trigger: {
-        hour: 6,
+        hour: 21,
         minute: 0,
         repeats: true,
       },
     });
-    console.log("Morning reminder scheduled.");
-  }
-};
+    console.log("Nightly reminder scheduled (9:00 PM daily).");
+  };
 
+// DEPRECATED: Old logic that only worked if app was opened
 export const updateNightlyReminder = async (hasMissingHabits) => {
-  const hasPermission = await requestNotificationPermissions();
-  if (!hasPermission) return;
-
-  const NIGHT_REMINDER_ID = "night-reminder-id";
-  const title = "Daily Wrap-up 🌙";
-
-  // 1. Cancel existing night reminder for today
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const existingFn = scheduled.find(n => n.content.title === title);
-  
-  if (existingFn) {
-    await Notifications.cancelScheduledNotificationAsync(existingFn.identifier);
-  }
-
-  // 2. If habits are missing, schedule for tonight (e.g., 9 PM)
-  if (hasMissingHabits) {
-    const now = new Date();
-    const tonight9PM = new Date();
-    tonight9PM.setHours(21, 0, 0, 0); // 9:00 PM
-
-    // If it's already past 9 PM, do nothing (or schedule for tomorrow? No, logic is for 'today')
-    if (now < tonight9PM) {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body: "You have unfinished habits! finish them before bed.",
-          sound: true,
-        },
-        trigger: tonight9PM, // Date object trigger = one-off
-      });
-      console.log("Night reminder scheduled for tonight at 9 PM.");
-    }
-  } else {
-      console.log("All habits done, no night reminder needed.");
-  }
+  // Logic removed in favor of scheduleNightlyReminder
+  console.log("updateNightlyReminder (deprecated) called - ignore.");
 };
 
 export const scheduleLowAttendanceReminder = async (lowSubjects) => {
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
-  const NOTIF_TITLE = "Attendance Alert 📉";
+  const NOTIF_ID = "low-attendance-recurring-id";
   
-  // 1. Cancel existing low attendance reminder
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const existingFn = scheduled.find(n => n.content.title === NOTIF_TITLE);
-  
-  if (existingFn) {
-    await Notifications.cancelScheduledNotificationAsync(existingFn.identifier);
-  }
+  // 1. Cancel existing
+  await Notifications.cancelScheduledNotificationAsync(NOTIF_ID);
 
   // 2. If there are low attendance subjects, schedule daily at 7 AM
   if (lowSubjects.length > 0) {
       const subjectNames = lowSubjects.map(s => s.name).join(", ");
       
       await Notifications.scheduleNotificationAsync({
+        identifier: NOTIF_ID,
         content: {
-          title: NOTIF_TITLE,
+          title: "Attendance Alert 📉",
           body: `Your attendance is low in: ${subjectNames}. Don't miss classes!`,
           sound: true,
         },
@@ -145,7 +136,7 @@ export const scheduleLowAttendanceReminder = async (lowSubjects) => {
           repeats: true,
         },
       });
-      console.log("Low attendance reminder scheduled for 7 AM.");
+      console.log("Low attendance reminder scheduled for 7 AM daily.");
   } else {
       console.log("No low attendance subjects. Reminder cancelled.");
   }
@@ -156,22 +147,25 @@ export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
   if (!hasPermission) return null;
 
   const notificationIds = [];
-  const taskDateObj = new Date(taskDate); // "YYYY-MM-DD" -> Date (UTC midnight usually, or local depending on string)
-  // Ensure we are working with local time boundaries
-  // If taskDate is "2024-02-14", new Date("2024-02-14") might be UTC. 
-  // Let's assume input is YYYY-MM-DD string from standard utils.
-  // We want 6 AM on that day.
   
-  // Parse YYYY-MM-DD correctly to local time 6 AM
-  const parts = taskDate.split('-');
-  const year = parseInt(parts[0]);
-  const month = parseInt(parts[1]) - 1;
-  const day = parseInt(parts[2]);
-  
-  const targetDay6AM = new Date(year, month, day, 6, 0, 0); // Local 6 AM
-  const oneDayBefore6AM = new Date(year, month, day - 1, 6, 0, 0); // Local 6 AM previous day
-  // OR maybe "one day before" implies 24h before? The prompt said "one notification about that task one day before". 
-  // Let's stick to 6 AM (or maybe a bit later like 9 AM) for the day before, or just use 6 AM for consistency.
+  // Handle "YYYY-MM-DD" string
+  let targetDate = new Date(taskDate);
+  if (typeof taskDate === 'string') {
+      const parts = taskDate.split('-');
+      // Note: new Date(y, m, d) treats month as 0-indexed
+      targetDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  }
+
+  // Define Reminder Times: 6:00 AM
+  const setTime = (d, h, m) => {
+      const newD = new Date(d);
+      newD.setHours(h, m, 0, 0);
+      return newD;
+  };
+
+  const targetDay6AM = setTime(targetDate, 6, 0);
+  const oneDayBefore6AM = new Date(targetDay6AM);
+  oneDayBefore6AM.setDate(oneDayBefore6AM.getDate() - 1);
   
   const now = new Date();
 
@@ -179,9 +173,10 @@ export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
   if (now < oneDayBefore6AM) {
       const id = await Notifications.scheduleNotificationAsync({
           content: {
-              title: `Upcoming Task Tomorrow: ${taskTitle}`,
+              title: `Upcoming Task: ${taskTitle}`,
               body: "You have a task scheduled for tomorrow. Get ready!",
               sound: true,
+              data: { taskId }
           },
           trigger: oneDayBefore6AM,
       });
@@ -195,6 +190,7 @@ export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
               title: `Task Today: ${taskTitle}`,
               body: "This task is scheduled for today. Good luck!",
               sound: true,
+               data: { taskId }
           },
           trigger: targetDay6AM,
       });
@@ -217,12 +213,11 @@ export const scheduleAutoPayNotification = async (title, amount, day, currency) 
     if (!hasPermission) return null;
 
     // Trigger: Monthly on the specific day at 9:00 AM
-    // Note: Expo `calendar` trigger with `repeats: true` works for this.
     try {
         const id = await Notifications.scheduleNotificationAsync({
             content: {
                 title: "Auto-Pay Alert ⚡",
-                body: `${currency}${amount} for ${title} has been debited from your wallet.`,
+                body: `${currency}${amount} for ${title} will be debited today.`,
                 sound: true,
             },
             trigger: {
@@ -232,7 +227,7 @@ export const scheduleAutoPayNotification = async (title, amount, day, currency) 
                 repeats: true,
             },
         });
-        console.log(`Auto-Pay reminder scheduled for day ${day}: ${id}`);
+        console.log(`Auto-Pay reminder scheduled for day ${day} (Monthly): ${id}`);
         return id;
     } catch (error) {
         console.log("Error scheduling auto-pay:", error);
