@@ -7,69 +7,69 @@ export default {
     absoluteZero: "#000000",
   },
 
-  // ☀️ LIGHT THEME (Soft, Clean, Modern)
+  // ☀️ LIGHT THEME (Mint, Fresh, Modern)
   light: {
     type: "light",
-    background: "#F2F6FF", // Very faint blue-ish gray (High-end feel)
+    background: "#F0FDF4", // Very faint mint green (Fresh feel)
     surface: "#FFFFFF", // Pure white for cards
-    surfaceHighlight: "#F8FAFC", // Slightly lighter for active states
+    surfaceHighlight: "#ECFDF5", // Slightly greener highlight (Emerald 50)
 
     // Typography
-    textPrimary: "#1A2138", // Dark Navy (Softer than pure black)
-    textSecondary: "#64748B", // Cool Gray
+    textPrimary: "#064E3B", // Dark Emerald (Deep Green)
+    textSecondary: "#334155", // Cool Slate
     textMuted: "#94A3B8", // Lighter Gray
 
-    // Accents (Electric Blue & Violet from your ref images)
-    primary: "#4F46E5", // Indigo/Electric Blue
-    primaryLight: "#818CF8",
-    secondary: "#EC4899", // Neon Pink accent
-    accent: "#06B6D4", // Cyan
+    // Accents (Green-ish Palette)
+    primary: "#10B981", // Emerald 500 (Vibrant Green)
+    primaryLight: "#34D399", // Lighter Green
+    secondary: "#059669", // Emerald 600 (Darker Green accent)
+    accent: "#0D9488", // Teal 600 (Deep Teal)
 
     // Glassmorphism specific
     glassBg: "rgba(255, 255, 255, 0.7)",
-    glassBorder: "rgba(255, 255, 255, 0.5)",
+    glassBorder: "rgba(16, 185, 129, 0.2)", // Subtle green tint
 
     // UI Elements
-    border: "#E2E8F0",
-    divider: "#F1F5F9",
+    border: "#D1FAE5", // Light Green Border
+    divider: "#E2E8F0",
     success: "#10B981",
     danger: "#EF4444",
     warning: "#F59E0B",
 
     // Shadows for 3D bounce effect
-    shadow: "#64748B",
+    shadow: "#065F46", // Deep Emerald shadow
   },
 
-  // 🌙 DARK THEME (Cyber, Deep Midnight, Neon)
+  // 🌙 DARK THEME (Cyber Green, Matrix, Deep Forest)
   dark: {
     type: "dark",
-    background: "#0F172A", // Deep Midnight Blue (Not pitch black)
-    surface: "#1E293B", // Slate Blue for cards
-    surfaceHighlight: "#334155", // Lighter slate
+    background: "#000A05", // Pitch black with tiniest green hint
+    surface: "#01120B", // Deeper, less vivid surface
+    surfaceHighlight: "#021A10", // Subtler highlight
 
     // Typography
-    textPrimary: "#F1F5F9", // Off-white
+    textPrimary: "#E2E8F0", // Off-white (less green tint for readability)
     textSecondary: "#94A3B8", // Cool Gray
     textMuted: "#64748B", // Darker Gray
 
-    // Accents (Glowing Neon versions)
-    primary: "#6366F1", // Bright Indigo
-    primaryLight: "#818CF8",
-    secondary: "#F472B6", // Bright Pink
-    accent: "#22D3EE", // Neon Cyan
+    // Accents (Dimmed down - less neon)
+    primary: "#059669", // Emerald 600 (Darker, richer green)
+    primaryLight: "#10B981", // Emerald 500
+    secondary: "#047857", // Emerald 700
+    accent: "#0F766E", // Teal 700
 
     // Glassmorphism specific
-    glassBg: "rgba(30, 41, 59, 0.7)", // Dark translucent
-    glassBorder: "rgba(255, 255, 255, 0.1)", // Subtle white border for depth
+    glassBg: "rgba(1, 18, 11, 0.8)", 
+    glassBorder: "rgba(5, 150, 105, 0.2)", 
 
     // UI Elements
-    border: "#334155",
-    divider: "#1E293B",
-    success: "#34D399",
-    danger: "#F87171",
-    warning: "#FBBF24",
+    border: "#021A10", 
+    divider: "#01120B",
+    success: "#10B981", // Keep success visible but not blinding
+    danger: "#EF4444",
+    warning: "#F59E0B",
 
     // Shadows
-    shadow: "#020617",
+    shadow: "#000000", 
   },
 };

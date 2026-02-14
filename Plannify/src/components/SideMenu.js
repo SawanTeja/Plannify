@@ -29,8 +29,6 @@ const SideMenu = ({ visible, onClose }) => {
     theme,
     user, 
     logout,
-    isMaterialYou,
-    toggleMaterialYou,
     isPremium,
     setIsPremium,
   } = useContext(AppContext);
@@ -337,23 +335,6 @@ const SideMenu = ({ visible, onClose }) => {
               />
             </View>
 
-            {/* Material You Toggle */}
-            <View style={styles.row}>
-              <View>
-                <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>
-                  Material You
-                </Text>
-                <Text style={{ fontSize: 10, color: colors.textSecondary }}>
-                  Sync with wallpaper (Android 12+)
-                </Text>
-              </View>
-              <Switch
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={"#FFF"}
-                value={isMaterialYou}
-                onValueChange={toggleMaterialYou}
-              />
-            </View>
             {/* NEW: Clear Database Option */}
             <TouchableOpacity
               style={styles.row}

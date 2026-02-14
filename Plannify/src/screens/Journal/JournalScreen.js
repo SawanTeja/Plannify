@@ -28,13 +28,13 @@ import { ApiService } from "../../services/ApiService";
 import JournalModal from "./JournalModal";
 import { getMonthName } from "./JournalUtils";
 
-// Enable Layout Animation
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+// Enable Layout Animation 
+// if (
+//   Platform.OS === "android" &&
+//   UIManager.setLayoutAnimationEnabledExperimental
+// ) {
+//   UIManager.setLayoutAnimationEnabledExperimental(true);
+// }
 
 const { width, height } = Dimensions.get("window");
 
@@ -478,11 +478,11 @@ const JournalScreen = () => {
 
   const renderMonthFolder = ({ item }) => {
     const folderColors = [
-      colors.primary,
-      colors.secondary,
-      colors.accent,
-      colors.warning,
-      colors.success,
+      "#4F46E5", // Preserved Primary (Indigo)
+      "#EC4899", // Preserved Secondary (Pink)
+      "#06B6D4", // Preserved Accent (Cyan)
+      "#F59E0B", // Preserved Warning (Amber)
+      "#10B981", // Preserved Success (Emerald)
       "#8e44ad",
       "#e67e22",
       "#2ecc71",
