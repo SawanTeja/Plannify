@@ -575,14 +575,36 @@ const AttendanceScreen = () => {
                     <Text style={{color: colors.textSecondary, fontSize: 12}}>Notify me if attendance drops below this %</Text>
                 </View>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                    <TextInput 
-                        value={minAttendanceInput} 
-                        onChangeText={setMinAttendanceInput} 
-                        keyboardType="numeric"
-                        onEndEditing={saveMinAttendance}
-                        style={[styles.input, {width: 60, marginBottom: 0, textAlign: 'center', padding: 8, height: 40}]}
-                    />
-                    <Text style={{color: colors.textPrimary, fontWeight: 'bold'}}>%</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 12, paddingHorizontal: 10, borderWidth: 1, borderColor: colors.border}}>
+                        <TextInput 
+                            value={minAttendanceInput} 
+                            onChangeText={setMinAttendanceInput} 
+                            keyboardType="numeric"
+                            // onEndEditing={saveMinAttendance} // Removed auto-save on blur, preferring manual save
+                            style={{
+                                color: colors.textPrimary, // Explicit color for Dark Mode
+                                fontWeight: 'bold',
+                                fontSize: 16,
+                                paddingVertical: 8,
+                                width: 40,
+                                textAlign: 'center'
+                            }}
+                        />
+                        <Text style={{color: colors.textSecondary, fontWeight: 'bold'}}>%</Text>
+                    </View>
+                    
+                    <TouchableOpacity 
+                        onPress={saveMinAttendance}
+                        style={{
+                            backgroundColor: colors.primary,
+                            padding: 10,
+                            borderRadius: 12,
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <MaterialCommunityIcons name="check" size={20} color={colors.white} />
+                    </TouchableOpacity>
                 </View>
             </View>
           </View>
