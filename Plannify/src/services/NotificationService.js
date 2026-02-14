@@ -10,6 +10,17 @@ Notifications.setNotificationHandler({
   }),
 });
 
+export const ensureNotificationChannel = async () => {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'Default',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+};
+
 export const requestNotificationPermissions = async () => {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -23,6 +34,10 @@ export const requestNotificationPermissions = async () => {
     console.log('Failed to get push token for push notification!');
     return false;
   }
+  
+  // Ensure channel is created on Android
+  await ensureNotificationChannel();
+
   return true;
 };
 
@@ -100,7 +115,8 @@ export const scheduleNightlyReminder = async () => {
         minute: 0,
         repeats: true,
       },
-    });
+    },
+    );
     console.log("Nightly reminder scheduled (9:00 PM daily).");
   };
 
@@ -143,61 +159,81 @@ export const scheduleLowAttendanceReminder = async (lowSubjects) => {
 };
 
 export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
-  const hasPermission = await requestNotificationPermissions();
-  if (!hasPermission) return null;
+  try {
+    const hasPermission = await requestNotificationPermissions();
+    if (!hasPermission) return null;
 
-  const notificationIds = [];
-  
-  // Handle "YYYY-MM-DD" string
-  let targetDate = new Date(taskDate);
-  if (typeof taskDate === 'string') {
-      const parts = taskDate.split('-');
-      // Note: new Date(y, m, d) treats month as 0-indexed
-      targetDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const notificationIds = [];
+    
+    // Handle "YYYY-MM-DD" string
+    let targetDate = new Date(taskDate);
+    if (typeof taskDate === 'string') {
+        const parts = taskDate.split('-');
+        // Note: new Date(y, m, d) treats month as 0-indexed
+        targetDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+
+    // Validate Date
+    if (isNaN(targetDate.getTime())) {
+        console.error("Invalid task date provided:", taskDate);
+        return [];
+    }
+
+    // Define Reminder Times
+    // 1. Day Before at 9:00 PM
+    const dayBefore9PM = new Date(targetDate);
+    dayBefore9PM.setDate(dayBefore9PM.getDate() - 1);
+    dayBefore9PM.setHours(21, 0, 0, 0);
+
+    // 2. Day Of at 6:00 AM
+    const dayOf6AM = new Date(targetDate);
+    dayOf6AM.setHours(6, 0, 0, 0);
+    
+    const now = new Date();
+
+    // Schedule "Upcoming Task" (Day Before 9 PM)
+    if (now < dayBefore9PM) {
+        const id = await Notifications.scheduleNotificationAsync({
+            content: {
+                title: `Upcoming Task: ${taskTitle}`,
+                body: "You have a task scheduled for tomorrow. Get ready!",
+                sound: true,
+                data: { taskId },
+                color: '#231F7C',
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: dayBefore9PM, 
+                channelId: 'default',
+            },
+        });
+        notificationIds.push(id);
+    }
+
+    // Schedule "Task Today" (Day Of 6 AM)
+    if (now < dayOf6AM) {
+        const id = await Notifications.scheduleNotificationAsync({
+            content: {
+                title: `Task Today: ${taskTitle}`,
+                body: "This task is scheduled for today. Good luck!",
+                sound: true,
+                data: { taskId },
+                color: '#231F7C',
+            },
+            trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.DATE,
+                date: dayOf6AM,
+                channelId: 'default',
+            },
+        });
+        notificationIds.push(id);
+    }
+
+    return notificationIds;
+  } catch (error) {
+    console.error("Error scheduling task notification:", error);
+    return []; // Return empty array so task creation proceeds
   }
-
-  // Define Reminder Times: 6:00 AM
-  const setTime = (d, h, m) => {
-      const newD = new Date(d);
-      newD.setHours(h, m, 0, 0);
-      return newD;
-  };
-
-  const targetDay6AM = setTime(targetDate, 6, 0);
-  const oneDayBefore6AM = new Date(targetDay6AM);
-  oneDayBefore6AM.setDate(oneDayBefore6AM.getDate() - 1);
-  
-  const now = new Date();
-
-  // 1. Schedule "One Day Before"
-  if (now < oneDayBefore6AM) {
-      const id = await Notifications.scheduleNotificationAsync({
-          content: {
-              title: `Upcoming Task: ${taskTitle}`,
-              body: "You have a task scheduled for tomorrow. Get ready!",
-              sound: true,
-              data: { taskId }
-          },
-          trigger: oneDayBefore6AM,
-      });
-      notificationIds.push(id);
-  }
-
-  // 2. Schedule "Day Of" (6 AM)
-  if (now < targetDay6AM) {
-      const id = await Notifications.scheduleNotificationAsync({
-          content: {
-              title: `Task Today: ${taskTitle}`,
-              body: "This task is scheduled for today. Good luck!",
-              sound: true,
-               data: { taskId }
-          },
-          trigger: targetDay6AM,
-      });
-      notificationIds.push(id);
-  }
-
-  return notificationIds;
 };
 
 export const cancelTaskNotifications = async (notificationIds) => {
