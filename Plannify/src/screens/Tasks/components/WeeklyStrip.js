@@ -92,7 +92,10 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
             backgroundColor: isSelected ? colors.primary : colors.surface,
             borderColor: isSelected ? colors.primary : colors.border,
             borderWidth: isSelected ? 0 : 1,
+            // Match HabitCard shadow/elevation for unselected
             shadowColor: isSelected ? colors.primary : colors.shadow,
+            elevation: isSelected ? 8 : 3,
+            shadowOpacity: isSelected ? 0.4 : 0.15,
           };
 
           const nameColor = isSelected ? colors.white : colors.textSecondary;
@@ -140,13 +143,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 25, // Capsule shape
     marginRight: 10,
+    // Base shadow properties for 3D effect
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
   },
   selectedBox: {
-    // Glow Effect
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    // Enhanced Glow Effect for selected
     transform: [{ scale: 1.05 }], // Pop up slightly
   },
   dayName: {

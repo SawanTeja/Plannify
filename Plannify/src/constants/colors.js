@@ -70,6 +70,6 @@ export default {
     warning: "#F59E0B",
 
     // Shadows
-    shadow: "#000000", 
+    shadow: "#059669", 
   },
 };

@@ -319,7 +319,13 @@ const TaskScreen = () => {
         onPress={() => toggleTask(item.id || item._id)}
         onLongPress={() => deleteTask(item.id || item._id)}
         activeOpacity={0.7}
-        style={[styles.taskRow, { backgroundColor: colors.surface }]}
+        style={[
+          styles.taskRow, 
+          { 
+            backgroundColor: colors.surface,
+            shadowColor: colors.shadow // Moved from StyleSheet because 'colors' is dynamic
+          }
+        ]}
       >
         <TouchableOpacity
           onPress={() => toggleTask(item.id || item._id)}
@@ -809,6 +815,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "transparent",
+    // 3D Shadow Effect
+    // shadowColor moved to inline styles
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   taskText: {
     fontSize: 16,
