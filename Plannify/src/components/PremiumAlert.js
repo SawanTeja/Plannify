@@ -28,15 +28,16 @@ const PremiumAlert = () => {
     const { visible, title, message, buttons, type, onDismiss } = alertState;
     
     // Animation Values
-    const scale = useSharedValue(0.8);
+    const scale = useSharedValue(0.96);
     const opacity = useSharedValue(0);
 
     useEffect(() => {
         if (visible) {
-            scale.value = withSpring(1, { damping: 15 });
+            // Subtle appearing animation
+            scale.value = withTiming(1, { duration: 150 });
             opacity.value = withTiming(1, { duration: 200 });
         } else {
-            scale.value = withTiming(0.8, { duration: 150 });
+            scale.value = withTiming(0.96, { duration: 150 });
             opacity.value = withTiming(0, { duration: 150 });
         }
     }, [visible]);
@@ -84,10 +85,9 @@ const PremiumAlert = () => {
             onBackdropPress={closeAlert} // Optional: allow tap outside to dismiss? Android Alert doesn't usually
             onBackButtonPress={closeAlert}
             useNativeDriver
-            hideModalContentWhileAnimating
             backdropOpacity={0.4}
-            animationIn="fadeIn"
-            animationOut="fadeOut"
+            animationIn={null}
+            animationOut={null}
             style={{ alignItems: 'center', justifyContent: 'center', margin: 0 }}
         >
              <Animated.View style={[styles.container, animatedStyle, { 

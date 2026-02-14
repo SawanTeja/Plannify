@@ -18,6 +18,7 @@ import Modal from "react-native-modal";
 import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import { scheduleLowAttendanceReminder } from "../../services/NotificationService";
 
@@ -59,6 +60,7 @@ const getDayNameFromDateStr = (dateStr) => {
 
 const AttendanceScreen = () => {
   const { userData, colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
   const { dateStr: todayStr, dayName: todayDayName } = getLocalToday();
@@ -138,7 +140,7 @@ const AttendanceScreen = () => {
       setMinAttendanceInput(val.toString());
       await storeData("att_settings", { minAttendance: val });
       checkAttendanceWarnings(subjects, val);
-      Alert.alert("Saved", "Attendance requirement updated.");
+      showAlert("Saved", "Attendance requirement updated.");
   };
 
   const saveData = async (newSubjects, newScheduleData) => {
@@ -210,7 +212,7 @@ const AttendanceScreen = () => {
   };
 
   const deleteSubject = (id) => {
-    Alert.alert("Delete Subject", "Removes subject and its history.", [
+    showAlert("Delete Subject", "Removes subject and its history.", [
       { text: "Cancel" },
       {
         text: "Delete",
@@ -264,7 +266,7 @@ const AttendanceScreen = () => {
     targetDate = todayStr,
   ) => {
     if (targetDate > todayStr) {
-      Alert.alert("Future Date", "Cannot mark future attendance.");
+      showAlert("Future Date", "Cannot mark future attendance.");
       return;
     }
     const updatedSubjects = subjects.map((sub) => {
@@ -275,7 +277,7 @@ const AttendanceScreen = () => {
       
       if (record.p + record.a >= maxClasses) {
         if (targetDate === todayStr)
-          Alert.alert("Limit Reached", `Max ${maxClasses} classes.`);
+          showAlert("Limit Reached", `Max ${maxClasses} classes.`);
         return sub;
       }
       
@@ -303,7 +305,7 @@ const AttendanceScreen = () => {
   const markAllToday = (type) => {
     const todaysClasses = schedule[todayDayName] || [];
     if (todaysClasses.length === 0) {
-      Alert.alert("No Classes", "No classes scheduled today.");
+      showAlert("No Classes", "No classes scheduled today.");
       return;
     }
     const updatedSubjects = subjects.map((sub) => {
