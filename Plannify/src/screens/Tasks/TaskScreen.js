@@ -393,8 +393,8 @@ const TaskScreen = () => {
   const dynamicStyles = {
     textColor: isDark ? "#FFFFFF" : "#000000",
     subTextColor: isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.6)",
-    inputBg: isDark ? "#2C2C2E" : "#F2F2F7",
-    modalBg: isDark ? "#1C1C1E" : "#FFFFFF",
+    inputBg: colors.background,
+    modalBg: colors.surface,
   };
 
   return (

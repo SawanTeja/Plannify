@@ -199,7 +199,10 @@ const BudgetHistory = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, dynamicStyles.container]}>
+    <SafeAreaView 
+      style={[styles.container, dynamicStyles.container]} 
+      edges={['left', 'right', 'bottom']}
+    >
       <StatusBar
         barStyle={theme === "dark" ? "light-content" : "dark-content"}
       />
@@ -387,7 +390,7 @@ const BudgetHistory = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  listContainer: { padding: 20 },
+  listContainer: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 10 },
   card: { padding: 20, borderRadius: 24, marginBottom: 15 },
   header: {
     flexDirection: "row",

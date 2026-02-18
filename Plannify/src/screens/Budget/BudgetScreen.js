@@ -59,11 +59,41 @@ const BudgetScreen = () => {
       month: "long",
       year: "numeric",
     });
+
     if (!data.currentMonth || data.currentMonth !== realMonth) {
+      // ARCHIVE OLD DATA
+      if (data.currentMonth) {
+          const oldTransactions = data.transactions || [];
+          let oldSpent = 0;
+          
+          if (data.categories && data.categories.length > 0) {
+              oldSpent = data.categories.reduce((acc, c) => acc + (parseFloat(c.spent) || 0), 0);
+          } else {
+              oldSpent = oldTransactions
+                  .filter(t => t.type === "expense")
+                  .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+          }
+
+          const historyEntry = {
+              month: data.currentMonth,
+              totalBudget: data.totalBudget,
+              totalSpent: oldSpent,
+              transactions: oldTransactions,
+              isCurrent: false
+          };
+
+          // Init history if needed
+          if (!data.history) data.history = [];
+          data.history.push(historyEntry);
+      }
+
+      // RESET FOR NEW MONTH
       data.currentMonth = realMonth;
       data.transactions = [];
       if (data.categories)
         data.categories = data.categories.map((c) => ({ ...c, spent: 0 }));
+      
+      // Save
       await storeData("budget_data", data);
       syncNow();
     }
@@ -271,6 +301,10 @@ const BudgetScreen = () => {
       borderColor: colors.border,
       borderWidth: 1,
       shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
     modalContent: {
       backgroundColor: colors.surface,
@@ -550,7 +584,7 @@ const BudgetScreen = () => {
           Recent Activity
         </Text>
         {budget.transactions && budget.transactions.length > 0 ? (
-          budget.transactions.slice(0, 5).map((tx) => (
+          budget.transactions.map((tx) => (
             <View key={tx._id || tx.id} style={[styles.txRow, dynamicStyles.card]}>
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 12 }}

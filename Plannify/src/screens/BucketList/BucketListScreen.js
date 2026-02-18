@@ -28,12 +28,21 @@ if (
 
 const CATEGORIES = [
   "All",
-  "Travel ✈️",
-  "Movies 🎬",
-  "Books 📚",
-  "Food 🍕",
-  "Other ✨",
+  "Travel",
+  "Movies",
+  "Books",
+  "Food",
+  "Other",
 ];
+
+const CATEGORY_ICONS = {
+  All: "all-inclusive",
+  Travel: "airplane",
+  Movies: "movie-open",
+  Books: "book-open-page-variant",
+  Food: "silverware-fork-knife",
+  Other: "star-four-points",
+};
 
 const BucketListScreen = () => {
   const { colors, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
@@ -61,8 +70,17 @@ const BucketListScreen = () => {
   const loadItems = async () => {
     const data = await getData("bucket_list");
     if (data) {
+      // Migration/Normalization: Fix categories for existing items
+      const normalized = data.map(item => {
+         const plainCat = CATEGORIES.find(c => item.category.startsWith(c) && c !== "All");
+         if (plainCat && item.category !== plainCat) {
+             return { ...item, category: plainCat };
+         }
+         return item;
+      });
+
       // Filter out deleted items
-      setItems(data.filter(i => !i.isDeleted));
+      setItems(normalized.filter(i => !i.isDeleted));
     }
   };
 
@@ -199,7 +217,7 @@ const BucketListScreen = () => {
       </View>
 
       {/* Category Pills */}
-      <View style={{ height: 60, marginBottom: 10 }}>
+      <View style={{ height: 50, marginBottom: 10 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -224,16 +242,27 @@ const BucketListScreen = () => {
                   setFilter(cat);
                 }}
               >
-                <Text
-                  style={[
-                    styles.catText,
-                    isActive
-                      ? dynamicStyles.textActive
-                      : dynamicStyles.textInactive,
-                  ]}
-                >
-                  {cat}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <MaterialCommunityIcons
+                    name={CATEGORY_ICONS[cat]}
+                    size={16}
+                    color={
+                      isActive
+                        ? colors.white
+                        : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.catText,
+                      isActive
+                        ? dynamicStyles.textActive
+                        : dynamicStyles.textInactive,
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -382,16 +411,25 @@ const BucketListScreen = () => {
                 ]}
                 onPress={() => setSelectedCat(cat)}
               >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: "600",
-                    color:
-                      selectedCat === cat ? colors.white : colors.textSecondary,
-                  }}
-                >
-                  {cat}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <MaterialCommunityIcons
+                    name={CATEGORY_ICONS[cat]}
+                    size={16}
+                    color={
+                      selectedCat === cat ? colors.white : colors.textSecondary
+                    }
+                  />
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "600",
+                      color:
+                        selectedCat === cat ? colors.white : colors.textSecondary,
+                    }}
+                  >
+                    {cat}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
@@ -442,13 +480,18 @@ const styles = StyleSheet.create({
   },
   catScroll: { gap: 10, paddingRight: 20 },
   catPill: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderRadius: 25,
     borderWidth: 1,
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  catText: { fontWeight: "600", fontSize: 13 },
+  catText: { fontWeight: "400", fontSize: 13 },
   card: {
     padding: 18,
     borderRadius: 20,
