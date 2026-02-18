@@ -814,9 +814,15 @@ const BudgetScreen = () => {
       {/* AUTO PAY MODAL */}
       <Modal
         isVisible={recurringModalVisible}
-        onSwipeComplete={() => setRecurringModalVisible(false)}
+        onSwipeComplete={() => {
+            setRecurringModalVisible(false);
+            resetForm();
+        }}
         swipeDirection={["down"]}
-        onBackdropPress={() => setRecurringModalVisible(false)}
+        onBackdropPress={() => {
+            setRecurringModalVisible(false);
+            resetForm();
+        }}
         style={styles.bottomModal}
         avoidKeyboard={true}
         backdropOpacity={0.7}
@@ -861,7 +867,10 @@ const BudgetScreen = () => {
           />
 
           <View style={styles.modalActions}>
-            <TouchableOpacity onPress={() => setRecurringModalVisible(false)}>
+            <TouchableOpacity onPress={() => {
+                setRecurringModalVisible(false);
+                resetForm();
+            }}>
               <Text
                 style={[styles.cancelText, { color: colors.textSecondary }]}
               >

@@ -257,10 +257,12 @@ export const scheduleAutoPayNotification = async (title, amount, day, currency) 
                 sound: true,
             },
             trigger: {
+                type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
                 day: day,
                 hour: 9, 
                 minute: 0,
                 repeats: true,
+                channelId: 'default',
             },
         });
         console.log(`Auto-Pay reminder scheduled for day ${day} (Monthly): ${id}`);

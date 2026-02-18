@@ -146,13 +146,13 @@ const SummaryDashboard = () => {
     setGlobalStreak(calculatePerfectStreak(habits));
 
     // 2. Tasks
-    const tasks = (await getData("tasks_data")) || {};
-    let count = 0;
+    // 2. Tasks
+    const tasks = (await getData("tasks")) || [];
     const today = getLocalToday();
-    Object.keys(tasks).forEach((date) => {
-      if (date >= today)
-        count += tasks[date].filter((t) => !t.completed).length;
-    });
+    // Filter: Not completed, Not deleted, and Date is today or future
+    const count = Array.isArray(tasks) 
+        ? tasks.filter(t => !t.completed && !t.isDeleted && (t.date >= today)).length
+        : 0;
     setPendingTasks(count);
 
     // 3. Attendance

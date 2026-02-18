@@ -3,7 +3,6 @@ import { useContext, useEffect, useState } from "react";
 import {
   FlatList,
   // Modal, // Removed standard modal
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   View,
   Platform
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import Modal from "react-native-modal"; // Enhanced Modal
 import { AppContext } from "../../context/AppContext";
 import { getData } from "../../utils/storageHelper";

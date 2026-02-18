@@ -341,7 +341,7 @@ export const AppProvider = ({ children }) => {
       }}
     >
       <StatusBar
-        barStyle={theme === "dark" ? "light-content" : "dark-content"}
+        style={theme === "dark" ? "light" : "dark"}
         backgroundColor={activeColors.background}
       />
       {children}
