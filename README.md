@@ -121,6 +121,54 @@ npm start
 
 Then, you can press `a` to run on Android Emulator.
 
+### Build Variants
+
+The app supports two build variants via the `APP_VARIANT` environment variable:
+
+#### Full Build (default)
+
+Includes all features: login, cloud sync, premium, notifications, etc.
+
+```bash
+# Local dev
+npm start
+
+# EAS builds
+eas build --profile preview          # APK (internal testing)
+eas build --profile production       # AAB (Play Store)
+```
+
+#### Offline Build (Play Store release)
+
+Hides cloud/online features and disables all notifications. Use this for releasing a completely offline version.
+
+**Hidden features:**
+- Login / Sign Up
+- Premium Features toggle
+- Cloud Backup & Restore
+- Notifications toggle & all scheduling
+- Clear Cloud Database
+- Reset App
+
+```bash
+# Local dev
+npm run start:offline
+
+# EAS builds
+eas build --profile offline-preview      
+eas build --profile offline-production   
+```
+
+#### How It Works
+
+| File | Purpose |
+|------|---------|
+| `Plannify/app.config.js` | Reads `APP_VARIANT` env var, injects into Expo config |
+| `Plannify/src/config/buildConfig.js` | Exports `FEATURES` flags based on variant |
+| `Plannify/eas.json` | Defines `offline-*` build profiles with `APP_VARIANT=offline` |
+
+Components check `FEATURES.*` to conditionally render UI. `NotificationService.js` no-ops all functions when `IS_OFFLINE_BUILD` is true.
+
 ## 3. Running on Android (Emulator or Physical Device)
 
 ### Using adb reverse
