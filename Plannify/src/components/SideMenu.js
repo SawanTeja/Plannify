@@ -176,8 +176,8 @@ const SideMenu = ({ visible, onClose }) => {
       >
         <View style={[styles.popoverCard, dynamicStyles.card]}>
           {/* --- LOGIN BUTTON --- */}
-          {/* Shows if NOT logged in via Google, OR if logged in but name is still Guest (edge case) */}
-          {!user && (
+          {/* Shows if NOT logged in via Google */}
+          {(!user || !user.idToken) && (
             <TouchableOpacity
               style={[styles.loginBtn, dynamicStyles.loginBtn]}
               onPress={() => setShowBackupModal(true)} // <--- OPENS BACKUP MODAL
@@ -219,17 +219,17 @@ const SideMenu = ({ visible, onClose }) => {
 
             <View style={styles.infoContainer}>
               {isEditingName ? (
-                <View style={styles.editRow}>
-                  <TextInput
-                    style={[styles.input, { color: colors.textPrimary }]}
-                    value={tempName}
-                    onChangeText={setTempName}
-                    autoFocus
-                    onSubmitEditing={saveName}
-                    returnKeyType="done"
-                  />
+                  <View style={styles.editRow}>
+                    <TextInput
+                      style={[styles.input, { color: colors.textPrimary, flex: 1 }]}
+                      value={tempName}
+                      onChangeText={setTempName}
+                      autoFocus
+                      onSubmitEditing={saveName}
+                      returnKeyType="done"
+                    />
                   <TouchableOpacity onPress={saveName}>
-                    <Text style={{ fontSize: 16, marginLeft: 8 }}>✅</Text>
+                    <Ionicons name="checkmark-circle" size={24} color={colors.primary} style={{ marginLeft: 8 }} />
                   </TouchableOpacity>
                 </View>
               ) : (

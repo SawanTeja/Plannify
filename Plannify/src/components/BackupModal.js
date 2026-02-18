@@ -36,7 +36,7 @@ const BackupModal = ({ visible, onClose }) => {
   };
 
   const handleBackup = async () => {
-    if (!user) return;
+    if (!user || !user.idToken) return;
     setLoadingAction("backup");
     setProgressValue(0);
     setProgressStatus("Starting backup...");
@@ -159,7 +159,7 @@ const BackupModal = ({ visible, onClose }) => {
 
           {/* User Profile Section */}
           <View style={styles.profileSection}>
-            {user ? (
+            {user && user.user ? (
               // LOGGED IN VIEW
               <>
                 <Image
@@ -242,7 +242,7 @@ const BackupModal = ({ visible, onClose }) => {
           )}
 
           {/* Actions - Only visible if logged in and not currently loading */}
-          {user && !loadingAction && (
+          {user && user.user && !loadingAction && (
             <View style={styles.actionContainer}>
                 <View style={styles.actions}>
                 {/* BACKUP BUTTON */}
@@ -286,7 +286,7 @@ const BackupModal = ({ visible, onClose }) => {
           )}
 
           {/* Info Text */}
-          {user && !loadingAction && (
+          {user && user.user && !loadingAction && (
             <Text style={[styles.infoFooter, subTextStyle]}>
               Backups are saved to a hidden folder in your Google Drive. User data is not accessible by others.
             </Text>
