@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { FEATURES } from "../../config/buildConfig";
 import { useContext, useState } from "react";
 import {
   Dimensions,
@@ -171,6 +172,7 @@ const SetupScreen = () => {
           </View>
 
           {/* 3. Notification Toggle */}
+          {FEATURES.NOTIFICATIONS && (
           <View style={styles.section}>
             <View
               style={[
@@ -194,6 +196,7 @@ const SetupScreen = () => {
               />
             </View>
           </View>
+          )}
 
           {/* Spacer */}
           <View style={{ height: 20 }} />

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { FEATURES } from "../config/buildConfig";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -369,7 +370,7 @@ const SideMenu = ({ visible, onClose }) => {
             </View>
 
             {/* --- LOGIN BUTTON --- */}
-            {(!user || !user.idToken) && (
+            {FEATURES.LOGIN && (!user || !user.idToken) && (
               <TouchableOpacity
                 style={[styles.loginBtn, dynamicStyles.loginBtn]}
                 onPress={() => setShowBackupModal(true)}
@@ -434,6 +435,7 @@ const SideMenu = ({ visible, onClose }) => {
 
             {/* --- SETTINGS ROWS --- */}
             <View style={styles.settingsList}>
+              {FEATURES.PREMIUM && (
               <View style={styles.row}>
                 <View>
                   <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>Premium Features</Text>
@@ -446,7 +448,9 @@ const SideMenu = ({ visible, onClose }) => {
                   onValueChange={setIsPremium}
                 />
               </View>
+              )}
 
+              {FEATURES.CLOUD_BACKUP && (
               <TouchableOpacity style={styles.row} onPress={() => setShowBackupModal(true)}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="cloud-upload-outline" size={20} color={colors.textPrimary} style={{ marginRight: 10 }} />
@@ -454,6 +458,7 @@ const SideMenu = ({ visible, onClose }) => {
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
+              )}
 
               <View style={styles.row}>
                 <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>Work Mode</Text>
@@ -467,6 +472,7 @@ const SideMenu = ({ visible, onClose }) => {
                 />
               </View>
 
+              {FEATURES.NOTIFICATIONS && (
               <View style={styles.row}>
                 <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>Notifications</Text>
                 <Switch
@@ -476,6 +482,7 @@ const SideMenu = ({ visible, onClose }) => {
                   onValueChange={(val) => updateUserData({ notifyTasks: val })}
                 />
               </View>
+              )}
 
               <View style={styles.row}>
                 <Text style={[styles.rowLabel, dynamicStyles.textPrimary]}>Dark Mode</Text>
@@ -487,12 +494,14 @@ const SideMenu = ({ visible, onClose }) => {
                 />
               </View>
 
+              {FEATURES.CLEAR_DATABASE && (
               <TouchableOpacity style={styles.row} onPress={handleClearDatabase}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="trash-bin-outline" size={20} color={colors.error || "#EF4444"} style={{ marginRight: 10 }} />
                   <Text style={[styles.rowLabel, { color: colors.error || "#EF4444" }]}>Clear Cloud Database</Text>
                 </View>
               </TouchableOpacity>
+              )}
             </View>
 
             {/* --- DIVIDER --- */}
@@ -507,9 +516,11 @@ const SideMenu = ({ visible, onClose }) => {
                 <TouchableOpacity onPress={handleClose} style={[styles.btn, styles.closeBtn]}>
                   <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>Close</Text>
                 </TouchableOpacity>
+                {FEATURES.RESET_APP && (
                 <TouchableOpacity onPress={handleFactoryReset} style={[styles.btn, styles.resetBtn]}>
                   <Text style={{ color: colors.white, fontWeight: "600" }}>Reset App</Text>
                 </TouchableOpacity>
+                )}
               </View>
             </View>
         </Animated.View>

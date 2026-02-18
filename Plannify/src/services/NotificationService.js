@@ -1,16 +1,20 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { IS_OFFLINE_BUILD } from '../config/buildConfig';
 
 // Configure how notifications behave when the app is in the foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+if (!IS_OFFLINE_BUILD) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 export const ensureNotificationChannel = async () => {
+  if (IS_OFFLINE_BUILD) return;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Default',
@@ -22,6 +26,7 @@ export const ensureNotificationChannel = async () => {
 };
 
 export const requestNotificationPermissions = async () => {
+  if (IS_OFFLINE_BUILD) return false;
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -42,6 +47,7 @@ export const requestNotificationPermissions = async () => {
 };
 
 export const scheduleLocalNotification = async (title, body, data = {}, trigger = null) => {
+  if (IS_OFFLINE_BUILD) return;
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return;
@@ -62,10 +68,12 @@ export const scheduleLocalNotification = async (title, body, data = {}, trigger 
 };
 
 export const cancelAllNotifications = async () => {
+    if (IS_OFFLINE_BUILD) return;
     await Notifications.cancelAllScheduledNotificationsAsync();
 };
 
 export const scheduleDailyMorningReminder = async () => {
+  if (IS_OFFLINE_BUILD) return;
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
@@ -93,6 +101,7 @@ export const scheduleDailyMorningReminder = async () => {
 };
 
 export const scheduleNightlyReminder = async () => {
+    if (IS_OFFLINE_BUILD) return;
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return;
   
@@ -127,6 +136,7 @@ export const updateNightlyReminder = async (hasMissingHabits) => {
 };
 
 export const scheduleLowAttendanceReminder = async (lowSubjects) => {
+  if (IS_OFFLINE_BUILD) return;
   const hasPermission = await requestNotificationPermissions();
   if (!hasPermission) return;
 
@@ -159,6 +169,7 @@ export const scheduleLowAttendanceReminder = async (lowSubjects) => {
 };
 
 export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
+  if (IS_OFFLINE_BUILD) return [];
   try {
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return null;
@@ -237,6 +248,7 @@ export const scheduleTaskNotification = async (taskId, taskTitle, taskDate) => {
 };
 
 export const cancelTaskNotifications = async (notificationIds) => {
+    if (IS_OFFLINE_BUILD) return;
     if (!notificationIds || !Array.isArray(notificationIds)) return;
     for (const id of notificationIds) {
         await Notifications.cancelScheduledNotificationAsync(id);
@@ -245,6 +257,7 @@ export const cancelTaskNotifications = async (notificationIds) => {
 
 // --- AUTO PAY NOTIFICATIONS ---
 export const scheduleAutoPayNotification = async (title, amount, day, currency) => {
+    if (IS_OFFLINE_BUILD) return null;
     const hasPermission = await requestNotificationPermissions();
     if (!hasPermission) return null;
 
@@ -274,6 +287,7 @@ export const scheduleAutoPayNotification = async (title, amount, day, currency) 
 };
 
 export const cancelNotification = async (id) => {
+    if (IS_OFFLINE_BUILD) return;
     if (!id) return;
     try {
         await Notifications.cancelScheduledNotificationAsync(id);

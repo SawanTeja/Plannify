@@ -17,6 +17,18 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "offline-preview": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "offline"
+      }
+    },
+    "offline-production": {
+      "extends": "production",
+      "env": {
+        "APP_VARIANT": "offline"
+      }
     }
   }
 }
