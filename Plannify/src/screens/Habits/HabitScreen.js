@@ -293,8 +293,8 @@ const HabitScreen = () => {
       if (completedCount > 0) {
         txt = colors.white;
         if (ratio === 1) bg = colors.success;
-        else if (ratio > 0.5) bg = colors.primary;
-        else bg = colors.secondary;
+        else if (ratio >= 0.5) bg = colors.warning;
+        else bg = colors.danger;
       } else if (dateStr === today) {
         bg = colors.surface;
         txt = colors.textPrimary;

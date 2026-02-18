@@ -227,6 +227,7 @@ const SideMenu = ({ visible, onClose }) => {
                       autoFocus
                       onSubmitEditing={saveName}
                       returnKeyType="done"
+                      maxLength={27}
                     />
                   <TouchableOpacity onPress={saveName}>
                     <Ionicons name="checkmark-circle" size={24} color={colors.primary} style={{ marginLeft: 8 }} />
@@ -234,7 +235,11 @@ const SideMenu = ({ visible, onClose }) => {
                 </View>
               ) : (
                 <TouchableOpacity onPress={() => setIsEditingName(true)}>
-                  <Text style={[styles.nameText, dynamicStyles.textPrimary]}>
+                  <Text 
+                    style={[styles.nameText, dynamicStyles.textPrimary]} 
+                    numberOfLines={1} 
+                    ellipsizeMode="tail"
+                  >
                     {userData.name || "Guest"}
                   </Text>
                 </TouchableOpacity>
@@ -491,7 +496,7 @@ const styles = StyleSheet.create({
     padding: 0,
     fontSize: 18,
     fontWeight: "bold",
-    minWidth: 100,
+    // minWidth: 100, // Removed to allow flex shrinking
   },
   // Common
   divider: {
