@@ -436,42 +436,6 @@ const TaskScreen = () => {
 
       {/* Main Content */}
       <View style={{ flex: 1 }}>
-        {viewMode === "List" && (
-          <View
-            style={[
-              styles.calendarContainer,
-              { borderBottomColor: colors.border },
-            ]}
-          >
-            <Calendar
-              current={currentMonth}
-              key={theme}
-              onDayPress={handleDayPress}
-              onMonthChange={(month) => setCurrentMonth(month.dateString)}
-              markedDates={markedDates}
-              enableSwipeMonths={true}
-              theme={{
-                backgroundColor: "transparent",
-                calendarBackground: "transparent",
-                textSectionTitleColor: dynamicStyles.subTextColor,
-                selectedDayBackgroundColor: colors.primary,
-                selectedDayTextColor: "#FFFFFF",
-                todayTextColor: colors.primary,
-                dayTextColor: dynamicStyles.textColor,
-                textDisabledColor: isDark ? "#444" : "#CCC",
-                dotColor: colors.primary,
-                selectedDotColor: "#FFFFFF",
-                arrowColor: colors.primary,
-                monthTextColor: dynamicStyles.textColor,
-                indicatorColor: colors.primary,
-                textDayFontWeight: "400",
-                textMonthFontWeight: "bold",
-                textDayHeaderFontWeight: "600",
-              }}
-            />
-          </View>
-        )}
-
         {viewMode === "Matrix" ? (
           <View
             style={{
@@ -488,6 +452,41 @@ const TaskScreen = () => {
             keyExtractor={(item) => (item._id || item.id || Math.random()).toString()}
             renderItem={renderTaskItem}
             renderSectionHeader={renderSectionHeader}
+            ListHeaderComponent={
+                <View
+                style={[
+                  styles.calendarContainer,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <Calendar
+                  current={currentMonth}
+                  key={theme}
+                  onDayPress={handleDayPress}
+                  onMonthChange={(month) => setCurrentMonth(month.dateString)}
+                  markedDates={markedDates}
+                  enableSwipeMonths={true}
+                  theme={{
+                    backgroundColor: "transparent",
+                    calendarBackground: "transparent",
+                    textSectionTitleColor: dynamicStyles.subTextColor,
+                    selectedDayBackgroundColor: colors.primary,
+                    selectedDayTextColor: "#FFFFFF",
+                    todayTextColor: colors.primary,
+                    dayTextColor: dynamicStyles.textColor,
+                    textDisabledColor: isDark ? "#444" : "#CCC",
+                    dotColor: colors.primary,
+                    selectedDotColor: "#FFFFFF",
+                    arrowColor: colors.primary,
+                    monthTextColor: dynamicStyles.textColor,
+                    indicatorColor: colors.primary,
+                    textDayFontWeight: "400",
+                    textMonthFontWeight: "bold",
+                    textDayHeaderFontWeight: "600",
+                  }}
+                />
+              </View>
+            }
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: tabBarHeight + 20 },

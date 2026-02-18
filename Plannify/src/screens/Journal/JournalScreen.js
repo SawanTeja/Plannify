@@ -952,6 +952,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 }, // Added shadow
+    shadowOpacity: 0.2, // Added shadow
+    shadowRadius: 8, // Added shadow
+    elevation: 4, // Added shadow
   },
   compactImage: {
     width: 50,
@@ -972,6 +976,11 @@ const styles = StyleSheet.create({
     height: 140,
     flexDirection: "row",
     overflow: "hidden",
+    shadowColor: "#000", // Added shadow
+    shadowOffset: { width: 0, height: 4 }, // Added shadow
+    shadowOpacity: 0.3, // Added shadow
+    shadowRadius: 8, // Added shadow
+    elevation: 5, // Added shadow
   },
   folderContent: { flex: 1, justifyContent: "space-between" },
   folderTitle: { color: "#fff", fontSize: 22, fontWeight: "bold" },

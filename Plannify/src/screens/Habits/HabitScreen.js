@@ -408,20 +408,23 @@ const HabitScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* HUD */}
-        <LevelProgress stats={userStats} />
-
-        {/* Date Strip */}
-        <View style={{ marginBottom: 15 }}>
-          <WeeklyStrip
-            selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
-            isDark={theme === "dark"}
-          />
-        </View>
-
         <FlatList
           data={habits}
+          ListHeaderComponent={
+            <>
+              {/* HUD */}
+              <LevelProgress stats={userStats} />
+
+              {/* Date Strip */}
+              <View style={{ marginBottom: 15 }}>
+                <WeeklyStrip
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                  isDark={theme === "dark"}
+                />
+              </View>
+            </>
+          }
           keyExtractor={(item) => (item._id || item.id || Math.random()).toString()}
           contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
           renderItem={({ item }) => {

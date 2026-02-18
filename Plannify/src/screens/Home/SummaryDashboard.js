@@ -75,7 +75,7 @@ const ALL_FEATURES = [
 
 const SummaryDashboard = () => {
   const navigation = useNavigation();
-  const { userData, colors, theme, appStyles } = useContext(AppContext);
+  const { userData, colors, theme, appStyles, isPremium } = useContext(AppContext);
   const safeAreaInsets = useSafeAreaInsets();
 
   // --- STATE ---
@@ -107,6 +107,7 @@ const SummaryDashboard = () => {
   const activeFeatures = ALL_FEATURES.filter((f) => {
     if (!activeShortcutIds.includes(f.id)) return false;
     if (f.studentOnly && userData.userType !== "student") return false;
+    if (f.id === 'social' && !isPremium) return false; // Hide Social if not Premium
     return true;
   });
 
@@ -638,6 +639,9 @@ const SummaryDashboard = () => {
               {ALL_FEATURES.map((f) => {
                 if (f.studentOnly && userData.userType !== "student")
                   return null;
+                // NEW: Hide Social if not Premium
+                if (f.id === "social" && !isPremium) return null;
+
                 const active = activeShortcutIds.includes(f.id);
                 return (
                   <TouchableOpacity
