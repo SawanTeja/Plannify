@@ -21,6 +21,7 @@ import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
+import { EmptyState, FloatingActionButton } from "../../components/common";
 import { getData, storeData } from "../../utils/storageHelper";
 import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
 import { scheduleTaskNotification, cancelTaskNotifications } from "../../services/NotificationService";
@@ -496,31 +497,22 @@ const TaskScreen = () => {
             showsVerticalScrollIndicator={false}
             stickySectionHeadersEnabled={false}
             ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons
-                  name="coffee-outline"
-                  size={48}
-                  color={colors.textMuted}
-                />
-                <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                  No tasks for this day.
-                </Text>
-              </View>
+              <EmptyState
+                icon="coffee-outline"
+                title="No tasks for this day"
+                subtitle="Enjoy your free time or tap below to plan ahead!"
+                actionLabel="Add Task"
+                onActionPress={openAddModal}
+              />
             }
           />
         )}
 
         {/* FAB */}
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            { bottom: tabBarHeight + 20, backgroundColor: colors.primary },
-          ]}
+        <FloatingActionButton
+          bottom={tabBarHeight + 20}
           onPress={openAddModal}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="plus" size={32} color="#FFFFFF" />
-        </TouchableOpacity>
+        />
       </View>
 
       {/* --- ADD TASK MODAL (Updated to Bottom Sheet) --- */}

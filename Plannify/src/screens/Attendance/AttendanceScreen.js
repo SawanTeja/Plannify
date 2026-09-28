@@ -17,6 +17,7 @@ import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
+import { EmptyState, FloatingActionButton } from "../../components/common";
 import { getData, storeData } from "../../utils/storageHelper";
 import { scheduleLowAttendanceReminder } from "../../services/NotificationService";
 
@@ -513,18 +514,19 @@ const AttendanceScreen = () => {
             renderItem={({ item }) => renderClassCard(item, todayStr)}
             contentContainerStyle={{ paddingBottom: tabBarHeight + 40 }}
             ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="sleep" size={48} color={colors.textMuted} />
-                <Text style={[styles.emptyText, { color: colors.textMuted }]}>No classes today.</Text>
-              </View>
+              <EmptyState
+                icon="sleep"
+                title="No classes today"
+                subtitle="Enjoy your free time!"
+                actionLabel="Add Subject"
+                onActionPress={() => setModalVisible(true)}
+              />
             }
           />
-          <TouchableOpacity
-            style={[styles.fab, { backgroundColor: colors.primary, shadowColor: colors.primary, bottom: tabBarHeight + 20 }]}
+          <FloatingActionButton
+            bottom={tabBarHeight + 20}
             onPress={() => setModalVisible(true)}
-          >
-            <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
-          </TouchableOpacity>
+          />
         </View>
       )}
 

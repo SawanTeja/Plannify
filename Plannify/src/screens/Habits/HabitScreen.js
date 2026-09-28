@@ -19,6 +19,7 @@ import Modal from "react-native-modal";
 import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { EmptyState, FloatingActionButton } from "../../components/common";
 import { getData, storeData } from "../../utils/storageHelper";
 import { updateNightlyReminder } from "../../services/NotificationService";
 
@@ -447,32 +448,20 @@ const HabitScreen = () => {
             );
           }}
           ListEmptyComponent={
-            <View style={{ alignItems: "center", marginTop: 50 }}>
-              <MaterialCommunityIcons
-                name="rocket-launch-outline"
-                size={50}
-                color={colors.textMuted}
-              />
-              <Text
-                style={{
-                  textAlign: "center",
-                  marginTop: 10,
-                  color: colors.textMuted,
-                }}
-              >
-                No habits yet. Start your journey today!
-              </Text>
-            </View>
+            <EmptyState
+              icon="rocket-launch-outline"
+              title="No habits yet"
+              subtitle="Start building healthy habits today!"
+              actionLabel="Add Habit"
+              onActionPress={() => setAddVisible(true)}
+            />
           }
         />
 
-        <TouchableOpacity
-          style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
+        <FloatingActionButton
+          bottom={tabBarHeight + 20}
           onPress={() => setAddVisible(true)}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
-        </TouchableOpacity>
+        />
 
         {/* --- CALENDAR MODAL (Updated to react-native-modal for consistency) --- */}
         <Modal

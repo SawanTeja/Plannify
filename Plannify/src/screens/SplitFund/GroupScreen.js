@@ -16,8 +16,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SplitService } from '../../services/SplitService';
-
 import { simplifyDebts } from '../../utils/SplitLogic';
+import { formatCurrency } from '../../utils/formatters';
+import { FloatingActionButton } from '../../components/common';
 
 const GroupScreen = ({ route }) => {
     const { colors, user } = useContext(AppContext);
@@ -179,9 +180,7 @@ const GroupScreen = ({ route }) => {
     };
 
     // Helper to format currency
-    const formatMoney = (amount) => {
-        return `${colors.currency || '₹'}${Math.abs(amount).toFixed(2)}`;
-    };
+    const formatMoney = (amount) => formatCurrency(amount, colors.currency, { absolute: true });
 
     const dynamicStyles = {
         container: { backgroundColor: colors.background },
@@ -352,12 +351,10 @@ const GroupScreen = ({ route }) => {
             </ScrollView>
 
             {/* FAB */}
-            <TouchableOpacity 
-                style={[styles.fab, { backgroundColor: colors.primary, bottom: tabBarHeight + 20 }]}
+            <FloatingActionButton 
+                bottom={tabBarHeight + 20}
                 onPress={() => navigation.navigate('AddExpense', { groupId, members: group?.members || [] })}
-            >
-                <MaterialCommunityIcons name="plus" size={32} color="white" />
-            </TouchableOpacity>
+            />
 
             {/* ADD MEMBER MODAL (OFFLINE ONLY) */}
             <Modal isVisible={addMemberModalVisible} onBackdropPress={() => setAddMemberModalVisible(false)} avoidKeyboard>
@@ -520,8 +517,6 @@ const styles = StyleSheet.create({
     
     bigAddMemberBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, marginVertical: 20, gap: 10 },
     bigAddMemberText: { fontWeight: 'bold', fontSize: 16 },
-
-    fab: { position: 'absolute', right: 30, width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 4 } },
 
     debtCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
     avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }

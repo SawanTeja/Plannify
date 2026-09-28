@@ -15,6 +15,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
 import { SplitService } from '../../services/SplitService';
+import { EmptyState } from '../../components/common';
 
 const SplitFundDashboard = () => {
     const { colors, userData, user, lastRefreshed, appStyles, isPremium } = useContext(AppContext);
@@ -174,12 +175,13 @@ const SplitFundDashboard = () => {
             >
                 <Text style={[styles.sectionTitle, dynamicStyles.text]}>Your Groups</Text>
                 {groups.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <MaterialCommunityIcons name="account-group-outline" size={48} color={colors.textMuted} />
-                        <Text style={[styles.emptyText, dynamicStyles.subText]}>
-                            No groups yet. Create or join one!
-                        </Text>
-                    </View>
+                    <EmptyState
+                        icon="account-group-outline"
+                        title="No groups yet"
+                        subtitle="Create or join a group to start splitting expenses!"
+                        actionLabel="Create Group"
+                        onActionPress={() => setCreateModalVisible(true)}
+                    />
                 ) : (
                     groups.map(g => (
                         <TouchableOpacity 

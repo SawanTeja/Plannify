@@ -21,8 +21,9 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
+import { EmptyState, FloatingActionButton } from "../../components/common";
 import { SocialService } from "../../services/SocialService";
-import { getData, storeData } from "../../utils/storageHelper"; // Import storage helpers
+import { getData, storeData } from "../../utils/storageHelper";
 import SocialPostModal from "./SocialPostModal";
 
 // Enable Layout Animation
@@ -1186,27 +1187,28 @@ const SocialScreen = () => {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons name="image-multiple-outline" size={50} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, dynamicStyles.subText]}>No posts yet</Text>
-            <Text style={[styles.emptySubtitle, dynamicStyles.subText]}>
-              Be the first to share a memory!
-            </Text>
-          </View>
+          <EmptyState
+            icon="image-multiple-outline"
+            title="No posts yet"
+            subtitle="Be the first to share a memory with the group!"
+            actionLabel={selectedGroup ? "Create Post" : undefined}
+            onActionPress={() => {
+              setEditingPost(null);
+              setShowPostModal(true);
+            }}
+          />
         }
       />
 
       {/* FAB */}
       {selectedGroup && (
-        <TouchableOpacity
-          style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
+        <FloatingActionButton
+          bottom={tabBarHeight + 20}
           onPress={() => {
             setEditingPost(null);
             setShowPostModal(true);
           }}
-        >
-          <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
-        </TouchableOpacity>
+        />
       )}
 
       {/* Modals */}

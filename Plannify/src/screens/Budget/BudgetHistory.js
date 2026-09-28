@@ -10,8 +10,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Modal from "react-native-modal"; // Enhanced Modal
+import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
+import { EmptyState } from "../../components/common";
 import { getData } from "../../utils/storageHelper";
 
 const BudgetHistory = () => {
@@ -212,16 +213,11 @@ const BudgetHistory = () => {
           renderItem={renderMonth}
           contentContainerStyle={{ paddingBottom: 50 }}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialCommunityIcons
-                name="history"
-                size={48}
-                color={colors.textMuted}
-              />
-              <Text style={[styles.empty, dynamicStyles.subText]}>
-                No budget history yet.
-              </Text>
-            </View>
+            <EmptyState
+              icon="history"
+              title="No budget history yet"
+              subtitle="Previous months will appear here as you log expenses."
+            />
           }
         />
       </View>

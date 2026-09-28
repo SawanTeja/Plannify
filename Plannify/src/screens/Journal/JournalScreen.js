@@ -18,6 +18,7 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
+import { EmptyState, FloatingActionButton } from "../../components/common";
 import { getData, storeData } from "../../utils/storageHelper";
 import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 import { ApiService } from "../../services/ApiService";
@@ -649,29 +650,27 @@ const JournalScreen = () => {
             return renderJournalCard({ item });
           }}
           ListEmptyComponent={
-            <View style={{ alignItems: "center", marginTop: 50 }}>
-              <MaterialCommunityIcons
-                name="notebook-outline"
-                size={50}
-                color={colors.textMuted}
-              />
-              <Text style={{ color: colors.textMuted, marginTop: 10 }}>
-                No memories found.
-              </Text>
-            </View>
+            <EmptyState
+              icon="notebook-outline"
+              title="No memories found"
+              subtitle="Start recording your daily thoughts and memories!"
+              actionLabel="Write Entry"
+              onActionPress={() => {
+                setEntryToEdit(null);
+                setModalVisible(true);
+              }}
+            />
           }
         />
       </View>
 
-      <TouchableOpacity
-        style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
+      <FloatingActionButton
+        bottom={tabBarHeight + 20}
         onPress={() => {
           setEntryToEdit(null);
           setModalVisible(true);
         }}
-      >
-        <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
-      </TouchableOpacity>
+      />
 
       <JournalModal
         visible={modalVisible}

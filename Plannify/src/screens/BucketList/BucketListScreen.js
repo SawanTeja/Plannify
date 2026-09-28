@@ -17,6 +17,7 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
+import { EmptyState, FloatingActionButton } from "../../components/common";
 import { getData, storeData } from "../../utils/storageHelper";
 
 if (
@@ -340,27 +341,19 @@ const BucketListScreen = () => {
           </TouchableOpacity>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialCommunityIcons
-              name="lightbulb-on-outline"
-              size={48}
-              color={colors.textMuted}
-            />
-            <Text style={[styles.emptyText, dynamicStyles.subText]}>
-              No dreams found. Tap + to add one!
-            </Text>
-          </View>
+          <EmptyState
+            icon="lightbulb-on-outline"
+            title="No dreams found"
+            subtitle="Tap + to add one!"
+          />
         }
       />
 
       {/* FAB */}
-      <TouchableOpacity
-        style={[styles.fab, dynamicStyles.fab, { bottom: tabBarHeight + 20 }]}
-        activeOpacity={0.8}
+      <FloatingActionButton
+        bottom={tabBarHeight + 20}
         onPress={() => setModalVisible(true)}
-      >
-        <MaterialCommunityIcons name="plus" size={32} color={colors.white} />
-      </TouchableOpacity>
+      />
 
       {/* Modal */}
       <Modal
