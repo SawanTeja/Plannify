@@ -20,7 +20,6 @@ import {
 // 1. IMPORT ENHANCED MODAL
 import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
-import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 
 const MOODS = ["😊", "😂", "🥰", "😐", "😢", "😡"];
 
@@ -33,7 +32,7 @@ const JournalModal = ({
   initialData,
   onDeleteTag,
 }) => {
-  const { colors, theme } = useContext(AppContext);
+  const { colors } = useContext(AppContext);
 
   // Fields
   const [topic, setTopic] = useState("");
@@ -139,40 +138,45 @@ const JournalModal = ({
   const handleSave = async () => {
     if (!note && !selectedImage && !topic) return;
 
-    // Copy local image to document directory if needed
-    let localImageUri = selectedImage;
-    let needsCloudUpload = false;
+    setIsSaving(true);
+    try {
+      // Copy local image to document directory if needed
+      let localImageUri = selectedImage;
+      let needsCloudUpload = false;
 
-    if (selectedImage && (selectedImage.startsWith("file://") || selectedImage.startsWith("content://"))) {
-      // Check if it's already in document directory or already uploaded
-      if (!selectedImage.includes(FileSystem.documentDirectory) && !selectedImage.startsWith("http")) {
-        const fileName = selectedImage.split("/").pop();
-        const newPath = FileSystem.documentDirectory + fileName;
-        try {
-          await FileSystem.copyAsync({ from: selectedImage, to: newPath });
-          localImageUri = newPath;
-        } catch (e) {
-          console.error("Error copying image locally:", e);
-          localImageUri = selectedImage;
+      if (selectedImage && (selectedImage.startsWith("file://") || selectedImage.startsWith("content://"))) {
+        // Check if it's already in document directory or already uploaded
+        if (!selectedImage.includes(FileSystem.documentDirectory) && !selectedImage.startsWith("http")) {
+          const fileName = selectedImage.split("/").pop();
+          const newPath = FileSystem.documentDirectory + fileName;
+          try {
+            await FileSystem.copyAsync({ from: selectedImage, to: newPath });
+            localImageUri = newPath;
+          } catch (_e) {
+            console.error("Error copying image locally:", _e);
+            localImageUri = selectedImage;
+          }
+          needsCloudUpload = true;
         }
-        needsCloudUpload = true;
       }
-    }
 
-    // Save immediately with local image
-    // If image needs cloud upload, mark uploadStatus as 'pending'
-    onSave({
-      id: initialData ? initialData.id : null,
-      date: initialData ? initialData.date : null,
-      timestamp: initialData ? initialData.timestamp : null,
-      topic: topic,
-      text: note,
-      image: localImageUri,
-      tags: selectedTags,
-      mood: selectedMood,
-      location: locationName,
-      uploadStatus: needsCloudUpload ? 'pending' : (localImageUri?.startsWith('http') ? 'complete' : null),
-    });
+      // Save immediately with local image
+      // If image needs cloud upload, mark uploadStatus as 'pending'
+      await onSave({
+        id: initialData ? initialData.id : null,
+        date: initialData ? initialData.date : null,
+        timestamp: initialData ? initialData.timestamp : null,
+        topic: topic,
+        text: note,
+        image: localImageUri,
+        tags: selectedTags,
+        mood: selectedMood,
+        location: locationName,
+        uploadStatus: needsCloudUpload ? 'pending' : (localImageUri?.startsWith('http') ? 'complete' : null),
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const toggleTag = (tag) => {
@@ -586,22 +590,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
   },
-
-  imgBtn: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    overflow: "hidden",
-    justifyContent: "center",
-  },
-  previewImage: {
-    width: "100%",
-    height: 300,
-    resizeMode: "cover",
-  },
-  imgBtnText: { marginTop: 8, fontWeight: "600" },
-  
-  // New Media Buttons Styles
+  // Media Buttons Styles
   mediaButtonsRow: {
     flexDirection: "row",
     justifyContent: "space-between",

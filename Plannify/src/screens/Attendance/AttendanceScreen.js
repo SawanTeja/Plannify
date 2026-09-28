@@ -1,12 +1,10 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
   LayoutAnimation,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -59,7 +57,7 @@ const getDayNameFromDateStr = (dateStr) => {
 };
 
 const AttendanceScreen = () => {
-  const { userData, colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
+  const { colors, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
@@ -86,9 +84,80 @@ const AttendanceScreen = () => {
     loadData();
   }, [lastRefreshed]); // Fix: Reload when sync updates
 
+  const calculateHistoryHeatmap = useCallback(() => {
+    const marks = {};
+
+    if (subjects.length === 0) {
+      setMarkedDates({
+        [selectedHistoryDate]: {
+          customStyles: {
+            container: {
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 8,
+            },
+            text: { color: colors.textPrimary, fontWeight: "bold" },
+          },
+        },
+      });
+      return;
+    }
+
+    const allDates = new Set();
+    subjects.forEach((sub) => {
+      if (sub.history) Object.keys(sub.history).forEach((d) => allDates.add(d));
+    });
+
+    allDates.forEach((date) => {
+      let totalP = 0,
+        totalClasses = 0;
+      subjects.forEach((sub) => {
+        if (sub.history && sub.history[date]) {
+          const rec = sub.history[date];
+          totalP += rec.p;
+          totalClasses += rec.p + rec.a;
+        }
+      });
+
+      let color = colors.border;
+      if (totalClasses > 0) {
+        const ratio = totalP / totalClasses;
+        if (ratio === 1) color = colors.success;
+        else if (ratio === 0) color = colors.danger;
+        else color = colors.warning;
+      }
+
+      marks[date] = {
+        customStyles: {
+          container: { backgroundColor: color, borderRadius: 8 },
+          text: { color: colors.white, fontWeight: "bold" },
+        },
+      };
+    });
+
+    marks[selectedHistoryDate] = {
+      ...(marks[selectedHistoryDate] || {}),
+      customStyles: {
+        container: {
+          backgroundColor:
+            marks[selectedHistoryDate]?.customStyles?.container
+              ?.backgroundColor || "transparent",
+          borderWidth: 2,
+          borderColor: colors.primary,
+          borderRadius: 8,
+        },
+        text: {
+          color: marks[selectedHistoryDate] ? colors.white : colors.textPrimary,
+          fontWeight: "bold",
+        },
+      },
+    };
+    setMarkedDates(marks);
+  }, [subjects, selectedHistoryDate, colors]);
+
   useEffect(() => {
     calculateHistoryHeatmap();
-  }, [subjects, selectedHistoryDate, colors]);
+  }, [calculateHistoryHeatmap]);
 
   const loadData = async () => {
     const s = (await getData("att_subjects")) || [];
@@ -321,78 +390,6 @@ const AttendanceScreen = () => {
     });
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     saveData(updatedSubjects, null);
-  };
-
-  // --- HEATMAP LOGIC ---
-  const calculateHistoryHeatmap = () => {
-    const marks = {};
-
-    if (subjects.length === 0) {
-      setMarkedDates({
-        [selectedHistoryDate]: {
-            customStyles: {
-            container: {
-                borderWidth: 2,
-                borderColor: colors.primary,
-                borderRadius: 8,
-            },
-            text: { color: colors.textPrimary, fontWeight: "bold" },
-            },
-        },
-      });
-      return;
-    }
-
-    const allDates = new Set();
-    subjects.forEach((sub) => {
-      if (sub.history) Object.keys(sub.history).forEach((d) => allDates.add(d));
-    });
-
-    allDates.forEach((date) => {
-      let totalP = 0,
-        totalClasses = 0;
-      subjects.forEach((sub) => {
-        if (sub.history && sub.history[date]) {
-          const rec = sub.history[date];
-          totalP += rec.p;
-          totalClasses += rec.p + rec.a;
-        }
-      });
-
-      let color = colors.border;
-      if (totalClasses > 0) {
-        const ratio = totalP / totalClasses;
-        if (ratio === 1) color = colors.success;
-        else if (ratio === 0) color = colors.danger;
-        else color = colors.warning;
-      }
-
-      marks[date] = {
-        customStyles: {
-          container: { backgroundColor: color, borderRadius: 8 },
-          text: { color: colors.white, fontWeight: "bold" },
-        },
-      };
-    });
-
-    marks[selectedHistoryDate] = {
-      ...(marks[selectedHistoryDate] || {}),
-      customStyles: {
-        container: {
-          backgroundColor:
-            marks[selectedHistoryDate]?.customStyles?.container
-              ?.backgroundColor || "transparent",
-          borderWidth: 2,
-          borderColor: colors.primary,
-          borderRadius: 8,
-        },
-        text: {
-          color: marks[selectedHistoryDate] ? colors.white : colors.textPrimary,
-          fontWeight: "bold",
-        },
-      },
-    };
-    setMarkedDates(marks);
   };
 
   // --- RENDERERS ---

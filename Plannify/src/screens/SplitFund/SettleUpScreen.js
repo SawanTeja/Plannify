@@ -1,20 +1,23 @@
-import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Image } from 'react-native';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    ActivityIndicator
+} from 'react-native';
 import { AppContext } from '../../context/AppContext';
 import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { SplitService } from '../../services/SplitService';
 import { simplifyDebts } from '../../utils/SplitLogic';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SettleUpScreen = ({ route }) => {
-    const { colors, theme, user } = useContext(AppContext);
+    const { colors, user } = useContext(AppContext);
     const { showAlert } = useAlert();
     // Initial balances from params, but we will refresh them locally too
     const { groupId, balances: initialBalances, members } = route.params;
-    const navigation = useNavigation();
-    const insets = useSafeAreaInsets();
 
     const [balances, setBalances] = useState(initialBalances);
     const [suggestions, setSuggestions] = useState([]);
@@ -24,17 +27,17 @@ const SettleUpScreen = ({ route }) => {
     // Get user ID consistently - prioritize _id (Mongo) over id (Google)
     const currentUserId = user?.user?._id || user?.user?.id || 'local_user';
 
+    const calculateSuggestions = useCallback((currentBalances) => {
+        const simplified = simplifyDebts(currentBalances);
+        setSuggestions(simplified);
+    }, []);
+
     // Initial Load & Refresh Logic
     useEffect(() => {
         if (balances) {
             calculateSuggestions(balances);
         }
-    }, [balances]);
-
-    const calculateSuggestions = (currentBalances) => {
-        const simplified = simplifyDebts(currentBalances);
-        setSuggestions(simplified);
-    };
+    }, [balances, calculateSuggestions]);
 
     const fetchLatestBalances = async () => {
         setRefreshing(true);
@@ -54,7 +57,6 @@ const SettleUpScreen = ({ route }) => {
 
     const handleSettleDebt = (debt) => {
         const { from, to, amount } = debt;
-        // DIRECT PROCESSING - No confirmation popup
         processPayment(from, to, amount);
     };
 
@@ -66,7 +68,7 @@ const SettleUpScreen = ({ route }) => {
 
         setLoading(true);
         try {
-             // Determine token
+            // Determine token
             const isOffline = groupId && groupId.toString().startsWith('local_');
             const token = isOffline ? null : user?.idToken;
 
@@ -82,12 +84,8 @@ const SettleUpScreen = ({ route }) => {
                 date: new Date()
             });
             
-            // Refund/Refresh logic
-            // We fetch the latest balances to update the list immediately
+            // Refresh balances to update the list immediately
             await fetchLatestBalances();
-            await fetchLatestBalances();
-            // showAlert("Success", "Payment recorded! List updated."); // Removed per user request
-
         } catch (e) {
             console.error(e);
             showAlert("Error", "Could not record payment.");
@@ -109,19 +107,11 @@ const SettleUpScreen = ({ route }) => {
         return member?.name || 'Unknown';
     };
 
-    // Helper to get Avatar
-    const getAvatar = (id) => {
-        const targetId = String(id);
-        const member = members.find(m => String(m._id || m.id) === targetId);
-        return member?.avatar || null;
-    };
-
     const dynamicStyles = {
         container: { backgroundColor: colors.background },
         text: { color: colors.textPrimary },
         subText: { color: colors.textSecondary },
         card: { backgroundColor: colors.surface, borderColor: colors.border },
-        highlight: { color: colors.primary },
     };
 
     return (
@@ -149,7 +139,6 @@ const SettleUpScreen = ({ route }) => {
                 ) : (
                     suggestions.map((s, index) => {
                          const isMyDebt = String(s.from) === String(currentUserId);
-                         const isOwedToMe = String(s.to) === String(currentUserId);
                          
                          return (
                             <View 

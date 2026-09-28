@@ -14,7 +14,7 @@ import { AppContext } from "../context/AppContext";
 import { backupToDrive, restoreFromDrive, deleteBackupFromDrive } from "../services/DriveService";
 
 const BackupModal = ({ visible, onClose }) => {
-  const { user, userData, login, logout, colors, theme } = useContext(AppContext);
+  const { user, userData, login, logout, colors } = useContext(AppContext);
 
   // loadingAction tracks which button is spinning: 'login', 'backup', 'restore', 'delete'
   const [loadingAction, setLoadingAction] = useState(null);

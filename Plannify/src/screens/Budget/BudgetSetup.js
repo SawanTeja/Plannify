@@ -2,10 +2,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useContext, useEffect, useLayoutEffect, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
-  // 1. Removed SafeAreaView from react-native (we will use a View with manual padding)
   ScrollView,
   StatusBar,
   StyleSheet,

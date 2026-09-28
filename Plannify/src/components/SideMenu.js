@@ -165,7 +165,7 @@ const SideMenu = ({ visible, onClose }) => {
         useNativeDriver: false,
       }),
     ]).start();
-  }, []);
+  }, [backdropOpacity, cardOpacity, cardScale, pan]);
 
   const animateOut = useCallback((cb) => {
     Animated.parallel([
@@ -187,7 +187,7 @@ const SideMenu = ({ visible, onClose }) => {
     ]).start(() => {
       if (cb) cb();
     });
-  }, []);
+  }, [backdropOpacity, cardOpacity, pan]);
 
   const closeModal = useCallback(() => {
     if (isEditingName && tempName.trim().length > 0) {
@@ -197,7 +197,7 @@ const SideMenu = ({ visible, onClose }) => {
     setInternalVisible(false);
     pan.setValue({ x: 0, y: 0 });
     onClose();
-  }, [isEditingName, tempName, onClose, updateUserData]);
+  }, [isEditingName, tempName, onClose, updateUserData, pan]);
 
   const handleClose = useCallback(() => {
     animateOut(() => closeModal());
@@ -211,14 +211,14 @@ const SideMenu = ({ visible, onClose }) => {
       // Parent closed it externally
       setInternalVisible(false);
     }
-  }, [visible]);
+  }, [visible, openModal, internalVisible]);
 
   useEffect(() => {
     if (visible) {
       setTempName(userData.name);
       getStorageUsage().then(setStorageSize);
     }
-  }, [visible]);
+  }, [visible, userData.name, getStorageUsage]);
 
   // --- BUSINESS LOGIC ---
   const pickImage = async () => {
@@ -228,7 +228,7 @@ const SideMenu = ({ visible, onClose }) => {
       return;
     }
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
@@ -291,7 +291,7 @@ const SideMenu = ({ visible, onClose }) => {
                 } else {
                   Alert.alert("Error", "Failed to clear database.");
                 }
-              } catch (e) {
+              } catch (_e) {
                 Alert.alert("Error", "Network request failed.");
               }
             } else {

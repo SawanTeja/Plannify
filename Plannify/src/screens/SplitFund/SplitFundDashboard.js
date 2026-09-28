@@ -1,5 +1,13 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, RefreshControl } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    TextInput,
+    RefreshControl
+} from 'react-native';
 import { AppContext } from '../../context/AppContext';
 import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,7 +17,7 @@ import Modal from 'react-native-modal';
 import { SplitService } from '../../services/SplitService';
 
 const SplitFundDashboard = () => {
-    const { colors, theme, userData, user, lastRefreshed, appStyles, isPremium } = useContext(AppContext);
+    const { colors, userData, user, lastRefreshed, appStyles, isPremium } = useContext(AppContext);
     const { showAlert } = useAlert();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
@@ -32,6 +40,35 @@ const SplitFundDashboard = () => {
         email: user?.email
     };
 
+    const loadData = useCallback(async (isManualRefresh = false) => {
+        // Only show spinner on manual pull-to-refresh
+        if (isManualRefresh) setIsRefreshing(true);
+        
+        try {
+            // 1. FAST LOAD: Load from cache immediately
+            const offlineGroups = await SplitService.getLocalGroups();
+            const cachedOnlineGroups = await SplitService.getCachedOnlineGroups();
+            
+            // Combine and Dedup
+            const allCachedGroups = [...offlineGroups, ...cachedOnlineGroups];
+            const uniqueGroups = Array.from(new Map(allCachedGroups.map(item => [item._id || item.id, item])).values());
+            
+            setGroups(uniqueGroups);
+            
+            // 2. NETWORK LOAD: Fetch fresh data silently
+            if (isPremium) {
+                const loadedGroups = await SplitService.getGroups(user?.idToken); 
+                setGroups(loadedGroups);
+            } else {
+                setGroups(uniqueGroups.filter(g => g.isOffline));
+            }
+        } catch (e) {
+            console.error("Failed to load SplitFund data", e);
+        } finally {
+            if (isManualRefresh) setIsRefreshing(false);
+        }
+    }, [user?.idToken, isPremium]);
+
     useFocusEffect(
         useCallback(() => {
             loadData();
@@ -52,48 +89,7 @@ const SplitFundDashboard = () => {
             loadData();
         };
         init();
-    }, []);
-
-    const loadData = useCallback(async (isManualRefresh = false) => {
-        // Only show spinner on manual pull-to-refresh
-        if (isManualRefresh) setIsRefreshing(true);
-        
-        try {
-            // 1. FAST LOAD: Load from cache immediately to show something
-            // This prevents "flicker" and blank screens
-            const offlineGroups = await SplitService.getLocalGroups();
-            const cachedOnlineGroups = await SplitService.getCachedOnlineGroups();
-            
-            // Combine and Dedup (in case sync messed up)
-            const allCachedGroups = [...offlineGroups, ...cachedOnlineGroups];
-            // Remove duplicates by ID just in case
-            const uniqueGroups = Array.from(new Map(allCachedGroups.map(item => [item._id || item.id, item])).values());
-            
-            setGroups(uniqueGroups);
-            
-            // 2. NETWORK LOAD: Fetch fresh data silently (or with spinner if manual)
-            // ONLY IF PREMIUM IS ENABLED
-            if (isPremium) {
-                const loadedGroups = await SplitService.getGroups(user?.idToken); 
-                // Update state with fresh data
-                setGroups(loadedGroups);
-            } else {
-                console.log("🔒 SplitFund: Premium disabled, skipping online fetch.");
-                // If not premium, ensure we only show offline groups (optional, but safer)
-                // Actually, if we just don't fetch, we show what we have in cache. 
-                // But strict requirement says "offline mode", so maybe we should filter out online groups from view?
-                // For now, let's just NOT fetch new ones. Existing cache might still show up.
-                // Requirement: "Split fund should only work in offline mode"
-                // Let's filter the displayed groups to be safe
-                 setGroups(uniqueGroups.filter(g => g.isOffline));
-            }
-            
-        } catch (e) {
-            console.error("Failed to load SplitFund data", e);
-        } finally {
-            if (isManualRefresh) setIsRefreshing(false);
-        }
-    }, [user?.idToken, user?.user?.id, isPremium]);
+    }, [loadData]);
 
 
     const handleCreateGroup = async () => {
@@ -261,11 +257,7 @@ const SplitFundDashboard = () => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
-    title: { },
-    balanceCard: { marginHorizontal: 20, marginBottom: 20, padding: 20, borderRadius: 20, alignItems: 'center', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
-    balanceLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '600' },
-    balanceAmount: { color: 'white', fontSize: 32, fontWeight: 'bold', marginVertical: 8 },
-    balanceSub: { color: 'rgba(255,255,255,0.9)', fontSize: 12 },
+    title: { fontSize: 28, fontWeight: 'bold' },
     content: { paddingHorizontal: 20, paddingBottom: 100 },
     sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
     emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.7 },

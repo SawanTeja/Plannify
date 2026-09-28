@@ -2,8 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
-  Alert,
-  FlatList, // Add FlatList
+  FlatList,
   LayoutAnimation,
   Platform,
   SectionList,
@@ -21,6 +20,7 @@ import Modal from "react-native-modal";
 import { Calendar } from "react-native-calendars";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { getData, storeData } from "../../utils/storageHelper";
 import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
 import { scheduleTaskNotification, cancelTaskNotifications } from "../../services/NotificationService";
@@ -39,6 +39,7 @@ if (
 const TaskScreen = () => {
   // 1. GET lastRefreshed FROM CONTEXT
   const { theme, colors, lastRefreshed, syncNow, appStyles } = useContext(AppContext);
+  const { showAlert } = useAlert();
   const isDark = theme === "dark";
 
   const insets = useSafeAreaInsets();
@@ -64,52 +65,38 @@ const TaskScreen = () => {
   const [duration, setDuration] = useState("");
   const [priority, setPriority] = useState("Medium");
 
-  // 2. RELOAD DATA WHEN lastRefreshed CHANGES
-  useEffect(() => {
-    loadTasks();
-  }, [lastRefreshed]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadTasks();
-    }, []),
-  );
-
-  useEffect(() => {
-    processSections();
-    generateCalendarMarks();
-  }, [tasks, selectedDate]);
-
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     // CHANGED: Key is now "tasks" to match SyncHelper
     const t = await getData("tasks");
     if (t && Array.isArray(t)) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setTasks(t);
     }
-  };
+  }, []);
 
   // Helper: Convert Flat Array -> Date Map for UI Logic
-  const getTasksByDate = () => {
+  const getTasksByDate = useCallback(() => {
     const map = {};
-    tasks.forEach(task => {
-        if (!task.isDeleted) {
-            const date = task.date || today; // Fallback to today
-            if (!map[date]) map[date] = [];
-            map[date].push(task);
-        }
+    tasks.forEach((task) => {
+      if (!task.isDeleted) {
+        const date = task.date || today; // Fallback to today
+        if (!map[date]) map[date] = [];
+        map[date].push(task);
+      }
     });
     return map;
-  };
+  }, [tasks, today]);
 
-  const getAllPendingTasks = () => {
-    return tasks.filter(t => !t.completed && !t.isDeleted).map(t => ({
+  const getAllPendingTasks = useCallback(() => {
+    return tasks
+      .filter((t) => !t.completed && !t.isDeleted)
+      .map((t) => ({
         ...t,
-        dateLabel: t.date
-    }));
-  };
+        dateLabel: t.date,
+      }));
+  }, [tasks]);
 
-  const processSections = () => {
+  const processSections = useCallback(() => {
     const tasksMap = getTasksByDate();
     const sortedDates = Object.keys(tasksMap).sort();
     const newSections = [];
@@ -122,7 +109,7 @@ const TaskScreen = () => {
           active.forEach((t) => pastTasks.push({ ...t, dateLabel: date }));
       }
     });
-    
+
     if (pastTasks.length > 0)
       newSections.push({
         title: "Overdue",
@@ -144,7 +131,7 @@ const TaskScreen = () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const isTomorrow = date === getLocalDateString(tomorrow);
-        
+
         if (tasksMap[date] && tasksMap[date].length > 0)
           newSections.push({
             title: isTomorrow ? "Tomorrow" : label,
@@ -154,12 +141,12 @@ const TaskScreen = () => {
       }
     });
     setSections(newSections);
-  };
+  }, [getTasksByDate, today]);
 
-  const generateCalendarMarks = () => {
+  const generateCalendarMarks = useCallback(() => {
     const tasksMap = getTasksByDate();
     const marks = {};
-    
+
     Object.keys(tasksMap).forEach((date) => {
       const activeCount = tasksMap[date].filter((t) => !t.completed).length;
       if (activeCount > 0) {
@@ -183,7 +170,22 @@ const TaskScreen = () => {
       };
     }
     setMarkedDates(marks);
-  };
+  }, [getTasksByDate, colors.primary, selectedDate, today]);
+
+  useEffect(() => {
+    loadTasks();
+  }, [lastRefreshed, loadTasks]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTasks();
+    }, [loadTasks]),
+  );
+
+  useEffect(() => {
+    processSections();
+    generateCalendarMarks();
+  }, [processSections, generateCalendarMarks]);
 
   const handleDayPress = (day) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -265,7 +267,7 @@ const TaskScreen = () => {
   };
 
   const deleteTask = (id) => {
-    Alert.alert("Delete Task", "Remove this task?", [
+    showAlert("Delete Task", "Remove this task?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",

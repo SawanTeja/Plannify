@@ -7,7 +7,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -75,7 +74,7 @@ const ALL_FEATURES = [
 
 const SummaryDashboard = () => {
   const navigation = useNavigation();
-  const { userData, colors, theme, appStyles, isPremium } = useContext(AppContext);
+  const { userData, colors, appStyles, isPremium } = useContext(AppContext);
   const safeAreaInsets = useSafeAreaInsets();
 
   // --- STATE ---
@@ -95,29 +94,6 @@ const SummaryDashboard = () => {
     "journal",
     "bucket",
   ]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadSummaries();
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }, []),
-  );
-
-  // --- LOGIC ---
-  const activeFeatures = ALL_FEATURES.filter((f) => {
-    if (!activeShortcutIds.includes(f.id)) return false;
-    if (f.studentOnly && userData.userType !== "student") return false;
-    if (f.id === 'social' && !isPremium) return false; // Hide Social if not Premium
-    return true;
-  });
-
-  const toggleShortcut = (id) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setActiveShortcutIds((prev) => {
-      if (prev.includes(id)) return prev.filter((item) => item !== id);
-      return [...prev, id];
-    });
-  };
 
   const calculatePerfectStreak = (habits) => {
     if (!habits || habits.length === 0) return 0;
@@ -140,73 +116,99 @@ const SummaryDashboard = () => {
     return streak;
   };
 
-  const loadSummaries = async () => {
-    // 1. Habits
-    const habits = (await getData("habits_data")) || [];
-    setGlobalStreak(calculatePerfectStreak(habits));
+  const loadSummaries = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      // 1. Habits
+      const habits = (await getData("habits_data")) || [];
+      setGlobalStreak(calculatePerfectStreak(habits));
 
-    // 2. Tasks
-    // 2. Tasks
-    const tasks = (await getData("tasks")) || [];
-    const today = getLocalToday();
-    // Filter: Not completed, Not deleted, and Date is today or future
-    const count = Array.isArray(tasks) 
-        ? tasks.filter(t => !t.completed && !t.isDeleted && (t.date >= today)).length
+      // 2. Tasks
+      const tasks = (await getData("tasks")) || [];
+      const today = getLocalToday();
+      const count = Array.isArray(tasks)
+        ? tasks.filter((t) => !t.completed && !t.isDeleted && t.date >= today).length
         : 0;
-    setPendingTasks(count);
+      setPendingTasks(count);
 
-    // 3. Attendance
-    const subjects = (await getData("att_subjects")) || [];
-    const settings = (await getData("att_settings")) || { minAttendance: 75 };
-    const minAtt = settings.minAttendance;
+      // 3. Attendance
+      const subjects = (await getData("att_subjects")) || [];
+      const settings = (await getData("att_settings")) || { minAttendance: 75 };
+      const minAtt = settings.minAttendance;
 
-    if (subjects.length > 0) {
-      let totalP = 0,
-        totalC = 0;
-      let lowCount = 0;
+      if (subjects.length > 0) {
+        let totalP = 0,
+          totalC = 0;
+        let lowCount = 0;
 
-      subjects.forEach((s) => {
-        const stats = Object.values(s.history || {});
-        let subP = 0, subC = 0;
-        
-        stats.forEach((rec) => {
-             subP += rec.p;
-             subC += rec.p + rec.a;
-        });
+        subjects.forEach((s) => {
+          const stats = Object.values(s.history || {});
+          let subP = 0,
+            subC = 0;
 
-        totalC += subC;
-        totalP += subP;
-        
-        // Check for low attendance
-        if (subC > 0) {
+          stats.forEach((rec) => {
+            subP += rec.p;
+            subC += rec.p + rec.a;
+          });
+
+          totalC += subC;
+          totalP += subP;
+
+          if (subC > 0) {
             const subPct = (subP / subC) * 100;
             if (subPct < minAtt) lowCount++;
-        }
-      });
-      setAttendanceAvg(totalC === 0 ? 0 : (totalP / totalC) * 100);
-      setLowAttendanceCount(lowCount);
-    } else {
+          }
+        });
+        setAttendanceAvg(totalC === 0 ? 0 : (totalP / totalC) * 100);
+        setLowAttendanceCount(lowCount);
+      } else {
         setAttendanceAvg(null);
         setLowAttendanceCount(0);
-    }
+      }
 
-    // 4. Budget
-    const budget = await getData("budget_data");
-    if (budget) {
-      const catSpent = (budget.categories || []).reduce(
-        (acc, c) => acc + c.spent,
-        0,
-      );
-      const rawSpent = (budget.transactions || []).reduce(
-        (acc, t) => acc + t.amount,
-        0,
-      );
-      setBudgetStatus({
-        spent: budget.categories?.length > 0 ? catSpent : rawSpent,
-        limit: budget.totalBudget,
-        currency: budget.currency,
-      });
+      // 4. Budget
+      const budget = await getData("budget_data");
+      if (budget) {
+        const catSpent = (budget.categories || []).reduce(
+          (acc, c) => acc + c.spent,
+          0,
+        );
+        const rawSpent = (budget.transactions || []).reduce(
+          (acc, t) => acc + t.amount,
+          0,
+        );
+        setBudgetStatus({
+          spent: budget.categories?.length > 0 ? catSpent : rawSpent,
+          limit: budget.totalBudget,
+          currency: budget.currency,
+        });
+      }
+    } finally {
+      setRefreshing(false);
     }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSummaries();
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }, [loadSummaries]),
+  );
+
+  // --- LOGIC ---
+  const activeFeatures = ALL_FEATURES.filter((f) => {
+    if (!activeShortcutIds.includes(f.id)) return false;
+    if (f.studentOnly && userData.userType !== "student") return false;
+    if (f.id === "social" && !isPremium) return false;
+    return true;
+  });
+
+  const toggleShortcut = (id) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setActiveShortcutIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      return [...prev, id];
+    });
   };
 
 

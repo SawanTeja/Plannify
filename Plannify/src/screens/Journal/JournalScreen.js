@@ -1,20 +1,16 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
-  Alert,
   BackHandler,
-  Dimensions,
   FlatList,
   Image,
   LayoutAnimation,
-  // Modal, // REMOVED Standard Modal
   Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  UIManager,
   View,
 } from "react-native";
 // 1. IMPORT ENHANCED MODAL
@@ -27,16 +23,6 @@ import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
 import { ApiService } from "../../services/ApiService";
 import JournalModal from "./JournalModal";
 import { getMonthName } from "./JournalUtils";
-
-// Enable Layout Animation 
-// if (
-//   Platform.OS === "android" &&
-//   UIManager.setLayoutAnimationEnabledExperimental
-// ) {
-//   UIManager.setLayoutAnimationEnabledExperimental(true);
-// }
-
-const { width, height } = Dimensions.get("window");
 
 const JournalScreen = () => {
   const { colors, theme, syncNow, lastRefreshed, user, isPremium } = useContext(AppContext);
@@ -76,25 +62,27 @@ const JournalScreen = () => {
   }, [lastRefreshed]);
 
   // Prefetch images for entries with 'downloading' status
+  const entriesStatusKey = entries.map((e) => `${e.id}_${e.uploadStatus}`).join(',');
+
   useEffect(() => {
     const prefetchImages = async () => {
       const downloadingEntries = entries.filter(
-        e => e.uploadStatus === 'downloading' && e.image && e.image.includes('cloudinary.com')
+        (e) => e.uploadStatus === 'downloading' && e.image && e.image.includes('cloudinary.com')
       );
-      
+
       if (downloadingEntries.length === 0) return;
-      
+
       console.log(`📥 Prefetching ${downloadingEntries.length} images...`);
-      
+
       for (const entry of downloadingEntries) {
         try {
           // Prefetch the image using Image.prefetch (React Native built-in)
           await Image.prefetch(entry.image);
           console.log('✅ Image prefetched:', entry.image);
-          
+
           // Mark as complete
-          setEntries(prev => {
-            const updated = prev.map(e =>
+          setEntries((prev) => {
+            const updated = prev.map((e) =>
               e.id === entry.id ? { ...e, uploadStatus: 'complete' } : e
             );
             storeData('journal_data', updated);
@@ -106,9 +94,9 @@ const JournalScreen = () => {
         }
       }
     };
-    
+
     prefetchImages();
-  }, [entries.map(e => e.id + e.uploadStatus).join(',')]);
+  }, [entriesStatusKey, entries]);
 
   useEffect(() => {
     const backAction = () => {
@@ -504,7 +492,7 @@ const JournalScreen = () => {
       >
         <View style={styles.folderContent}>
           <Text style={styles.folderTitle}>
-            {getMonthName(item.monthIndex)} '{item.year.toString().substr(2)}
+            {`${getMonthName(item.monthIndex)} '${item.year.toString().slice(2)}`}
           </Text>
           <Text style={styles.folderCount}>{item.count} Memories</Text>
         </View>

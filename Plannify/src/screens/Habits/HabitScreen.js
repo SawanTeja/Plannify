@@ -6,7 +6,6 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -86,49 +85,41 @@ const HabitScreen = () => {
   const [minutes, setMinutes] = useState("");
   const [category, setCategory] = useState("General ⚡");
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, []),
-  );
+  const checkMissingHabits = useCallback((currentHabits) => {
+    if (!currentHabits) return;
 
-  useEffect(() => {
-    generateHeatmap();
-  }, [habits, theme, selectedDate]);
+    const todayStr = getLocalToday();
+    const hasMissing = currentHabits.some((h) => !h.history || !h.history[todayStr]);
+    updateNightlyReminder(hasMissing);
+  }, []);
 
-  // Reload data when sync completes
-  useEffect(() => {
-    if (lastRefreshed) {
-      loadData();
-    }
-  }, [lastRefreshed]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const h = await getData("habits_data");
     if (h) setHabits(h);
 
     const stats = await getData("user_gamification");
     if (stats) setUserStats(stats);
     else setUserStats(INITIAL_USER_STATS);
-    
-    // Check for night reminder
+
     checkMissingHabits(h);
-  };
+  }, [checkMissingHabits]);
 
-  const checkMissingHabits = (currentHabits) => {
-    if (!currentHabits) return;
-    
-    // We only care about today's status for the night reminder
-    // getLocalToday() returns "YYYY-MM-DD"
-    const todayStr = getLocalToday();
-    
-    const hasMissing = currentHabits.some(h => {
-        // If it's done today, history[todayStr] will be true
-        return !h.history || !h.history[todayStr];
-    });
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
-    updateNightlyReminder(hasMissing);
-  };
+  useEffect(() => {
+    generateHeatmap();
+  }, [generateHeatmap]);
+
+  // Reload data when sync completes
+  useEffect(() => {
+    if (lastRefreshed) {
+      loadData();
+    }
+  }, [lastRefreshed, loadData]);
 
   // --- STREAK LOGIC ---
   const calculateStreakForHabit = (history, targetDate) => {
@@ -256,7 +247,7 @@ const HabitScreen = () => {
   };
 
   // --- HEATMAP GENERATION ---
-  const generateHeatmap = () => {
+  const generateHeatmap = useCallback(() => {
     const marks = {};
     if (!habits || habits.length === 0) {
       marks[selectedDate] = {
@@ -319,7 +310,7 @@ const HabitScreen = () => {
     marks[selectedDate].customStyles.container.borderColor = colors.primary;
 
     setMarkedDates(marks);
-  };
+  }, [habits, selectedDate, colors, today]);
 
   const handleAddHabit = async () => {
     if (!title.trim()) return;

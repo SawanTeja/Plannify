@@ -24,13 +24,6 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
 
   // 1. Generate Strip centered on TODAY (Fixed Anchor)
   useEffect(() => {
-    // Start from "Today" in local time to avoid shifting
-    const todayStr = getLocalToday();
-    const today = new Date(todayStr); // This creates a date at 00:00:00 Local/UTC (depending on parsing)
-    // Important: parsing "YYYY-MM-DD" in JS creates UTC midnight. 
-    // But since we use getLocalDateString later, just treating it as a "day anchor" is fine.
-    
-    // Actually, safer to just work with native dates and use helper for stringifying
     const anchor = new Date();
     const dates = [];
     

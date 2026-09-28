@@ -112,7 +112,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
           .join(", ");
         setLocation(locationStr);
       }
-    } catch (error) {
+    } catch (_error) {
       Alert.alert("Error", "Could not get location");
     }
   };

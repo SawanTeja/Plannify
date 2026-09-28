@@ -1,7 +1,15 @@
 import React, { useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import Modal from 'react-native-modal';
-import { View, Text, StyleSheet, TouchableOpacity, SectionList, RefreshControl, Clipboard, Alert, ScrollView, TextInput } from 'react-native';
-import { Utils } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    RefreshControl,
+    Clipboard,
+    ScrollView,
+    TextInput
+} from 'react-native';
 import { AppContext } from '../../context/AppContext';
 import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,7 +20,7 @@ import { SplitService } from '../../services/SplitService';
 import { simplifyDebts } from '../../utils/SplitLogic';
 
 const GroupScreen = ({ route }) => {
-    const { colors, theme, userData, user } = useContext(AppContext);
+    const { colors, user } = useContext(AppContext);
     const { showAlert } = useAlert();
     const { groupId, groupName } = route.params;
     const navigation = useNavigation();
@@ -34,31 +42,7 @@ const GroupScreen = ({ route }) => {
     const [spendingsModalVisible, setSpendingsModalVisible] = useState(false);
     const [membersModalVisible, setMembersModalVisible] = useState(false);
 
-    useFocusEffect(
-        useCallback(() => {
-            loadGroupData();
-        }, [])
-    );
-
-    useEffect(() => {
-        navigation.setOptions({
-            title: groupName || 'Group',
-            headerRight: () => (
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
-                    <TouchableOpacity onPress={() => setMembersModalVisible(true)}>
-                        <MaterialCommunityIcons name="account-group" size={24} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    {group && !group.isOffline && (
-                        <TouchableOpacity onPress={copyCode}>
-                            <MaterialCommunityIcons name="content-copy" size={20} color={colors.textPrimary} />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            )
-        });
-    }, [group, colors.textPrimary]); // Added dependencies
-
-    const loadGroupData = async (isManualRefresh = false) => {
+    const loadGroupData = useCallback(async (isManualRefresh = false) => {
         if (isManualRefresh) setIsRefreshing(true);
         try {
             // 0. FAST LOAD (Cache)
@@ -115,18 +99,43 @@ const GroupScreen = ({ route }) => {
 
         } catch (e) {
             console.error("Error loading group details", e);
-            // Alert.alert("Error", "Could not load group data."); // Silent fail is better for background refresh
         } finally {
             if (isManualRefresh) setIsRefreshing(false);
         }
-    };
+    }, [groupId, user?.idToken]);
 
-    const copyCode = () => {
+    useFocusEffect(
+        useCallback(() => {
+            loadGroupData();
+        }, [loadGroupData])
+    );
+
+    const copyCode = useCallback(() => {
         if (group?.inviteCode) {
             Clipboard.setString(group.inviteCode);
             showAlert("Copied!", `Group code ${group.inviteCode} copied to clipboard.`);
         }
-    };
+    }, [group?.inviteCode, showAlert]);
+
+    useEffect(() => {
+        navigation.setOptions({
+            title: groupName || 'Group',
+            headerRight: () => (
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                    <TouchableOpacity onPress={() => setMembersModalVisible(true)}>
+                        <MaterialCommunityIcons name="account-group" size={24} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                    {group && !group.isOffline && (
+                        <TouchableOpacity onPress={copyCode}>
+                            <MaterialCommunityIcons name="content-copy" size={20} color={colors.textPrimary} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            )
+        });
+    }, [group, groupName, colors.textPrimary, navigation, copyCode]);
+
+
 
     const handleAddMember = async () => {
         if (!newMemberName.trim()) return;
@@ -214,39 +223,6 @@ const GroupScreen = ({ route }) => {
             name: getName(id)
         })).sort((a, b) => b.amount - a.amount);
     }, [regularExpenses, group?.members, getName]);
-
-    const renderExpenseItem = ({ item }) => {
-        // Backend stores paidBy as User ID
-        const myId = user?.user?._id || user?.user?.id || 'guest'; // Prioritize _id
-        const isPayer = String(item.paidBy) === String(myId);
-        const month = new Date(item.date).toLocaleString('default', { month: 'short', day: 'numeric' });
-        
-        // Use expense specific currency or fallback to global default
-        const cur = item.currency || colors.currency || '₹';
-
-        return (
-            <TouchableOpacity style={[styles.expenseItem, dynamicStyles.card]}>
-                <View style={styles.dateBox}>
-                    <Text style={[styles.dateText, { color: colors.textSecondary }]}>{month}</Text>
-                </View>
-                <View style={{ flex: 1, paddingHorizontal: 12 }}>
-                    <Text style={[styles.expDesc, dynamicStyles.text]}>{item.description}</Text>
-                    <Text style={[styles.expPayer, dynamicStyles.subText]}>
-                        {isPayer ? 'You' : (group?.members?.find(m => String(m._id || m.id) === String(item.paidBy))?.name || 'Someone')} paid {cur}{Math.abs(item.amount).toFixed(2)}
-                    </Text>
-                </View>
-                <View>
-                    <Text style={[styles.expAmount, { color: isPayer ? colors.success : colors.danger }]}>
-                        {isPayer ? 'you lent' : 'you borrowed'}
-                    </Text>
-                    <Text style={[styles.expVal, { color: isPayer ? colors.success : colors.danger }]}>
-                         {/* This is simplified visual; real owed calculation per expense is complex */}
-                         {cur}{(Math.abs(item.amount) / (group?.members?.length || 2)).toFixed(2)}
-                    </Text>
-                </View>
-            </TouchableOpacity>
-        );
-    };
 
     const handleDeleteMember = async (memberId, memberName) => {
         showAlert(
@@ -536,20 +512,11 @@ const styles = StyleSheet.create({
     container: { flex: 1 },
     headerCard: { padding: 15, paddingBottom: 10, borderBottomWidth: 1 },
     groupCode: { fontWeight: 'bold', textAlign: 'center', marginBottom: 5, fontSize: 12 },
-    balanceChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8 },
-    chipText: { fontSize: 12, fontWeight: '600' },
     actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
     actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 8, borderWidth: 1, gap: 6 },
     btnText: { fontWeight: '600', fontSize: 13 },
     
     sectionHeader: { fontSize: 12, fontWeight: 'bold', marginTop: 20, marginBottom: 10, textTransform: 'uppercase' },
-    expenseItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 8, borderWidth: 1 },
-    dateBox: { alignItems: 'center', justifyContent: 'center', width: 40 },
-    dateText: { fontSize: 10, textAlign: 'center' },
-    expDesc: { fontSize: 16, fontWeight: '600' },
-    expPayer: { fontSize: 12 },
-    expAmount: { fontSize: 10, textAlign: 'right' },
-    expVal: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' },
     
     bigAddMemberBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, marginVertical: 20, gap: 10 },
     bigAddMemberText: { fontWeight: 'bold', fontSize: 16 },
@@ -558,7 +525,6 @@ const styles = StyleSheet.create({
 
     debtCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
     avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }
-
 });
 
 export default GroupScreen;

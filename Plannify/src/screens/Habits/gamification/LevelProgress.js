@@ -22,7 +22,7 @@ const LevelProgress = ({ stats }) => {
       duration: 1000,
       useNativeDriver: false, // width property doesn't support native driver
     }).start();
-  }, [xp, xpNeeded]);
+  }, [rawProgress, progressAnim]);
 
   // Dynamic Styles
   const dynamicStyles = {

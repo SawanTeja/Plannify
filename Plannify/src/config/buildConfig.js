@@ -12,3 +12,13 @@ export const FEATURES = {
   CLEAR_DATABASE: !IS_OFFLINE_BUILD,
   RESET_APP: !IS_OFFLINE_BUILD,
 };
+
+export const API_CONFIG = {
+  BASE_URL: 'https://plannify-red.vercel.app/api',
+  GOOGLE_WEB_CLIENT_ID: '690723040085-8mmpou6mbpmamathrlos0hc40bp4ke1l.apps.googleusercontent.com',
+  CLOUDINARY: {
+    CLOUD_NAME: 'dv5bf64yx',
+    UPLOAD_PRESET: 'plannify_journal',
+  },
+};
+

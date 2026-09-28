@@ -3,12 +3,10 @@
  * Handles unsigned uploads directly from the app
  */
 
-// Your Cloudinary cloud name (from dashboard)
-const CLOUD_NAME = 'dv5bf64yx';
+import { API_CONFIG } from '../config/buildConfig';
 
-// Upload preset name - CREATE THIS IN CLOUDINARY:
-// Settings → Upload → Upload Presets → Add new → Set to "Unsigned"
-const UPLOAD_PRESET = 'plannify_journal';
+const CLOUD_NAME = API_CONFIG.CLOUDINARY.CLOUD_NAME;
+const UPLOAD_PRESET = API_CONFIG.CLOUDINARY.UPLOAD_PRESET;
 
 /**
  * Upload a local image to Cloudinary

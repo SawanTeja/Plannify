@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { FEATURES } from "../../config/buildConfig";
 import { useContext, useState } from "react";
 import {
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,8 +15,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
-
-const { width } = Dimensions.get("window");
 
 const SetupScreen = () => {
   const { updateUserData, colors, theme } = useContext(AppContext);
@@ -87,7 +84,7 @@ const SetupScreen = () => {
               Welcome
             </Text>
             <Text style={[styles.subtitle, dynamicStyles.textSecondary]}>
-              Let's set up your personal workspace.
+              {"Let's set up your personal workspace."}
             </Text>
           </View>
 

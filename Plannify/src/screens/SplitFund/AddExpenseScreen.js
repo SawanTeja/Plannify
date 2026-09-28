@@ -1,17 +1,27 @@
-import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useContext, useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform,
+    ActivityIndicator
+} from 'react-native';
 
 import { AppContext } from '../../context/AppContext';
 import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { SplitService } from '../../services/SplitService';
-import { splitEqually, splitByPercentage, splitByShares, splitByAdjustment, splitExact } from '../../utils/SplitLogic';
+import { splitEqually, splitByPercentage, splitByShares, splitByAdjustment } from '../../utils/SplitLogic';
 
 const SPLIT_TYPES = ['Equally', 'Percent', 'Shares', 'Adjust', 'Exact'];
 
 const AddExpenseScreen = ({ route }) => {
-    const { colors, theme, user } = useContext(AppContext);
+    const { colors, user } = useContext(AppContext);
     const { showAlert } = useAlert();
     const { groupId, members } = route.params;
     const navigation = useNavigation();
@@ -246,11 +256,17 @@ const AddExpenseScreen = ({ route }) => {
                 {renderSplitInputs()}
             </View>
 
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleSave}>
-                <Text style={styles.saveBtnText}>Save Expense</Text>
+            <TouchableOpacity 
+                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: isLoading ? 0.7 : 1 }]} 
+                onPress={handleSave}
+                disabled={isLoading}
+            >
+                {isLoading ? (
+                    <ActivityIndicator color="white" />
+                ) : (
+                    <Text style={styles.saveBtnText}>Save Expense</Text>
+                )}
             </TouchableOpacity>
-
-
             
         </ScrollView>
         </KeyboardAvoidingView>
@@ -263,7 +279,7 @@ const styles = StyleSheet.create({
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     mainInput: { flex: 1, height: 40, fontSize: 16 },
     divider: { height: 1, marginVertical: 10 },
-    label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, uppercase: true },
+    label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, textTransform: 'uppercase' },
     chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
     tabRow: { flexDirection: 'row', marginBottom: 20, justifyContent: 'space-between' },
     tab: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },

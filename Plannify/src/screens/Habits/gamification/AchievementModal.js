@@ -32,7 +32,7 @@ const AchievementModal = ({ visible, type, data, onClose }) => {
       // Reset when closed
       scaleAnim.setValue(0);
     }
-  }, [visible]);
+  }, [visible, scaleAnim]);
 
   if (!visible) return null;
 

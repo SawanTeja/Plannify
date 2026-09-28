@@ -25,7 +25,7 @@ Notifications.setNotificationHandler({
 
 const PomodoroModal = ({ visible, onClose }) => {
   useKeepAwake();
-  const { colors, theme } = useContext(AppContext);
+  const { colors } = useContext(AppContext);
 
   const [minutes, setMinutes] = useState("25");
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -58,7 +58,7 @@ const PomodoroModal = ({ visible, onClose }) => {
         ]),
       ).start();
     }
-  }, [minutes, isActive]);
+  }, [minutes, isActive, pulseAnim]);
 
   useEffect(() => {
     let interval = null;

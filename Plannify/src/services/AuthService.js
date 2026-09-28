@@ -2,11 +2,11 @@ import {
   GoogleSignin,
   statusCodes,
 } from "@react-native-google-signin/google-signin";
+import { API_CONFIG } from "../config/buildConfig";
 
 export const configureGoogleSignIn = () => {
   GoogleSignin.configure({
-    webClientId:
-      "690723040085-8mmpou6mbpmamathrlos0hc40bp4ke1l.apps.googleusercontent.com",
+    webClientId: API_CONFIG.GOOGLE_WEB_CLIENT_ID,
     scopes: ["https://www.googleapis.com/auth/drive.appdata"],
     offlineAccess: true, // Crucial for getting idToken
   });

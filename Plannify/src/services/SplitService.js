@@ -1,8 +1,7 @@
-import { ApiService } from './ApiService';
+import { API_CONFIG } from '../config/buildConfig';
 import { getData, storeData } from '../utils/storageHelper';
 
-// Reuse the base URL from ApiService or define a helper
-const API_URL = 'https://plannify-red.vercel.app/api'; 
+const API_URL = API_CONFIG.BASE_URL; 
 
 const CACHE_KEYS = {
     GROUPS: 'splitfund_groups',      // Matches SyncHelper
@@ -168,7 +167,7 @@ export const SplitService = {
     getCachedOnlineGroups: async () => {
         try {
             return await getData(CACHE_KEYS.ONLINE_GROUPS_CACHE) || [];
-        } catch (e) {
+        } catch (_e) {
             return [];
         }
     },
@@ -392,7 +391,7 @@ export const SplitService = {
          try {
             const allExpenses = await getData(CACHE_KEYS.EXPENSES) || {};
             return allExpenses[groupId] || [];
-        } catch (e) {
+        } catch (_e) {
             return [];
         }
     },
@@ -400,7 +399,7 @@ export const SplitService = {
     getCachedOnlineExpenses: async (groupId) => {
         try {
             return await getData(`${CACHE_KEYS.ONLINE_EXPENSES_CACHE_PREFIX}${groupId}`) || [];
-        } catch (e) {
+        } catch (_e) {
             return [];
         }
     },

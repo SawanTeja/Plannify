@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
   LayoutAnimation,
   Platform,
@@ -17,6 +16,7 @@ import {
 import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
+import { useAlert } from "../../context/AlertContext";
 import { getData, storeData } from "../../utils/storageHelper";
 
 if (
@@ -46,6 +46,7 @@ const CATEGORY_ICONS = {
 
 const BucketListScreen = () => {
   const { colors, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
+  const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -127,7 +128,7 @@ const BucketListScreen = () => {
   };
 
   const deleteItem = (id) => {
-    Alert.alert("Delete Dream", "Remove this from your bucket list?", [
+    showAlert("Delete Dream", "Remove this from your bucket list?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -459,7 +460,6 @@ const BucketListScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
     paddingHorizontal: 20,
   },
   headerArea: {

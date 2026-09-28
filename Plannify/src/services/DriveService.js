@@ -177,7 +177,7 @@ export const backupToDrive = async (onProgress) => {
           try {
             const error = JSON.parse(xhr.responseText);
             reject(new Error(error.error?.message || "Upload failed"));
-          } catch (e) {
+          } catch (_e) {
             reject(new Error(`Upload failed with status ${xhr.status}`));
           }
         }

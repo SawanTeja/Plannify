@@ -287,7 +287,7 @@ const mergeArrays = (local, server) => {
         // Find if item exists locally (check both _id and legacy id)
         const index = merged.findIndex(l => 
             (l && l._id && l._id === serverItem._id) || 
-            (l && l.id && l.id == normalizedServerItem.id)
+            (l && l.id !== undefined && String(l.id) === String(normalizedServerItem.id))
         );
 
         if (index > -1) {

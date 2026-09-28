@@ -3,7 +3,6 @@ import { Image } from "expo-image"; // Use expo-image for caching
 import { useCallback, useContext, useEffect, useState } from "react";
 import {
   Clipboard,
-  Dimensions,
   FlatList,
   LayoutAnimation,
   Platform,
@@ -33,8 +32,6 @@ if (
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const { width } = Dimensions.get("window");
 
 const SocialScreen = () => {
   const { colors, theme, user, lastRefreshed, appStyles } = useContext(AppContext);
@@ -70,32 +67,7 @@ const SocialScreen = () => {
   // Reaction emojis
   const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
 
-  // Load groups on mount
-  useEffect(() => {
-    if (user?.idToken) {
-      loadGroups();
-    }
-  }, [user]);
-
-  // Load posts when group changes
-  useEffect(() => {
-    if (selectedGroup && user?.idToken) {
-      loadPosts(selectedGroup._id);
-    }
-  }, [selectedGroup]);
-
-  // Reload data when sync completes
-  useEffect(() => {
-    if (lastRefreshed && user?.idToken) {
-      console.log('🔄 Social: Reloading after sync...');
-      loadGroups();
-      if (selectedGroup) {
-        loadPosts(selectedGroup._id);
-      }
-    }
-  }, [lastRefreshed]);
-
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     if (!user?.idToken) return;
     
     try {
@@ -105,8 +77,8 @@ const SocialScreen = () => {
       const cachedGroups = await getData(`user_groups_${user.localId}`);
       if (cachedGroups) {
         setGroups(cachedGroups);
-        if (cachedGroups.length > 0 && !selectedGroup) {
-          setSelectedGroup(cachedGroups[0]);
+        if (cachedGroups.length > 0) {
+          setSelectedGroup(prev => prev || cachedGroups[0]);
         }
       }
 
@@ -114,22 +86,21 @@ const SocialScreen = () => {
       const result = await SocialService.getGroups(user.idToken);
       if (result.success) {
         setGroups(result.groups);
-        // Auto-select first group if none selected
-        if (result.groups.length > 0 && !selectedGroup) {
-          setSelectedGroup(result.groups[0]);
+        if (result.groups.length > 0) {
+          setSelectedGroup(prev => prev || result.groups[0]);
         }
         // 3. Update cache
         await storeData(`user_groups_${user.localId}`, result.groups);
       }
-    } catch (error) {
-      console.error("Load Groups Error:", error);
+    } catch (_error) {
+      console.error("Load Groups Error:", _error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.idToken, user?.localId]);
 
-  const loadPosts = async (groupId) => {
-    if (!user?.idToken) return;
+  const loadPosts = useCallback(async (groupId) => {
+    if (!user?.idToken || !groupId) return;
 
     try {
       setIsLoading(true);
@@ -148,12 +119,36 @@ const SocialScreen = () => {
         // 3. Update cache
         await storeData(`group_posts_${groupId}`, result.posts);
       }
-    } catch (error) {
-      console.error("Load Posts Error:", error);
+    } catch (_error) {
+      console.error("Load Posts Error:", _error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user?.idToken]);
+
+  // Load groups on mount or when user changes
+  useEffect(() => {
+    if (user?.idToken) {
+      loadGroups();
+    }
+  }, [user?.idToken, loadGroups]);
+
+  // Load posts when group changes
+  useEffect(() => {
+    if (selectedGroup?._id && user?.idToken) {
+      loadPosts(selectedGroup._id);
+    }
+  }, [selectedGroup?._id, user?.idToken, loadPosts]);
+
+  // Reload data when sync completes
+  useEffect(() => {
+    if (lastRefreshed && user?.idToken) {
+      loadGroups();
+      if (selectedGroup?._id) {
+        loadPosts(selectedGroup._id);
+      }
+    }
+  }, [lastRefreshed, user?.idToken, selectedGroup?._id, loadGroups, loadPosts]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -189,7 +184,7 @@ const SocialScreen = () => {
           ]
         );
       }
-    } catch (error) {
+    } catch (_error) {
       showAlert("Error", "Failed to create group");
     }
   };
@@ -299,7 +294,7 @@ const SocialScreen = () => {
         setIsGroupOwner(result.isOwner);
         setShowMembersModal(true);
       }
-    } catch (error) {
+    } catch (_error) {
       showAlert("Error", "Failed to load members");
     }
   };
@@ -334,7 +329,7 @@ const SocialScreen = () => {
             try {
               await SocialService.removeMember(user.idToken, selectedGroup._id, memberId);
               setGroupMembers(groupMembers.filter(m => m._id !== memberId));
-            } catch (error) {
+            } catch (_error) {
               showAlert("Error", "Failed to remove member");
             }
           }
@@ -361,7 +356,7 @@ const SocialScreen = () => {
       }
       setShowPostModal(false);
       setEditingPost(null);
-    } catch (error) {
+    } catch (_error) {
       showAlert("Error", "Failed to save post");
     }
   };
@@ -381,7 +376,7 @@ const SocialScreen = () => {
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
               setPosts(posts.filter(p => p._id !== postId));
               if (detailPost?._id === postId) setDetailPost(null);
-            } catch (error) {
+            } catch (_error) {
               showAlert("Error", "Failed to delete post");
             }
           }
@@ -403,7 +398,7 @@ const SocialScreen = () => {
         }
       }
       setShowReactionPicker(null);
-    } catch (error) {
+    } catch (_error) {
       showAlert("Error", "Failed to add reaction");
     }
   };
@@ -419,7 +414,7 @@ const SocialScreen = () => {
           setDetailPost({ ...detailPost, reactions: result.reactions });
         }
       }
-    } catch (error) {
+    } catch (_error) {
       showAlert("Error", "Failed to remove reaction");
     }
   };
@@ -806,11 +801,17 @@ const SocialScreen = () => {
                       <TouchableOpacity
                         onPress={() => {
                           Clipboard.setString(selectedGroup.inviteCode);
-                          Alert.alert("Copied!", "Invite code copied to clipboard");
+                          showAlert("Copied!", "Invite code copied to clipboard");
                         }}
                         style={{ marginLeft: 8 }}
                       >
                         <MaterialCommunityIcons name="content-copy" size={18} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={handleShareInvite}
+                        style={{ marginLeft: 12 }}
+                      >
+                        <MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />
                       </TouchableOpacity>
                     </View>
 

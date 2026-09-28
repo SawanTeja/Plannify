@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useRef, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback } from 'react';
 
 const AlertContext = createContext();
 
@@ -15,47 +15,43 @@ export const AlertProvider = ({ children }) => {
     onDismiss: null,
   });
 
+  const closeAlert = useCallback(() => {
+    setAlertConfig(prev => {
+      if (prev.onDismiss) {
+        prev.onDismiss();
+      }
+      return { ...prev, visible: false };
+    });
+  }, []);
+
   const showAlert = useCallback((title, message, buttons = [], options = {}) => {
-    // Determine type based on options or guess from title/message if not provided? 
-    // For now, let's keep it simple and default to 'info' if not specified in options.
-    // However, to replace React Native Alert.alert, we usually just pass (title, message, buttons).
-    // We can extend this to accept a 4th argument 'type' or options object.
-    
-    // Check if options is a string (legacy type) or object
     let type = 'info';
     let onDismiss = null;
 
     if (options && typeof options === 'string') {
-        type = options; 
+      type = options;
     } else if (options && typeof options === 'object') {
-        type = options.type || 'info';
-        onDismiss = options.onDismiss;
+      type = options.type || 'info';
+      onDismiss = options.onDismiss || null;
     }
 
-    // Auto-detect type from title if not specified? 
+    // Auto-detect type from title if not specified
     if (type === 'info') {
-        const lowerTitle = (title || '').toLowerCase();
-        if (lowerTitle.includes('error') || lowerTitle.includes('fail')) type = 'error';
-        else if (lowerTitle.includes('success')) type = 'success';
-        else if (lowerTitle.includes('warn')) type = 'warning';
+      const lowerTitle = (title || '').toLowerCase();
+      if (lowerTitle.includes('error') || lowerTitle.includes('fail')) type = 'error';
+      else if (lowerTitle.includes('success')) type = 'success';
+      else if (lowerTitle.includes('warn')) type = 'warning';
     }
 
     setAlertConfig({
       visible: true,
       title,
       message,
-      buttons: buttons.length > 0 ? buttons : [{ text: 'OK', onPress: () => closeAlert() }],
+      buttons: buttons.length > 0 ? buttons : [{ text: 'OK', onPress: closeAlert }],
       type,
-      onDismiss
+      onDismiss,
     });
-  }, []);
-
-  const closeAlert = useCallback(() => {
-    setAlertConfig(prev => ({ ...prev, visible: false }));
-    if (alertConfig.onDismiss) {
-        alertConfig.onDismiss();
-    }
-  }, [alertConfig]);
+  }, [closeAlert]);
 
   // Expose the function to the global ref
   if (globalAlertRef) {
@@ -73,11 +69,11 @@ export const useAlert = () => useContext(AlertContext);
 
 // Global Helper to mimic Alert.alert
 export const GlobalAlert = {
-    alert: (title, message, buttons, options) => {
-        if (globalAlertRef.current) {
-            globalAlertRef.current.alert(title, message, buttons, options);
-        } else {
-            console.error("GlobalAlert not initialized. Ensure AlertProvider is at the root.");
-        }
+  alert: (title, message, buttons, options) => {
+    if (globalAlertRef.current) {
+      globalAlertRef.current.alert(title, message, buttons, options);
+    } else {
+      console.error('GlobalAlert not initialized. Ensure AlertProvider is at the root.');
     }
+  },
 };

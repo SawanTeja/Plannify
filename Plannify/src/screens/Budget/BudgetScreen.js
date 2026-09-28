@@ -1,8 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import {
-  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -41,13 +40,7 @@ const BudgetScreen = () => {
   const [payDay, setPayDay] = useState("");
   const [editingRecurringId, setEditingRecurringId] = useState(null); // NEW STATE
 
-  useFocusEffect(
-    useCallback(() => {
-      loadBudget();
-    }, [lastRefreshed]) // Fix: Instant Reload
-  );
-
-  const loadBudget = async () => {
+  const loadBudget = useCallback(async () => {
     let data = await getData("budget_data");
     if (!data) {
       navigation.navigate("BudgetSetup");
@@ -143,7 +136,19 @@ const BudgetScreen = () => {
     if (data.categories && data.categories.length > 0)
       setSelectedCat(data.categories[0].name);
     else setSelectedCat("General");
-  };
+  }, [navigation, showAlert, syncNow]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadBudget();
+    }, [loadBudget])
+  );
+
+  useEffect(() => {
+    if (lastRefreshed) {
+      loadBudget();
+    }
+  }, [lastRefreshed, loadBudget]);
 
   // --- FIXED FUNCTION ---
   const handleAddTransaction = async () => {
@@ -213,17 +218,6 @@ const BudgetScreen = () => {
       return;
     }
     const newBudget = { ...budget };
-
-    // CANCEL OLD NOTIFICATION IF EDITING
-    if (editingRecurringId) {
-        const existingItem = newBudget.recurringPayments.find(rp => rp.id === editingRecurringId);
-        // Note: We don't have a direct cancel function exposed here, 
-        // but scheduling a new one is fine. The old one might linger if not cancelled,
-        // but typically we'd want to cancel. Use scheduleAutoPayNotification which returns new ID.
-        // ideally we should cancel old ID. 
-        // Assuming Schedule overwrites or we just ignore old for now as we don't have explicit cancel exposed in this file's imports easily.
-        // Wait, scheduleAutoPayNotification handles scheduling.
-    }
 
     // Schedule NEW Notification (Logic handles id return)
     const notifId = await scheduleAutoPayNotification(desc, parseFloat(amount), day, budget.currency);

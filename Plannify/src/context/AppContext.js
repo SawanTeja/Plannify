@@ -1,12 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, useEffect, useState } from "react";
-import { AppState } from "react-native";
+import { createContext, useCallback, useEffect, useState } from "react";
+import { Appearance, AppState } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 import allColors from "../constants/colors";
 import { getData, storeData } from "../utils/storageHelper";
 
-// Import Auth Services
+// Auth Services
 import {
   configureGoogleSignIn,
   getCurrentUser,
@@ -15,26 +15,25 @@ import {
   signOutGoogle,
 } from "../services/AuthService";
 
-// Import Backend Integration Services
-import { ApiService } from "../services/ApiService"; 
-import { SyncHelper } from "../utils/SyncHelper";   
+// Backend Integration Services
+import { ApiService } from "../services/ApiService";
+import { SyncHelper } from "../utils/SyncHelper";
 
 export const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState("dark");
-  // Material You Removed
 
   // Auth State
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  
+
   // Sync State
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(0);
 
-  // Premium State (Temporary Toggle)
-  const [isPremium, setIsPremium] = useState(false); // Default to false
+  // Premium State
+  const [isPremium, setIsPremium] = useState(false);
 
   // Unified User Data State (Local profile data)
   const [userData, setUserData] = useState({
@@ -45,113 +44,105 @@ export const AppProvider = ({ children }) => {
     notifyTasks: true,
   });
 
-  // Calculate generic colors
-  const baseColors = allColors[theme];
-
+  // Calculate theme colors
+  const baseColors = allColors[theme] || allColors.dark;
   const activeColors = {
     ...allColors.common,
     ...baseColors,
   };
 
+  // --- SYNC LOGIC ---
+  const performSync = useCallback(async (forceToken = null, silent = false) => {
+    if (isSyncing && !silent) return;
+
+    const token = forceToken || user?.idToken;
+    if (!token) return;
+
+    try {
+      if (!silent) setIsSyncing(true);
+
+      const lastSyncTime = await getData("last_sync_timestamp");
+      const changes = await SyncHelper.getChanges(lastSyncTime, isPremium);
+
+      if (!silent) {
+        console.log(`Syncing... (Last: ${lastSyncTime || "Never"}) Premium: ${isPremium}`);
+      }
+
+      const response = await ApiService.sync(token, lastSyncTime, changes);
+
+      if (response && response.success) {
+        const hasNewData = await SyncHelper.applyServerChanges(response.changes || {}, isPremium);
+        await storeData("last_sync_timestamp", response.timestamp);
+
+        if (hasNewData) {
+          console.log("✨ New Data Received from Cloud!");
+          setLastRefreshed(Date.now());
+        } else if (!silent) {
+          console.log("✅ Sync Complete (No new data)");
+        }
+      }
+    } catch (error) {
+      if (!silent) console.error("❌ Sync Failed:", error);
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  }, [isSyncing, user?.idToken, isPremium]);
+
   // 1. AUTO-SYNC TIMER
   useEffect(() => {
     let syncInterval;
 
-    if (user && user.idToken) {
-        console.log("🟢 Auto-Sync Started (Every 15s)");
-        // Run sync every 5 seconds for near real-time updates
-        syncInterval = setInterval(() => {
-            performSync(user.idToken, true); // true = silent mode
-        }, 5000); 
+    if (user?.idToken) {
+      console.log("🟢 Auto-Sync Started (Every 5s)");
+      syncInterval = setInterval(() => {
+        performSync(user.idToken, true);
+      }, 5000);
     }
 
     return () => {
-        if (syncInterval) clearInterval(syncInterval);
+      if (syncInterval) clearInterval(syncInterval);
     };
-  }, [user, isPremium]); // Re-run when user logs in/out or premium status changes
+  }, [user?.idToken, performSync]);
 
   // 2. APP STATE LISTENER (Auto-Refresh Token on Resume)
   useEffect(() => {
     const handleAppStateChange = async (nextAppState) => {
-      if (nextAppState === 'active') {
-        console.log("📱 App has come to the foreground!");
-        if (user) {
-          console.log("🔄 Refreshing Token...", user.user?.email);
-          const freshUser = await refreshGoogleToken();
-          if (freshUser && freshUser.idToken) {
-             console.log("✅ Token Refreshed Successfully");
-             setUser(freshUser);
-             performSync(freshUser.idToken);
-          } else {
-             console.log("⚠️ Token Refresh Failed or Cancelled");
-          }
+      if (nextAppState === "active" && user) {
+        console.log("🔄 Refreshing Token...", user.user?.email);
+        const freshUser = await refreshGoogleToken();
+        if (freshUser && freshUser.idToken) {
+          console.log("✅ Token Refreshed Successfully");
+          setUser(freshUser);
+          performSync(freshUser.idToken);
+        } else {
+          console.log("⚠️ Token Refresh Failed or Cancelled");
         }
       }
     };
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
     return () => {
       subscription.remove();
     };
-  }, [user, isPremium]);
+  }, [user, performSync]);
 
-  useEffect(() => {
-    // Initialize Google Auth Config
-    configureGoogleSignIn();
-
-    // Load all settings
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    // 1. Load Theme
-    const storedTheme = await getData("app_theme");
-    if (storedTheme) {
-      setTheme(storedTheme);
-    } else {
-      const colorScheme = Appearance.getColorScheme();
-      setTheme(colorScheme || "dark");
-    }
-
-    // 2. Load Local User Data
-    const storedUserData = await getData("user_data");
-    if (storedUserData) {
-      setUserData((prev) => ({ ...prev, ...storedUserData }));
-    }
-
-
-    
-    // 4. Load Premium Status (if you want to persist it, for now using state only as requested)
-    // const storedPremium = await getData("is_premium");
-    // if (storedPremium !== null) setIsPremium(storedPremium);
-
-    // 5. Check Google Login Status
-    await checkUser();
-  };
-
-  // --- Auth Helper Functions ---
-  const checkUser = async () => {
+  // Check Google Login Status
+  const checkUser = useCallback(async () => {
     try {
-      // PROACTIVELY TRY TO REFRESH TOKEN ON STARTUP
       const refreshedUser = await refreshGoogleToken();
-      
+
       if (refreshedUser) {
         console.log("✅ Auto-Login with Fresh Token");
         setUser(refreshedUser);
         if (refreshedUser.idToken) performSync(refreshedUser.idToken);
       } else {
-        // Fallback to standard check if silent sign-in fails (e.g. no internet but maybe cached?)
         const currentUser = await getCurrentUser();
         if (currentUser) {
-          // Adapt structure to match what login() returns
           const userObj = {
-              user: currentUser.user || currentUser,
-              idToken: currentUser.idToken // Ensure this exists if checking silently
+            user: currentUser.user || currentUser,
+            idToken: currentUser.idToken,
           };
           setUser(userObj);
-          
-          // Trigger immediate sync on app launch
           if (userObj.idToken) performSync(userObj.idToken);
         }
       }
@@ -160,41 +151,61 @@ export const AppProvider = ({ children }) => {
     } finally {
       setAuthLoading(false);
     }
-  };
+  }, [performSync]);
+
+  // Settings Loader
+  const loadSettings = useCallback(async () => {
+    const storedTheme = await getData("app_theme");
+    if (storedTheme) {
+      setTheme(storedTheme);
+    } else {
+      const colorScheme = Appearance.getColorScheme();
+      setTheme(colorScheme || "dark");
+    }
+
+    const storedUserData = await getData("user_data");
+    if (storedUserData) {
+      setUserData((prev) => ({ ...prev, ...storedUserData }));
+    }
+
+    await checkUser();
+  }, [checkUser]);
+
+  useEffect(() => {
+    configureGoogleSignIn();
+    loadSettings();
+  }, [loadSettings]);
+
+  const updateUserData = useCallback(async (newData) => {
+    setUserData((prev) => {
+      const updatedState = { ...prev, ...newData };
+      storeData("user_data", updatedState);
+      return updatedState;
+    });
+  }, []);
 
   const login = async () => {
     try {
       setAuthLoading(true);
       const userInfo = await signInWithGoogle();
-      
+
       if (!userInfo) {
-          setAuthLoading(false);
-          return; // User cancelled
+        setAuthLoading(false);
+        return null;
       }
 
-      // --- BACKEND INTEGRATION START ---
       if (userInfo.idToken) {
-          try {
-              console.log("Verifying token with backend...");
-              // 1. Authenticate with your Express Backend
-              await ApiService.login(userInfo.idToken);
-              
-              // 2. Set User State
-              setUser(userInfo);
-
-              // 3. Trigger Initial Sync
-              // We don't await this so the UI unblocks immediately
-              performSync(userInfo.idToken); 
-
-          } catch (backendError) {
-              console.error("Backend login failed (Offline mode active):", backendError);
-              // We still allow login locally even if backend fails
-              setUser(userInfo);
-          }
+        try {
+          console.log("Verifying token with backend...");
+          await ApiService.login(userInfo.idToken);
+          setUser(userInfo);
+          performSync(userInfo.idToken);
+        } catch (backendError) {
+          console.error("Backend login failed (Offline mode active):", backendError);
+          setUser(userInfo);
+        }
       }
-      // --- BACKEND INTEGRATION END ---
 
-      // Auto-update local name if it's currently "Guest"
       if (userData.name === "Guest" && userInfo?.user?.name) {
         updateUserData({
           name: userInfo.user.name,
@@ -205,7 +216,7 @@ export const AppProvider = ({ children }) => {
       return userInfo;
     } catch (error) {
       console.log("Login failed", error);
-      throw error; 
+      throw error;
     } finally {
       setAuthLoading(false);
     }
@@ -216,8 +227,6 @@ export const AppProvider = ({ children }) => {
       setAuthLoading(true);
       await signOutGoogle();
       setUser(null);
-      // Optional: Clear sync timestamp so next login is a fresh full pull?
-      // await storeData('last_sync_timestamp', null);
     } catch (error) {
       console.log("Logout failed", error);
     } finally {
@@ -225,79 +234,17 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // --- NEW SYNC LOGIC ---
-  const performSync = async (forceToken = null, silent = false) => {
-    // If already syncing, skip (unless it's a forced manual sync or we want to allow overlap which is dangerous)
-    if (isSyncing && !silent) return;
-    
-    const token = forceToken || user?.idToken; 
-
-    if (!token) {
-        // Silent fail if no token
-        return;
-    }
-
-    try {
-      if (!silent) setIsSyncing(true);
-      
-      // 1. Get Last Sync Time
-      const lastSyncTime = await getData('last_sync_timestamp');
-      
-      // 2. Gather Local Changes
-      // UPDATED: Pass isPremium to getChanges
-      const changes = await SyncHelper.getChanges(lastSyncTime, isPremium);
-      
-      if (!silent) console.log(`Syncing... (Last: ${lastSyncTime || 'Never'}) Premium: ${isPremium}`);
-
-      // 3. Call API
-      const response = await ApiService.sync(token, lastSyncTime, changes);
-      
-      if (response.success) {
-        // 4. Apply Server Changes to Local Storage
-        // UPDATED: Pass isPremium to applyServerChanges
-        const hasNewData = await SyncHelper.applyServerChanges(response.changes || {}, isPremium);
-        
-        // 5. Update Timestamp
-        await storeData('last_sync_timestamp', response.timestamp);
-        
-        if (hasNewData) {
-            console.log("✨ New Data Received from Cloud!");
-            // Update this counter to notify screens to reload!
-            setLastRefreshed(Date.now()); 
-        } else if (!silent) {
-            console.log("✅ Sync Complete (No new data)");
-        }
-      }
-
-    } catch (error) {
-      if (!silent) console.error("❌ Sync Failed:", error);
-    } finally {
-      if (!silent) setIsSyncing(false);
-    }
-  };
-  // ---------------------------
-
   const toggleTheme = async () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     await storeData("app_theme", newTheme);
   };
 
-
-
-  const updateUserData = async (newData) => {
-    setUserData((prev) => {
-      const updatedState = { ...prev, ...newData };
-      storeData("user_data", updatedState);
-      return updatedState;
-    });
-  };
-
   const getStorageUsage = async () => {
     try {
       const keys = await AsyncStorage.getAllKeys();
       let totalSize = 0;
-      for (let key of keys) {
+      for (const key of keys) {
         const item = await AsyncStorage.getItem(key);
         totalSize += item ? item.length : 0;
       }
@@ -319,10 +266,10 @@ export const AppProvider = ({ children }) => {
         setUserData,
         getStorageUsage,
         // Auth Values
-        user, 
-        authLoading, 
-        login, 
-        logout, 
+        user,
+        authLoading,
+        login,
+        logout,
         // Sync Values
         syncNow: () => performSync(),
         isSyncing,
@@ -332,12 +279,12 @@ export const AppProvider = ({ children }) => {
         setIsPremium,
         // Global Styles
         appStyles: {
-            headerTitleStyle: {
-                fontSize: 28,
-                fontWeight: "bold",
-                letterSpacing: 0.5,
-            }
-        }
+          headerTitleStyle: {
+            fontSize: 28,
+            fontWeight: "bold",
+            letterSpacing: 0.5,
+          },
+        },
       }}
     >
       <StatusBar
