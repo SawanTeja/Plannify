@@ -55,3 +55,4 @@ Backend/.env
 .expo/
 android/
 ios/
+docs/
