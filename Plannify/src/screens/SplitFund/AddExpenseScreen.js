@@ -2,7 +2,6 @@ import React, { useContext, useState } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     TextInput,
     TouchableOpacity,
     ScrollView,
@@ -15,8 +14,10 @@ import { AppContext } from '../../context/AppContext';
 import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { SplitService } from '../../services/SplitService';
 import { splitEqually, splitByPercentage, splitByShares, splitByAdjustment } from '../../utils/SplitLogic';
+import getStyles from './AddExpenseScreen.styles';
 
 const SPLIT_TYPES = ['Equally', 'Percent', 'Shares', 'Adjust', 'Exact'];
 
@@ -25,6 +26,7 @@ const AddExpenseScreen = ({ route }) => {
     const { showAlert } = useAlert();
     const { groupId, members } = route.params;
     const navigation = useNavigation();
+    const styles = useThemedStyles(getStyles);
     
     // Get user ID consistently - backend returns _id, some places use id
     const currentUserId = user?.user?.id || user?.user?._id || 'local_user';
@@ -108,19 +110,11 @@ const AddExpenseScreen = ({ route }) => {
         }
     };
 
-    const dynamicStyles = {
-        container: { backgroundColor: colors.background },
-        text: { color: colors.textPrimary },
-        subText: { color: colors.textSecondary },
-        input: { backgroundColor: colors.surface, color: colors.textPrimary, borderColor: colors.border },
-        card: { backgroundColor: colors.surface, borderColor: colors.border },
-    };
-
     const renderSplitInputs = () => {
         if (splitType === 'Equally') {
             const perPerson = amount ? (parseFloat(amount)/members.length).toFixed(2) : 0;
             return (
-                <Text style={[styles.infoText, dynamicStyles.subText]}>
+                <Text style={styles.infoText}>
                     Split equally between {members.length} people ({colors.currency}{perPerson}/person)
                 </Text>
             );
@@ -131,12 +125,12 @@ const AddExpenseScreen = ({ route }) => {
             return (
             <View key={memberId} style={styles.memberRow}>
                 <View style={styles.avatar}>
-                     <Text style={{color:'white', fontWeight:'bold'}}>{m.name?.[0] || '?'}</Text>
+                     <Text style={styles.avatarText}>{m.name?.[0] || '?'}</Text>
                 </View>
-                <Text style={[styles.memberName, dynamicStyles.text]}>{m.name}</Text>
+                <Text style={styles.memberName}>{m.name}</Text>
                 
                 <TextInput
-                    style={[styles.smallInput, dynamicStyles.input]}
+                    style={styles.smallInput}
                     placeholder={splitType === 'Percent' ? '%' : splitType === 'Shares' ? '1' : '0'}
                     placeholderTextColor={colors.textMuted}
                     keyboardType="numeric"
@@ -149,60 +143,43 @@ const AddExpenseScreen = ({ route }) => {
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{flex: 1}}>
-        <ScrollView style={[styles.container, dynamicStyles.container]} contentContainerStyle={{ padding: 20 }}>
+        <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
             {/* MAIN INPUTS */}
-            <View style={[styles.card, dynamicStyles.card, { padding: 15, borderRadius: 12, marginBottom: 20 }]}>
+            <View style={styles.mainCard}>
                 <View style={styles.inputRow}>
                     <MaterialCommunityIcons name="format-text" size={24} color={colors.textSecondary} />
                     <TextInput 
                         placeholder="Description (Optional)"
                         placeholderTextColor={colors.textMuted}
-                        style={[styles.mainInput, { color: colors.textPrimary }]}
+                        style={styles.mainInput}
                         value={desc}
                         onChangeText={setDesc}
                     />
                 </View>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <View style={[styles.inputRow, { zIndex: 100 }]}>
-                    <View style={{ zIndex: 101 }}>
+                <View style={styles.divider} />
+                <View style={styles.inputRowZIndex}>
+                    <View style={styles.currencyPickerWrap}>
                         <TouchableOpacity 
                             onPress={() => setCurrencyModalVisible(!currencyModalVisible)}
-                            style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10, padding: 5, borderWidth: 1, borderColor: colors.border, borderRadius: 8, minWidth: 60, justifyContent: 'space-between' }}
+                            style={styles.currencyBtn}
                         >
-                            <Text style={{ fontSize: 18, color: colors.textPrimary, fontWeight: 'bold' }}>{currency}</Text>
+                            <Text style={styles.currencyBtnText}>{currency}</Text>
                             <MaterialCommunityIcons name="chevron-down" size={16} color={colors.textSecondary} />
                         </TouchableOpacity>
 
                         {/* Floating Dropdown */}
                         {currencyModalVisible && (
-                            <View style={{ 
-                                position: 'absolute', 
-                                top: 45, 
-                                left: 0, 
-                                backgroundColor: colors.surface, 
-                                borderWidth: 1, 
-                                borderColor: colors.border, 
-                                borderRadius: 8, 
-                                zIndex: 200, 
-                                elevation: 5, 
-                                shadowColor: '#000', 
-                                shadowOffset: {width: 0, height: 2}, 
-                                shadowOpacity: 0.2,
-                                shadowRadius: 4,
-                                minWidth: 60
-                            }}>
+                            <View style={styles.currencyDropdown}>
                                 {CURRENCIES.map((curr, index) => (
                                     <TouchableOpacity 
                                         key={curr} 
                                         onPress={() => { setCurrency(curr); setCurrencyModalVisible(false); }} 
-                                        style={{ 
-                                            padding: 10, 
-                                            alignItems: 'center',
-                                            borderBottomWidth: index === CURRENCIES.length - 1 ? 0 : 0.5, 
-                                            borderBottomColor: colors.border 
-                                        }}
+                                        style={[
+                                            styles.currencyOption,
+                                            index !== CURRENCIES.length - 1 && styles.currencyOptionBorder
+                                        ]}
                                     >
-                                        <Text style={{ color: colors.textPrimary, fontSize: 16, fontWeight: 'bold' }}>{curr}</Text>
+                                        <Text style={styles.currencyOptionText}>{curr}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
@@ -213,8 +190,7 @@ const AddExpenseScreen = ({ route }) => {
                         placeholder="0.00"
                         placeholderTextColor={colors.textMuted}
                         keyboardType="numeric"
-                        // Fixed: Added height and padding to ensure text is fully visible
-                        style={[styles.mainInput, { color: colors.textPrimary, fontSize: 32, fontWeight: 'bold', height: 50, paddingVertical: 0 }]} 
+                        style={styles.amountInput} 
                         value={amount}
                         onChangeText={setAmount}
                     />
@@ -222,42 +198,45 @@ const AddExpenseScreen = ({ route }) => {
             </View>
 
             {/* PAYER SELECTION */}
-            <Text style={[styles.label, dynamicStyles.subText]}>Paid by</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20, zIndex: -1 }}>
+            <Text style={styles.label}>Paid by</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.payerScroll}>
                 {members.map(m => {
                     const memberId = m._id || m.id;
+                    const isPayer = payer === memberId;
                     return (
                     <TouchableOpacity 
                         key={memberId}
-                        style={[styles.chip, payer === memberId ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                        style={[styles.chip, isPayer ? styles.chipActive : styles.chipInactive]}
                         onPress={() => setPayer(memberId)}
                     >
-                        <Text style={{ color: payer === memberId ? 'white' : colors.textPrimary }}>{memberId === currentUserId ? 'You' : m.name}</Text>
+                        <Text style={[styles.chipText, isPayer ? styles.chipTextActive : styles.chipTextInactive]}>
+                            {memberId === currentUserId ? 'You' : m.name}
+                        </Text>
                     </TouchableOpacity>
                 )})}
             </ScrollView>
 
             {/* SPLIT TYPE TABS */}
-            <Text style={[styles.label, dynamicStyles.subText]}>Split Method</Text>
+            <Text style={styles.label}>Split Method</Text>
             <View style={styles.tabRow}>
                 {SPLIT_TYPES.map(type => (
                     <TouchableOpacity 
                         key={type}
-                        style={[styles.tab, splitType === type && { backgroundColor: colors.primary + '20', borderColor: colors.primary }]}
+                        style={[styles.tab, splitType === type && styles.tabActive]}
                         onPress={() => setSplitType(type)}
                     >
-                        <Text style={{ color: splitType === type ? colors.primary : colors.textSecondary, fontSize: 12, fontWeight: 'bold' }}>{type}</Text>
+                        <Text style={[styles.tabText, splitType === type && styles.tabTextActive]}>{type}</Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
             {/* SPLIT DETAILS */}
-            <View style={[styles.card, dynamicStyles.card, { padding: 15, borderRadius: 12 }]}>
+            <View style={styles.card}>
                 {renderSplitInputs()}
             </View>
 
             <TouchableOpacity 
-                style={[styles.saveBtn, { backgroundColor: colors.primary, opacity: isLoading ? 0.7 : 1 }]} 
+                style={[styles.saveBtn, { opacity: isLoading ? 0.7 : 1 }]} 
                 onPress={handleSave}
                 disabled={isLoading}
             >
@@ -272,26 +251,5 @@ const AddExpenseScreen = ({ route }) => {
         </KeyboardAvoidingView>
     );
 };
-
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    card: { borderWidth: 1 },
-    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    mainInput: { flex: 1, height: 40, fontSize: 16 },
-    divider: { height: 1, marginVertical: 10 },
-    label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, textTransform: 'uppercase' },
-    chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10 },
-    tabRow: { flexDirection: 'row', marginBottom: 20, justifyContent: 'space-between' },
-    tab: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'transparent' },
-    
-    memberRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-    avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#888', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-    memberName: { flex: 1 },
-    smallInput: { width: 80, height: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, textAlign: 'right' },
-    
-    infoText: { textAlign: 'center', marginVertical: 10 },
-    saveBtn: { marginTop: 30, height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
-});
 
 export default AddExpenseScreen;

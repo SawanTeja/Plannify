@@ -1,0 +1,87 @@
+import { StyleSheet, Dimensions } from "react-native";
+
+const { width } = Dimensions.get("window");
+
+export const getStyles = (colors) =>
+  StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.85)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    card: {
+      width: width * 0.85,
+      padding: 30,
+      borderRadius: 30,
+      alignItems: "center",
+      borderWidth: 2,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.6,
+      shadowRadius: 20,
+      elevation: 20,
+      backgroundColor: colors.surface,
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+    },
+    iconContainer: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 20,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+      elevation: 5,
+      backgroundColor: colors.surfaceHighlight,
+      shadowColor: colors.primary,
+    },
+    icon: {
+      fontSize: 50,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: "900",
+      marginBottom: 10,
+      letterSpacing: 2,
+      textAlign: "center",
+      color: colors.primary,
+    },
+    desc: {
+      fontSize: 20,
+      fontWeight: "bold",
+      marginBottom: 8,
+      textAlign: "center",
+      color: colors.textPrimary,
+    },
+    subDesc: {
+      fontSize: 14,
+      textAlign: "center",
+      marginBottom: 25,
+      paddingHorizontal: 10,
+      color: colors.textSecondary,
+    },
+    btn: {
+      paddingVertical: 15,
+      paddingHorizontal: 40,
+      borderRadius: 25,
+      marginTop: 10,
+      width: "100%",
+      alignItems: "center",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 5,
+      backgroundColor: colors.primary,
+      shadowColor: colors.primary,
+    },
+    btnText: {
+      fontWeight: "bold",
+      fontSize: 18,
+      letterSpacing: 1,
+      textTransform: "uppercase",
+      color: colors.white || "#ffffff",
+    },
+  });

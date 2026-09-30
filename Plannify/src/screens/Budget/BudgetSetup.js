@@ -6,7 +6,6 @@ import {
   Platform,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Switch,
   Text,
   TextInput,
@@ -16,20 +15,22 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
 import { getData, storeData } from "../../utils/storageHelper";
+import getStyles from "./BudgetSetup.styles";
 
 const BudgetSetup = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { colors, theme, syncNow } = useContext(AppContext);
   const { showAlert } = useAlert();
+  const styles = useThemedStyles(getStyles);
   const isEditing = route.params?.isEditing;
 
   const insets = useSafeAreaInsets();
   const FLOATING_TAB_BAR_HEIGHT = 100;
   const bottomPadding = FLOATING_TAB_BAR_HEIGHT + insets.bottom;
 
-  // Hide the default navigation header
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,
@@ -120,14 +121,16 @@ const BudgetSetup = () => {
       history: oldData?.history || [],
       transactions: oldData?.transactions || [],
       categories: useCategories
-        ? finalCategories.map((c) => ({
-            ...c,
-            limit: parseFloat(c.limit) || 0,
-            spent:
-              oldData?.categories?.find((oc) => oc.id === c.id || oc.name === c.name)?.spent || 0,
-          }))
+        ? finalCategories.map((c) => {
+            const oldCat = oldData?.categories?.find((oc) => oc.name === c.name);
+            return {
+              name: c.name,
+              limit: parseFloat(c.limit),
+              spent: oldCat ? oldCat.spent : 0,
+            };
+          })
         : [],
-      updatedAt: new Date(), // Fix: Ensure settings sync
+      updatedAt: new Date(),
     };
 
     await storeData("budget_data", finalData);
@@ -135,40 +138,11 @@ const BudgetSetup = () => {
     navigation.navigate("BudgetMain");
   };
 
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    headerText: { color: colors.textPrimary },
-    subText: { color: colors.textSecondary },
-    card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderWidth: 1,
-      shadowColor: colors.shadow,
-    },
-    input: {
-      backgroundColor: colors.background,
-      color: colors.textPrimary,
-      borderColor: colors.border,
-    },
-    currencyBtnActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    currencyBtnInactive: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    textActive: { color: colors.white },
-    textInactive: { color: colors.textSecondary },
-  };
-
   return (
-    // 2. Replaced SafeAreaView with View and applied manual padding
     <View
       style={[
         styles.screen,
-        dynamicStyles.container,
-        { paddingTop: insets.top }, // Pushes content down below status bar
+        { paddingTop: insets.top },
       ]}
     >
       <StatusBar
@@ -203,16 +177,14 @@ const BudgetSetup = () => {
                 </TouchableOpacity>
               )}
 
-              <Text style={[styles.headerTitle, dynamicStyles.headerText]}>
+              <Text style={styles.headerTitle}>
                 {isEditing ? "Edit Budget" : "Budget Setup"}
               </Text>
             </View>
 
             {/* Currency Section */}
-            <View style={[styles.card, dynamicStyles.card]}>
-              <Text style={[styles.label, dynamicStyles.subText]}>
-                Select Currency
-              </Text>
+            <View style={styles.card}>
+              <Text style={styles.label}>Select Currency</Text>
               <View style={styles.currencyRow}>
                 {["$", "₹", "€", "£"].map((sym) => {
                   const isActive = currency === sym;
@@ -221,18 +193,14 @@ const BudgetSetup = () => {
                       key={sym}
                       style={[
                         styles.currencyBtn,
-                        isActive
-                          ? dynamicStyles.currencyBtnActive
-                          : dynamicStyles.currencyBtnInactive,
+                        isActive && styles.currencyBtnActive,
                       ]}
                       onPress={() => setCurrency(sym)}
                     >
                       <Text
                         style={[
                           styles.currencyText,
-                          isActive
-                            ? dynamicStyles.textActive
-                            : dynamicStyles.textInactive,
+                          isActive && styles.currencyTextActive,
                         ]}
                       >
                         {sym}
@@ -242,17 +210,15 @@ const BudgetSetup = () => {
                 })}
               </View>
 
-              <Text
-                style={[styles.label, dynamicStyles.subText, { marginTop: 20 }]}
-              >
+              <Text style={[styles.label, { marginTop: 20 }]}>
                 Total Monthly Budget
               </Text>
-              <View style={[styles.inputContainer, dynamicStyles.input]}>
-                <Text style={[styles.inputPrefix, dynamicStyles.headerText]}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputPrefix}>
                   {currency}
                 </Text>
                 <TextInput
-                  style={[styles.mainInput, { color: colors.textPrimary }]}
+                  style={styles.mainInput}
                   keyboardType="numeric"
                   placeholder="0.00"
                   placeholderTextColor={colors.textMuted}
@@ -263,12 +229,12 @@ const BudgetSetup = () => {
             </View>
 
             {/* Category Toggle */}
-            <View style={[styles.card, dynamicStyles.card, styles.toggleCard]}>
+            <View style={[styles.card, styles.toggleCard]}>
               <View>
-                <Text style={[styles.toggleTitle, dynamicStyles.headerText]}>
+                <Text style={styles.toggleTitle}>
                   Category Breakdown
                 </Text>
-                <Text style={[styles.toggleSub, dynamicStyles.subText]}>
+                <Text style={styles.toggleSub}>
                   Allocate budget to specific needs
                 </Text>
               </View>
@@ -283,27 +249,21 @@ const BudgetSetup = () => {
             {/* Category List */}
             {useCategories && (
               <View style={styles.categoriesContainer}>
-                <Text style={[styles.sectionTitle, dynamicStyles.headerText]}>
+                <Text style={styles.sectionTitle}>
                   Allocations
                 </Text>
 
-                {categories.map((cat, index) => (
+                {categories.map((cat) => (
                   <View
                     key={cat.id}
-                    style={[styles.catCard, dynamicStyles.card]}
+                    style={styles.catCard}
                   >
                     <View style={styles.catInputWrapper}>
-                      <Text style={[styles.inputLabel, dynamicStyles.subText]}>
+                      <Text style={styles.inputLabel}>
                         Name
                       </Text>
                       <TextInput
-                        style={[
-                          styles.catInput,
-                          {
-                            color: colors.textPrimary,
-                            borderBottomColor: colors.border,
-                          },
-                        ]}
+                        style={styles.catInput}
                         placeholder="e.g. Food"
                         placeholderTextColor={colors.textMuted}
                         value={cat.name}
@@ -312,17 +272,11 @@ const BudgetSetup = () => {
                     </View>
 
                     <View style={styles.catInputWrapper}>
-                      <Text style={[styles.inputLabel, dynamicStyles.subText]}>
+                      <Text style={styles.inputLabel}>
                         Limit ({currency})
                       </Text>
                       <TextInput
-                        style={[
-                          styles.catInput,
-                          {
-                            color: colors.textPrimary,
-                            borderBottomColor: colors.border,
-                          },
-                        ]}
+                        style={styles.catInput}
                         placeholder="0"
                         keyboardType="numeric"
                         placeholderTextColor={colors.textMuted}
@@ -345,10 +299,7 @@ const BudgetSetup = () => {
                 ))}
 
                 <TouchableOpacity
-                  style={[
-                    styles.addBtn,
-                    { borderColor: colors.primary, borderStyle: "dashed" },
-                  ]}
+                  style={styles.addBtn}
                   onPress={addCategory}
                 >
                   <MaterialCommunityIcons
@@ -356,7 +307,7 @@ const BudgetSetup = () => {
                     size={20}
                     color={colors.primary}
                   />
-                  <Text style={[styles.addBtnText, { color: colors.primary }]}>
+                  <Text style={styles.addBtnText}>
                     Add Category
                   </Text>
                 </TouchableOpacity>
@@ -368,15 +319,11 @@ const BudgetSetup = () => {
         <View
           style={[
             styles.footer,
-            {
-              backgroundColor: colors.background,
-              borderTopColor: colors.border,
-              paddingBottom: bottomPadding,
-            },
+            { paddingBottom: bottomPadding },
           ]}
         >
           <TouchableOpacity
-            style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+            style={styles.saveBtn}
             onPress={handleSave}
           >
             <Text style={styles.saveBtnText}>Save Budget</Text>
@@ -386,105 +333,5 @@ const BudgetSetup = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  scrollContent: { padding: 20 },
-  headerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 25,
-    marginTop: 10, // Added slight extra top margin for breathing room
-  },
-  backBtn: { padding: 8, marginRight: 10 },
-  headerTitle: { fontSize: 28, fontWeight: "bold" },
-
-  card: { padding: 20, borderRadius: 20, marginBottom: 15, borderWidth: 1 },
-  label: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
-
-  currencyRow: { flexDirection: "row", gap: 12 },
-  currencyBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  currencyText: { fontSize: 20, fontWeight: "bold" },
-
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    height: 55,
-  },
-  inputPrefix: { fontSize: 20, fontWeight: "bold", marginRight: 10 },
-  mainInput: { flex: 1, fontSize: 20, fontWeight: "bold", height: "100%" },
-
-  toggleCard: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  toggleTitle: { fontSize: 16, fontWeight: "bold" },
-  toggleSub: { fontSize: 12, marginTop: 4 },
-
-  categoriesContainer: { marginTop: 10 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
-  catCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-    gap: 15,
-  },
-  catInputWrapper: { flex: 1 },
-  inputLabel: { fontSize: 10, marginBottom: 4 },
-  catInput: {
-    fontSize: 16,
-    fontWeight: "600",
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-  },
-  deleteBtn: { padding: 8 },
-
-  addBtn: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 8,
-  },
-  addBtnText: { fontWeight: "bold" },
-
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 20,
-  },
-  saveBtn: {
-    height: 55,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  saveBtnText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-});
 
 export default BudgetSetup;

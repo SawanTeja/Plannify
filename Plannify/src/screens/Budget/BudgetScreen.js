@@ -4,7 +4,6 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import {
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -14,13 +13,16 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
-import { getData, storeData } from "../../utils/storageHelper";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
 import { scheduleAutoPayNotification } from "../../services/NotificationService";
+import { getData, storeData } from "../../utils/storageHelper";
+import getStyles from "./BudgetScreen.styles";
 
 const BudgetScreen = () => {
   const navigation = useNavigation();
   const { colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
   const { showAlert } = useAlert();
+  const styles = useThemedStyles(getStyles);
 
   const insets = useSafeAreaInsets();
   const FLOATING_TAB_BAR_HEIGHT = 90;
@@ -38,7 +40,7 @@ const BudgetScreen = () => {
   const [desc, setDesc] = useState("");
   const [selectedCat, setSelectedCat] = useState(null);
   const [payDay, setPayDay] = useState("");
-  const [editingRecurringId, setEditingRecurringId] = useState(null); // NEW STATE
+  const [editingRecurringId, setEditingRecurringId] = useState(null);
 
   const loadBudget = useCallback(async () => {
     let data = await getData("budget_data");
@@ -54,39 +56,34 @@ const BudgetScreen = () => {
     });
 
     if (!data.currentMonth || data.currentMonth !== realMonth) {
-      // ARCHIVE OLD DATA
       if (data.currentMonth) {
-          const oldTransactions = data.transactions || [];
-          let oldSpent = 0;
-          
-          if (data.categories && data.categories.length > 0) {
-              oldSpent = data.categories.reduce((acc, c) => acc + (parseFloat(c.spent) || 0), 0);
-          } else {
-              oldSpent = oldTransactions
-                  .filter(t => t.type === "expense")
-                  .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
-          }
+        const oldTransactions = data.transactions || [];
+        let oldSpent = 0;
+        if (data.categories && data.categories.length > 0) {
+          oldSpent = data.categories.reduce((acc, c) => acc + c.spent, 0);
+        } else {
+          oldSpent = oldTransactions
+            .filter((t) => t.type === "expense")
+            .reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+        }
 
-          const historyEntry = {
-              month: data.currentMonth,
-              totalBudget: data.totalBudget,
-              totalSpent: oldSpent,
-              transactions: oldTransactions,
-              isCurrent: false
-          };
+        const historyLog = {
+          month: data.currentMonth,
+          totalBudget: data.totalBudget,
+          totalSpent: oldSpent,
+          transactions: oldTransactions,
+        };
 
-          // Init history if needed
-          if (!data.history) data.history = [];
-          data.history.push(historyEntry);
+        data.history = [...(data.history || []), historyLog];
       }
 
-      // RESET FOR NEW MONTH
       data.currentMonth = realMonth;
-      data.transactions = [];
-      if (data.categories)
+      if (data.categories) {
         data.categories = data.categories.map((c) => ({ ...c, spent: 0 }));
-      
-      // Save
+      }
+      data.transactions = [];
+      data.updatedAt = new Date();
+
       await storeData("budget_data", data);
       syncNow();
     }
@@ -97,15 +94,13 @@ const BudgetScreen = () => {
 
     if (data.recurringPayments) {
       const updatedPayments = [];
-      
+
       for (let rp of data.recurringPayments) {
-        // MIGRATION: Schedule notification if missing
         if (!rp.notificationId) {
-            const notifId = await scheduleAutoPayNotification(rp.desc, rp.amount, rp.day, data.currency);
-            if (notifId) rp.notificationId = notifId;
+          const notifId = await scheduleAutoPayNotification(rp.desc, rp.amount, rp.day, data.currency);
+          if (notifId) rp.notificationId = notifId;
         }
 
-        // EXECUTION: Check if due today
         if (rp.lastPaidMonth !== realMonth && todayDay >= rp.day) {
           const newTx = {
             _id: new Date().getTime().toString() + Math.random(),
@@ -150,26 +145,23 @@ const BudgetScreen = () => {
     }
   }, [lastRefreshed, loadBudget]);
 
-  // --- FIXED FUNCTION ---
   const handleAddTransaction = async () => {
     if (!amount || !desc) return;
     const val = parseFloat(amount);
     const newBudget = { ...budget };
 
-    // SCHEMA FIX: Match Backend Model exactly
     const newTx = {
-      _id: new Date().getTime().toString(), 
-      description: desc,      
+      _id: new Date().getTime().toString(),
+      description: desc,
       amount: val,
       category: selectedCat || "General",
-      type: "expense",        
-      date: new Date(),       
-      updatedAt: new Date(),  
+      type: "expense",
+      date: new Date(),
+      updatedAt: new Date(),
     };
 
     newBudget.transactions = [newTx, ...newBudget.transactions];
 
-    // Update local category spending
     if (newBudget.categories) {
       newBudget.categories = newBudget.categories.map((cat) => {
         if (cat.name === selectedCat) return { ...cat, spent: cat.spent + val };
@@ -177,7 +169,7 @@ const BudgetScreen = () => {
       });
     }
 
-    newBudget.updatedAt = new Date(); // Fix: Sync settings changes
+    newBudget.updatedAt = new Date();
     await storeData("budget_data", newBudget);
     syncNow();
     setBudget(newBudget);
@@ -195,14 +187,14 @@ const BudgetScreen = () => {
       description: desc,
       amount: val,
       category: "Income",
-      type: "income",         
+      type: "income",
       date: new Date(),
-      updatedAt: new Date(),  
+      updatedAt: new Date(),
     };
 
     newBudget.transactions = [newTx, ...newBudget.transactions];
-
     newBudget.updatedAt = new Date();
+
     await storeData("budget_data", newBudget);
     syncNow();
     setBudget(newBudget);
@@ -214,44 +206,46 @@ const BudgetScreen = () => {
     if (!amount || !desc || !payDay) return;
     const day = parseInt(payDay);
     if (day < 1 || day > 31) {
-      showAlert("Invalid Date", "Please enter a day between 1-31");
+      showAlert("Invalid Day", "Day must be between 1 and 31");
       return;
     }
-    const newBudget = { ...budget };
 
-    // Schedule NEW Notification (Logic handles id return)
-    const notifId = await scheduleAutoPayNotification(desc, parseFloat(amount), day, budget.currency);
+    const newBudget = { ...budget };
+    const notifId = await scheduleAutoPayNotification(
+      desc,
+      parseFloat(amount),
+      day,
+      newBudget.currency
+    );
 
     if (editingRecurringId) {
-        // EDIT EXISTING
-        newBudget.recurringPayments = newBudget.recurringPayments.map(rp => {
-            if (rp.id === editingRecurringId) {
-                return {
-                    ...rp,
-                    desc,
-                    amount: parseFloat(amount),
-                    day,
-                    notificationId: notifId // Update ID
-                };
-            }
-            return rp;
-        });
-    } else {
-        // ADD NEW
-        const newRecurring = {
-            id: Date.now(),
+      newBudget.recurringPayments = newBudget.recurringPayments.map((rp) => {
+        if (rp.id === editingRecurringId) {
+          return {
+            ...rp,
             desc,
             amount: parseFloat(amount),
             day,
-            lastPaidMonth: "",
-            notificationId: notifId, // Store ID
-        };
-        newBudget.recurringPayments = [
-            ...(newBudget.recurringPayments || []),
-            newRecurring,
-        ];
+            notificationId: notifId || rp.notificationId,
+          };
+        }
+        return rp;
+      });
+    } else {
+      const newRecurring = {
+        id: Date.now(),
+        desc,
+        amount: parseFloat(amount),
+        day,
+        lastPaidMonth: "",
+        notificationId: notifId,
+      };
+      newBudget.recurringPayments = [
+        ...(newBudget.recurringPayments || []),
+        newRecurring,
+      ];
     }
-    
+
     newBudget.updatedAt = new Date();
     await storeData("budget_data", newBudget);
     syncNow();
@@ -265,18 +259,17 @@ const BudgetScreen = () => {
     setAmount("");
     setDesc("");
     setPayDay("");
-    setEditingRecurringId(null); // Clear ID
+    setEditingRecurringId(null);
   };
 
   if (!budget) return null;
 
-  // --- CALCULATIONS (UPDATED FOR NEW SCHEMA) ---
   const hasCategories = budget.categories && budget.categories.length > 0;
-  
+
   const totalSpent = hasCategories
     ? budget.categories.reduce((acc, item) => acc + (parseFloat(item.spent) || 0), 0)
     : budget.transactions
-        .filter((t) => t.type === "expense") 
+        .filter((t) => t.type === "expense")
         .reduce((acc, item) => acc + (parseFloat(item.amount) || 0), 0);
 
   const totalIncome = budget.transactions
@@ -285,43 +278,10 @@ const BudgetScreen = () => {
 
   const remaining = (parseFloat(budget.totalBudget) || 0) + totalIncome - totalSpent;
 
-  // --- DYNAMIC STYLES ---
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    headerText: { color: colors.textPrimary },
-    subText: { color: colors.textSecondary },
-    card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderWidth: 1,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    modalContent: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    input: {
-      backgroundColor: colors.background,
-      color: colors.textPrimary,
-      borderColor: colors.border,
-    },
-    pillActive: { backgroundColor: colors.primary },
-    pillInactive: {
-      backgroundColor: colors.background,
-      borderColor: colors.border,
-      borderWidth: 1,
-    },
-  };
-
   return (
     <View
       style={[
         styles.container,
-        dynamicStyles.container,
         { paddingTop: insets.top },
       ]}
     >
@@ -331,7 +291,7 @@ const BudgetScreen = () => {
 
       <View style={styles.topBar}>
         <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
+          style={styles.iconBtn}
           onPress={() => navigation.navigate("BudgetHistory")}
         >
           <MaterialCommunityIcons
@@ -341,12 +301,12 @@ const BudgetScreen = () => {
           />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>
+        <Text style={[styles.headerTitle, appStyles.headerTitleStyle]}>
           My Wallet
         </Text>
 
         <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
+          style={styles.iconBtn}
           onPress={() =>
             navigation.navigate("BudgetSetup", { isEditing: true })
           }
@@ -365,36 +325,17 @@ const BudgetScreen = () => {
           paddingHorizontal: 20,
         }}
       >
-        <View style={[styles.walletCard, { backgroundColor: colors.primary }]}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-            }}
-          >
+        <View style={styles.walletCard}>
+          <View style={styles.walletHeader}>
             <View>
-              <Text
-                style={{
-                  color: "rgba(255,255,255,0.8)",
-                  fontSize: 14,
-                  fontWeight: "600",
-                }}
-              >
+              <Text style={styles.walletBalanceLabel}>
                 Available Balance
               </Text>
-              <Text
-                style={{
-                  color: colors.white,
-                  fontSize: 36,
-                  fontWeight: "bold",
-                  marginVertical: 5,
-                }}
-              >
+              <Text style={styles.walletBalanceValue}>
                 {budget.currency}
                 {remaining.toFixed(2)}
               </Text>
-              <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 12 }}>
+              <Text style={styles.walletMonth}>
                 {budget.currentMonth}
               </Text>
             </View>
@@ -407,46 +348,28 @@ const BudgetScreen = () => {
 
           <View style={styles.walletFooter}>
             <View>
-              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 10 }}>
+              <Text style={styles.walletStatLabel}>
                 INCOME
               </Text>
-              <Text
-                style={{
-                  color: colors.white,
-                  fontSize: 14,
-                  fontWeight: "bold",
-                }}
-              >
+              <Text style={styles.walletStatValue}>
                 +{budget.currency}
                 {totalIncome}
               </Text>
             </View>
             <View>
-              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 10 }}>
+              <Text style={styles.walletStatLabel}>
                 SPENT
               </Text>
-              <Text
-                style={{
-                  color: colors.white,
-                  fontSize: 14,
-                  fontWeight: "bold",
-                }}
-              >
+              <Text style={styles.walletStatValue}>
                 -{budget.currency}
                 {totalSpent}
               </Text>
             </View>
             <View>
-              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 10 }}>
+              <Text style={styles.walletStatLabel}>
                 LIMIT
               </Text>
-              <Text
-                style={{
-                  color: colors.white,
-                  fontSize: 14,
-                  fontWeight: "bold",
-                }}
-              >
+              <Text style={styles.walletStatValue}>
                 {budget.currency}
                 {budget.totalBudget}
               </Text>
@@ -457,18 +380,18 @@ const BudgetScreen = () => {
         {/* --- AUTO PAY SECTION --- */}
         {budget.recurringPayments && budget.recurringPayments.length > 0 && (
           <View style={{ marginBottom: 20 }}>
-            <Text style={[styles.sectionTitle, dynamicStyles.headerText]}>
+            <Text style={styles.sectionTitle}>
               Upcoming Bills
             </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -20, paddingHorizontal: 20 }}
+              style={styles.upcomingBillsScroll}
             >
               {budget.recurringPayments.map((rp) => (
                 <TouchableOpacity
                   key={rp.id}
-                  style={[styles.billChip, dynamicStyles.card]}
+                  style={styles.billChip}
                   onPress={() => {
                     setEditingRecurringId(rp.id);
                     setDesc(rp.desc);
@@ -477,12 +400,7 @@ const BudgetScreen = () => {
                     setRecurringModalVisible(true);
                   }}
                 >
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: colors.primary + "20" },
-                    ]}
-                  >
+                  <View style={styles.iconCircle}>
                     <MaterialCommunityIcons
                       name="lightning-bolt"
                       size={16}
@@ -490,10 +408,10 @@ const BudgetScreen = () => {
                     />
                   </View>
                   <View>
-                    <Text style={[styles.billName, dynamicStyles.headerText]}>
+                    <Text style={styles.billName}>
                       {rp.desc}
                     </Text>
-                    <Text style={[styles.billDetail, dynamicStyles.subText]}>
+                    <Text style={styles.billDetail}>
                       Day {rp.day} • {budget.currency}
                       {rp.amount}
                     </Text>
@@ -507,7 +425,7 @@ const BudgetScreen = () => {
         {/* --- BREAKDOWN SECTION --- */}
         {hasCategories && (
           <>
-            <Text style={[styles.sectionTitle, dynamicStyles.headerText]}>
+            <Text style={styles.sectionTitle}>
               Spending Breakdown
             </Text>
             {budget.categories.map((item) => {
@@ -516,19 +434,13 @@ const BudgetScreen = () => {
               return (
                 <View
                   key={item.id}
-                  style={[styles.categoryRow, dynamicStyles.card]}
+                  style={styles.categoryRow}
                 >
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <Text style={[styles.catName, dynamicStyles.headerText]}>
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.catName}>
                       {item.name}
                     </Text>
-                    <Text style={[styles.catVal, dynamicStyles.subText]}>
+                    <Text style={styles.catVal}>
                       <Text
                         style={{
                           fontWeight: "bold",
@@ -543,12 +455,7 @@ const BudgetScreen = () => {
                     </Text>
                   </View>
 
-                  <View
-                    style={[
-                      styles.progressBarBg,
-                      { backgroundColor: colors.background },
-                    ]}
-                  >
+                  <View style={styles.progressBarBg}>
                     <View
                       style={[
                         styles.progressBarFill,
@@ -567,35 +474,26 @@ const BudgetScreen = () => {
           </>
         )}
 
-        {/* --- RECENT TRANSACTIONS (UPDATED) --- */}
-        <Text
-          style={[
-            styles.sectionTitle,
-            dynamicStyles.headerText,
-            { marginTop: 20 },
-          ]}
-        >
+        {/* --- RECENT TRANSACTIONS --- */}
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
           Recent Activity
         </Text>
         {budget.transactions && budget.transactions.length > 0 ? (
           budget.transactions.map((tx) => (
-            <View key={tx._id || tx.id} style={[styles.txRow, dynamicStyles.card]}>
-              <View
-                style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
-              >
+            <View key={tx._id || tx.id} style={styles.txRow}>
+              <View style={styles.txLeft}>
                 <View
                   style={[
                     styles.txIcon,
                     {
                       backgroundColor:
-                        tx.type === "income" // UPDATED
+                        tx.type === "income"
                           ? colors.success + "20"
                           : colors.danger + "20",
                     },
                   ]}
                 >
                   <MaterialCommunityIcons
-                    // UPDATED
                     name={tx.type === "income" ? "arrow-down" : "arrow-up"}
                     size={18}
                     color={
@@ -604,21 +502,22 @@ const BudgetScreen = () => {
                   />
                 </View>
                 <View>
-                  <Text style={[styles.txDesc, dynamicStyles.headerText]}>
-                    {tx.description || tx.desc} 
+                  <Text style={styles.txDesc}>
+                    {tx.description || tx.desc}
                   </Text>
-                  <Text style={[styles.txDate, dynamicStyles.subText]}>
+                  <Text style={styles.txDate}>
                     {new Date(tx.date).toLocaleDateString()}
                   </Text>
                 </View>
               </View>
               <Text
-                style={{
-                  fontWeight: "bold",
-                  fontSize: 16,
-                  color:
-                    tx.type === "income" ? colors.success : colors.textPrimary,
-                }}
+                style={[
+                  styles.txAmount,
+                  {
+                    color:
+                      tx.type === "income" ? colors.success : colors.textPrimary,
+                  },
+                ]}
               >
                 {tx.type === "income" ? "+" : "-"}
                 {budget.currency}
@@ -627,13 +526,13 @@ const BudgetScreen = () => {
             </View>
           ))
         ) : (
-          <View style={{ alignItems: "center", marginTop: 20, opacity: 0.6 }}>
+          <View style={styles.emptyTx}>
             <MaterialCommunityIcons
               name="receipt"
               size={40}
               color={colors.textMuted}
             />
-            <Text style={{ color: colors.textMuted, marginTop: 5 }}>
+            <Text style={styles.emptyTxText}>
               No transactions yet.
             </Text>
           </View>
@@ -644,11 +543,7 @@ const BudgetScreen = () => {
       <View
         style={[
           styles.dockContainer,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            bottom: dockPositionBottom,
-          },
+          { bottom: dockPositionBottom },
         ]}
       >
         <TouchableOpacity
@@ -662,7 +557,7 @@ const BudgetScreen = () => {
               color={colors.white}
             />
           </View>
-          <Text style={[styles.dockLabel, dynamicStyles.subText]}>
+          <Text style={styles.dockLabel}>
             Auto-Pay
           </Text>
         </TouchableOpacity>
@@ -680,7 +575,7 @@ const BudgetScreen = () => {
               color={colors.white}
             />
           </View>
-          <Text style={[styles.dockLabel, dynamicStyles.subText]}>Income</Text>
+          <Text style={styles.dockLabel}>Income</Text>
         </TouchableOpacity>
 
         <View style={styles.divider} />
@@ -696,11 +591,11 @@ const BudgetScreen = () => {
               color={colors.white}
             />
           </View>
-          <Text style={[styles.dockLabel, dynamicStyles.subText]}>Expense</Text>
+          <Text style={styles.dockLabel}>Expense</Text>
         </TouchableOpacity>
       </View>
 
-      {/* MODALS SECTION (Unchanged layout, just logic) */}
+      {/* EXPENSE MODAL */}
       <Modal
         isVisible={modalVisible}
         onSwipeComplete={() => setModalVisible(false)}
@@ -710,21 +605,19 @@ const BudgetScreen = () => {
         avoidKeyboard={false}
         backdropOpacity={0.7}
       >
-        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+        <View style={styles.bottomModalContent}>
           <View style={styles.dragHandleContainer}>
-            <View
-              style={[styles.dragHandle, { backgroundColor: colors.border }]}
-            />
+            <View style={styles.dragHandle} />
           </View>
 
-          <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
+          <Text style={styles.modalTitle}>
             Add Expense
           </Text>
 
           <TextInput
             placeholder="Description (e.g. Coffee)"
             placeholderTextColor={colors.textMuted}
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={desc}
             onChangeText={setDesc}
           />
@@ -732,7 +625,7 @@ const BudgetScreen = () => {
             placeholder="Amount"
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={amount}
             onChangeText={setAmount}
           />
@@ -744,20 +637,15 @@ const BudgetScreen = () => {
                   key={cat.id}
                   style={[
                     styles.catChip,
-                    selectedCat === cat.name
-                      ? dynamicStyles.pillActive
-                      : dynamicStyles.pillInactive,
+                    selectedCat === cat.name && styles.catChipActive,
                   ]}
                   onPress={() => setSelectedCat(cat.name)}
                 >
                   <Text
-                    style={{
-                      color:
-                        selectedCat === cat.name
-                          ? colors.white
-                          : colors.textSecondary,
-                      fontWeight: "600",
-                    }}
+                    style={[
+                      styles.catChipText,
+                      selectedCat === cat.name && styles.catChipTextActive,
+                    ]}
                   >
                     {cat.name}
                   </Text>
@@ -768,9 +656,7 @@ const BudgetScreen = () => {
 
           <View style={styles.modalActions}>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text
-                style={[styles.cancelText, { color: colors.textSecondary }]}
-              >
+              <Text style={styles.cancelText}>
                 Cancel
               </Text>
             </TouchableOpacity>
@@ -794,11 +680,9 @@ const BudgetScreen = () => {
         avoidKeyboard={true}
         backdropOpacity={0.7}
       >
-        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+        <View style={styles.bottomModalContent}>
           <View style={styles.dragHandleContainer}>
-            <View
-              style={[styles.dragHandle, { backgroundColor: colors.border }]}
-            />
+            <View style={styles.dragHandle} />
           </View>
 
           <Text style={[styles.modalTitle, { color: colors.success }]}>
@@ -808,7 +692,7 @@ const BudgetScreen = () => {
           <TextInput
             placeholder="Source (e.g. Salary)"
             placeholderTextColor={colors.textMuted}
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={desc}
             onChangeText={setDesc}
           />
@@ -816,16 +700,14 @@ const BudgetScreen = () => {
             placeholder="Amount"
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={amount}
             onChangeText={setAmount}
           />
 
           <View style={styles.modalActions}>
             <TouchableOpacity onPress={() => setIncomeModalVisible(false)}>
-              <Text
-                style={[styles.cancelText, { color: colors.textSecondary }]}
-              >
+              <Text style={styles.cancelText}>
                 Cancel
               </Text>
             </TouchableOpacity>
@@ -843,29 +725,27 @@ const BudgetScreen = () => {
       <Modal
         isVisible={recurringModalVisible}
         onSwipeComplete={() => {
-            setRecurringModalVisible(false);
-            resetForm();
+          setRecurringModalVisible(false);
+          resetForm();
         }}
         swipeDirection={["down"]}
         onBackdropPress={() => {
-            setRecurringModalVisible(false);
-            resetForm();
+          setRecurringModalVisible(false);
+          resetForm();
         }}
         style={styles.bottomModal}
         avoidKeyboard={true}
         backdropOpacity={0.7}
       >
-        <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+        <View style={styles.bottomModalContent}>
           <View style={styles.dragHandleContainer}>
-            <View
-              style={[styles.dragHandle, { backgroundColor: colors.border }]}
-            />
+            <View style={styles.dragHandle} />
           </View>
 
           <Text style={[styles.modalTitle, { color: "#A855F7" }]}>
             Setup Auto-Pay
           </Text>
-          <Text style={[styles.modalSub, dynamicStyles.subText]}>
+          <Text style={styles.modalSub}>
             This will automatically deduct from your budget on the specified day
             every month.
           </Text>
@@ -873,7 +753,7 @@ const BudgetScreen = () => {
           <TextInput
             placeholder="Service Name (e.g. Netflix)"
             placeholderTextColor={colors.textMuted}
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={desc}
             onChangeText={setDesc}
           />
@@ -881,7 +761,7 @@ const BudgetScreen = () => {
             placeholder="Amount"
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={amount}
             onChangeText={setAmount}
           />
@@ -889,19 +769,19 @@ const BudgetScreen = () => {
             placeholder="Day of Month (1-31)"
             placeholderTextColor={colors.textMuted}
             keyboardType="numeric"
-            style={[styles.input, dynamicStyles.input]}
+            style={styles.input}
             value={payDay}
             onChangeText={setPayDay}
           />
 
           <View style={styles.modalActions}>
-            <TouchableOpacity onPress={() => {
+            <TouchableOpacity
+              onPress={() => {
                 setRecurringModalVisible(false);
                 resetForm();
-            }}>
-              <Text
-                style={[styles.cancelText, { color: colors.textSecondary }]}
-              >
+              }}
+            >
+              <Text style={styles.cancelText}>
                 Cancel
               </Text>
             </TouchableOpacity>
@@ -917,175 +797,5 @@ const BudgetScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-  },
-  headerTitle: { },
-  iconBtn: {
-    padding: 10,
-    borderRadius: 12,
-    elevation: 2,
-  },
-  walletCard: {
-    padding: 25,
-    borderRadius: 24,
-    marginBottom: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 15,
-    elevation: 10,
-    height: 180,
-    justifyContent: "space-between",
-  },
-  walletFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.2)",
-    paddingTop: 15,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 15 },
-  billChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 16,
-    marginRight: 10,
-    borderWidth: 1,
-    minWidth: 160,
-  },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 10,
-  },
-  billName: { fontWeight: "bold", fontSize: 14 },
-  billDetail: { fontSize: 11 },
-  categoryRow: {
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-  },
-  catName: { fontSize: 15, fontWeight: "600" },
-  catVal: { fontSize: 12 },
-  progressBarBg: { height: 6, borderRadius: 3, overflow: "hidden" },
-  progressBarFill: { height: "100%", borderRadius: 3 },
-  txRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-  },
-  txIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  txDesc: { fontSize: 15, fontWeight: "600" },
-  txDate: { fontSize: 12, marginTop: 2 },
-  dockContainer: {
-    position: "absolute",
-    alignSelf: "center",
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 30,
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-    gap: 15,
-  },
-  dockItem: { alignItems: "center", width: 60 },
-  dockIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  dockLabel: { fontSize: 10, fontWeight: "600" },
-  divider: {
-    width: 1,
-    height: "80%",
-    backgroundColor: "#eee",
-    alignSelf: "center",
-  },
-  bottomModal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  bottomModalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 25,
-    paddingBottom: 40,
-    borderWidth: 1,
-  },
-  dragHandleContainer: {
-    alignItems: "center",
-    marginBottom: 15,
-    marginTop: -10,
-  },
-  dragHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 10,
-    opacity: 0.5,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 5,
-    textAlign: "center",
-  },
-  modalSub: { textAlign: "center", marginBottom: 20, fontSize: 13 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  catSelectRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
-  },
-  catChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: 20,
-    marginTop: 10,
-  },
-  saveBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
-  saveBtnText: { color: "#fff", fontWeight: "bold" },
-  cancelText: { fontWeight: "600" },
-});
 
 export default BudgetScreen;

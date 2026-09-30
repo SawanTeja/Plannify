@@ -1,0 +1,220 @@
+import { StyleSheet } from "react-native";
+
+export default (colors) =>
+  StyleSheet.create({
+    modalStyle: {
+      margin: 0,
+      justifyContent: "flex-end",
+    },
+    sheetContainer: {
+      height: "92%",
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      overflow: "hidden",
+      backgroundColor: colors.background,
+    },
+    dragHandleContainer: {
+      alignItems: "center",
+      paddingVertical: 10,
+    },
+    dragHandle: {
+      width: 40,
+      height: 5,
+      borderRadius: 10,
+      opacity: 0.5,
+      backgroundColor: colors.border,
+    },
+    header: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingHorizontal: 20,
+      paddingBottom: 15,
+      borderBottomWidth: 1,
+      backgroundColor: colors.background,
+      borderBottomColor: colors.border,
+    },
+    headerBtn: {
+      padding: 5,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: colors.textPrimary,
+    },
+    cancelText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    saveText: {
+      fontSize: 16,
+      fontWeight: "bold",
+      color: colors.primary,
+    },
+    content: {
+      padding: 20,
+      paddingBottom: 50,
+    },
+    topicInput: {
+      fontSize: 24,
+      fontWeight: "bold",
+      marginBottom: 20,
+      color: colors.textPrimary,
+    },
+    locationContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      padding: 12,
+      borderRadius: 12,
+      marginBottom: 20,
+      backgroundColor: colors.surfaceHighlight,
+    },
+    locationInput: {
+      flex: 1,
+      marginLeft: 10,
+      fontSize: 14,
+      fontWeight: "500",
+      color: colors.textPrimary,
+    },
+    sectionLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      marginBottom: 10,
+      color: colors.textSecondary,
+    },
+    moodRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 25,
+    },
+    moodItem: {
+      padding: 10,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    moodItemEmoji: {
+      fontSize: 28,
+    },
+    moodItemSelected: {
+      backgroundColor: colors.surfaceHighlight,
+      borderColor: colors.primary,
+    },
+    tagSection: {
+      marginBottom: 25,
+    },
+    tagChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      marginRight: 8,
+      borderWidth: 1,
+    },
+    tagChipAdd: {
+      borderColor: colors.primary,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      backgroundColor: "transparent",
+    },
+    tagChipAddText: {
+      color: colors.primary,
+      fontSize: 12,
+      fontWeight: "bold",
+      marginLeft: 4,
+    },
+    tagChipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    tagChipInactive: {
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    tagText: {
+      fontSize: 12,
+      fontWeight: "600",
+    },
+    tagTextActive: {
+      color: colors.white,
+    },
+    tagTextInactive: {
+      color: colors.textSecondary,
+    },
+    newTagRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 10,
+    },
+    smallInput: {
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      width: 150,
+      backgroundColor: colors.surface,
+      color: colors.textPrimary,
+      borderColor: colors.border,
+    },
+    addTagBtn: {
+      marginLeft: 10,
+    },
+    addTagBtnText: {
+      color: colors.primary,
+      fontWeight: "bold",
+    },
+    textInput: {
+      fontSize: 16,
+      minHeight: 150,
+      marginBottom: 20,
+      textAlignVertical: "top",
+      lineHeight: 24,
+      borderRadius: 12,
+      padding: 15,
+      backgroundColor: colors.surface,
+      color: colors.textPrimary,
+    },
+    mediaButtonsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: 10,
+      marginBottom: 20,
+    },
+    mediaBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      gap: 8,
+      backgroundColor: colors.surface,
+      borderColor: colors.border,
+    },
+    mediaBtnText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.textPrimary,
+    },
+    previewContainer: {
+      marginTop: 10,
+      borderRadius: 16,
+      overflow: "hidden",
+      position: "relative",
+    },
+    previewImage: {
+      width: "100%",
+      height: 300,
+      resizeMode: "contain",
+      backgroundColor: "#000",
+    },
+    removeImageBtn: {
+      position: "absolute",
+      top: 10,
+      right: 10,
+      backgroundColor: "rgba(255,255,255,0.8)",
+      borderRadius: 12,
+    },
+  });

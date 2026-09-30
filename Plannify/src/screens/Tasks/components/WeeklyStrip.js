@@ -1,24 +1,23 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import { AppContext } from "../../../context/AppContext";
+import { useThemedStyles } from "../../../hooks/useThemedStyles";
 import {
   getLocalDateString,
   getLocalToday,
   getDayName,
 } from "../../../utils/dateHelper";
+import { getStyles, ITEM_WIDTH } from "./WeeklyStrip.styles";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const ITEM_WIDTH = 60; // Fixed width for calculations
 
-const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
-  const { colors } = useContext(AppContext);
+const WeeklyStrip = ({ selectedDate, onSelectDate }) => {
+  const styles = useThemedStyles(getStyles);
   const [weekDates, setWeekDates] = useState([]);
   const scrollViewRef = useRef(null);
 
@@ -80,20 +79,6 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
           const dayNum = obj.getDate();
           const dayName = getDayName(obj);
 
-          // Dynamic Styles
-          const boxStyle = {
-            backgroundColor: isSelected ? colors.primary : colors.surface,
-            borderColor: isSelected ? colors.primary : colors.border,
-            borderWidth: isSelected ? 0 : 1,
-            // Match HabitCard shadow/elevation for unselected
-            shadowColor: isSelected ? colors.primary : colors.shadow,
-            elevation: isSelected ? 8 : 3,
-            shadowOpacity: isSelected ? 0.4 : 0.15,
-          };
-
-          const nameColor = isSelected ? colors.white : colors.textSecondary;
-          const numColor = isSelected ? colors.white : colors.textPrimary;
-
           return (
             <TouchableOpacity
               key={index}
@@ -101,20 +86,29 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
               activeOpacity={0.7}
               style={[
                 styles.dateBox,
-                boxStyle,
                 isSelected && styles.selectedBox,
               ]}
             >
-              <Text style={[styles.dayName, { color: nameColor }]}>
+              <Text
+                style={[
+                  styles.dayName,
+                  isSelected && styles.dayNameSelected,
+                ]}
+              >
                 {dayName}
               </Text>
-              <Text style={[styles.dayNum, { color: numColor }]}>{dayNum}</Text>
+              <Text
+                style={[
+                  styles.dayNum,
+                  isSelected && styles.dayNumSelected,
+                ]}
+              >
+                {dayNum}
+              </Text>
 
               {/* Dot for Today */}
               {isToday(dateStr) && !isSelected && (
-                <View
-                  style={[styles.todayDot, { backgroundColor: colors.primary }]}
-                />
+                <View style={styles.todayDot} />
               )}
             </TouchableOpacity>
           );
@@ -123,43 +117,5 @@ const WeeklyStrip = ({ selectedDate, onSelectDate, isDark }) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-    height: 80,
-  },
-  dateBox: {
-    width: ITEM_WIDTH - 10, // Slight gap
-    height: 75,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 25, // Capsule shape
-    marginRight: 10,
-    // Base shadow properties for 3D effect
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-  },
-  selectedBox: {
-    // Enhanced Glow Effect for selected
-    transform: [{ scale: 1.05 }], // Pop up slightly
-  },
-  dayName: {
-    fontSize: 11,
-    marginBottom: 4,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  dayNum: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  todayDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 4,
-  },
-});
 
 export default WeeklyStrip;

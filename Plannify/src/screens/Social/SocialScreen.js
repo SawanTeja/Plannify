@@ -10,7 +10,6 @@ import {
   ScrollView,
   Share,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -22,9 +21,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppContext } from "../../context/AppContext";
 import { useAlert } from "../../context/AlertContext";
 import { EmptyState, FloatingActionButton } from "../../components/common";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
 import { SocialService } from "../../services/SocialService";
 import { getData, storeData } from "../../utils/storageHelper";
 import SocialPostModal from "./SocialPostModal";
+import getStyles from "./SocialScreen.styles";
 
 // Enable Layout Animation
 if (
@@ -38,6 +39,7 @@ const SocialScreen = () => {
   const { colors, theme, user, lastRefreshed, appStyles } = useContext(AppContext);
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(getStyles);
   const tabBarHeight = insets.bottom + 60;
 
   // State
@@ -484,32 +486,6 @@ const SocialScreen = () => {
     return Object.entries(grouped).map(([emoji, count]) => ({ emoji, count: count.length }));
   };
 
-  // --- DYNAMIC STYLES ---
-  const dynamicStyles = {
-    container: { 
-      backgroundColor: colors.background,
-      paddingTop: insets.top + 10,
-    },
-    headerText: { color: colors.textPrimary },
-    subText: { color: colors.textSecondary },
-    card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderWidth: 1,
-      shadowColor: colors.shadow,
-    },
-    chipActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    chipInactive: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    fab: { backgroundColor: colors.primary, shadowColor: colors.primary },
-    modalContent: { backgroundColor: colors.surface },
-  };
-
   // --- RENDERERS ---
   const renderGroupChip = (group) => {
     const isActive = selectedGroup?._id === group._id;
@@ -524,15 +500,14 @@ const SocialScreen = () => {
         }}
         style={[
           styles.groupChip,
-          isActive ? dynamicStyles.chipActive : dynamicStyles.chipInactive,
+          isActive && styles.groupChipActive,
         ]}
       >
         <Text
-          style={{
-            fontSize: 12,
-            fontWeight: "600",
-            color: isActive ? colors.white : colors.textSecondary,
-          }}
+          style={[
+            styles.groupChipText,
+            isActive && styles.groupChipTextActive,
+          ]}
         >
           {group.name}
         </Text>
@@ -550,7 +525,7 @@ const SocialScreen = () => {
       onPress={() => setDetailPost(item)}
       onLongPress={() => item.isOwn && handleDeletePost(item._id)}
       activeOpacity={0.9}
-      style={[styles.card, dynamicStyles.card]}
+      style={styles.card}
     >
       <View style={styles.authorRow}>
         {item.authorAvatar ? (
@@ -563,10 +538,10 @@ const SocialScreen = () => {
           </View>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={[styles.authorName, dynamicStyles.headerText]}>
+          <Text style={styles.authorName}>
             {item.authorName || "Unknown"}
           </Text>
-          <Text style={[styles.dateText, dynamicStyles.subText]}>{item.date}</Text>
+          <Text style={styles.dateText}>{item.date}</Text>
         </View>
         {item.isOwn && (
           <TouchableOpacity
@@ -587,14 +562,14 @@ const SocialScreen = () => {
 
       <View style={styles.postContent}>
         <View style={styles.rowBetween}>
-          <Text style={[styles.topicText, dynamicStyles.headerText]} numberOfLines={1}>
+          <Text style={styles.topicText} numberOfLines={1}>
             {item.topic || "Untitled"}
           </Text>
           {item.mood && <Text style={{ fontSize: 20 }}>{item.mood}</Text>}
         </View>
 
         {item.text && (
-          <Text style={[styles.textPreview, dynamicStyles.subText]} numberOfLines={3}>
+          <Text style={styles.textPreview} numberOfLines={3}>
             {item.text}
           </Text>
         )}
@@ -602,7 +577,7 @@ const SocialScreen = () => {
         {item.location && (
           <View style={styles.locationRow}>
             <MaterialCommunityIcons name="map-marker" size={12} color={colors.textSecondary} />
-            <Text style={[styles.locText, dynamicStyles.subText]} numberOfLines={1}>
+            <Text style={styles.locText} numberOfLines={1}>
               {item.location}
             </Text>
           </View>
@@ -636,7 +611,7 @@ const SocialScreen = () => {
               }}
             >
               <Text style={{ fontSize: 14 }}>{emoji}</Text>
-              <Text style={[styles.reactionCount, dynamicStyles.subText]}>{count}</Text>
+              <Text style={styles.reactionCount}>{count}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -676,7 +651,7 @@ const SocialScreen = () => {
       backdropOpacity={0.5}
       avoidKeyboard={true}
     >
-      <ScrollView style={[styles.modalContent, dynamicStyles.modalContent]}>
+      <ScrollView style={styles.modalContent}>
         <View style={styles.dragHandle} />
 
         {/* --- VIEW: CREATE GROUP --- */}
@@ -686,13 +661,13 @@ const SocialScreen = () => {
               <TouchableOpacity onPress={() => setModalMode("menu")} style={{ marginRight: 15 }}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={[styles.modalTitle, dynamicStyles.headerText, { marginBottom: 0 }]}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>
                 Create New Group
               </Text>
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, dynamicStyles.subText]}>GROUP NAME</Text>
+              <Text style={styles.sectionTitle}>GROUP NAME</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={{
@@ -734,13 +709,13 @@ const SocialScreen = () => {
               <TouchableOpacity onPress={() => setModalMode("menu")} style={{ marginRight: 15 }}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={[styles.modalTitle, dynamicStyles.headerText, { marginBottom: 0 }]}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>
                 Join Group
               </Text>
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, dynamicStyles.subText]}>INVITE CODE</Text>
+              <Text style={styles.sectionTitle}>INVITE CODE</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={{
@@ -782,20 +757,20 @@ const SocialScreen = () => {
         {/* --- VIEW: MENU / SETTINGS --- */}
         {modalMode === "menu" && (
           <View>
-            <Text style={[styles.modalTitle, dynamicStyles.headerText]}>Social Settings</Text>
+            <Text style={styles.modalTitle}>Social Settings</Text>
 
             {/* CURRENT GROUP INFO */}
             {selectedGroup ? (
               <>
                 <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, dynamicStyles.subText]}>CURRENT GROUP</Text>
+                  <Text style={styles.sectionTitle}>CURRENT GROUP</Text>
                   <View style={[styles.groupInfoCard, { backgroundColor: colors.surfaceHighlight }]}>
-                    <Text style={[styles.groupInfoName, dynamicStyles.headerText]}>
+                    <Text style={styles.groupInfoName}>
                       {selectedGroup.name}
                     </Text>
                     
                     <View style={styles.codeRow}>
-                      <Text style={dynamicStyles.subText}>Invite Code: </Text>
+                      <Text style={{ color: colors.textSecondary }}>Invite Code: </Text>
                       <Text style={[styles.inviteCode, { color: colors.primary }]}>
                         {selectedGroup.inviteCode}
                       </Text>
@@ -818,7 +793,7 @@ const SocialScreen = () => {
 
                      <TouchableOpacity onPress={handleShowMembers} style={styles.membersBtn}>
                       <MaterialCommunityIcons name="account-group" size={16} color={colors.textSecondary} />
-                      <Text style={dynamicStyles.subText}> {selectedGroup.memberCount} members</Text>
+                      <Text style={{ color: colors.textSecondary }}> {selectedGroup.memberCount} members</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -826,7 +801,7 @@ const SocialScreen = () => {
                 {/* OWNER ACTIONS */}
                 {selectedGroup.isOwner && (
                   <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, dynamicStyles.subText]}>OWNER ACTIONS</Text>
+                    <Text style={styles.sectionTitle}>OWNER ACTIONS</Text>
                     <View style={styles.inputRow}>
                       <TextInput
                         style={{
@@ -891,13 +866,13 @@ const SocialScreen = () => {
               </>
             ) : (
                <View style={{ alignItems: 'center', marginBottom: 20 }}>
-                  <Text style={dynamicStyles.subText}>No group selected</Text>
+                  <Text style={{ color: colors.textSecondary }}>No group selected</Text>
                </View>
             )}
 
             {/* NAVIGATION BUTTONS */}
             <View style={styles.section}>
-               <Text style={[styles.sectionTitle, dynamicStyles.subText]}>NEW ACTIONS</Text>
+               <Text style={styles.sectionTitle}>NEW ACTIONS</Text>
                <TouchableOpacity
                 style={[styles.actionBtn, { backgroundColor: colors.primary, marginBottom: 10 }]}
                 onPress={() => setModalMode("create")}
@@ -931,9 +906,9 @@ const SocialScreen = () => {
       style={styles.modal}
       backdropOpacity={0.5}
     >
-      <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+      <View style={styles.modalContent}>
         <View style={styles.dragHandle} />
-        <Text style={[styles.modalTitle, dynamicStyles.headerText]}>Group Members</Text>
+        <Text style={styles.modalTitle}>Group Members</Text>
 
         <FlatList
           data={groupMembers}
@@ -950,8 +925,8 @@ const SocialScreen = () => {
                 </View>
               )}
               <View style={{ flex: 1 }}>
-                <Text style={[styles.memberName, dynamicStyles.headerText]}>{item.name}</Text>
-                <Text style={dynamicStyles.subText}>{item.email}</Text>
+                <Text style={styles.memberName}>{item.name}</Text>
+                <Text style={{ color: colors.textSecondary }}>{item.email}</Text>
               </View>
               {isGroupOwner && item._id !== user.user?.id && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -971,7 +946,7 @@ const SocialScreen = () => {
             </View>
           )}
           ListEmptyComponent={
-            <Text style={[styles.emptySubtitle, dynamicStyles.subText]}>No members found</Text>
+            <Text style={styles.emptySubtitle}>No members found</Text>
           }
         />
       </View>
@@ -990,7 +965,7 @@ const SocialScreen = () => {
       propagateSwipe
     >
       {detailPost && (
-        <View style={[styles.detailCard, dynamicStyles.modalContent]}>
+        <View style={styles.detailCard}>
           <View style={styles.dragHandle} />
           
           <ScrollView>
@@ -1006,10 +981,10 @@ const SocialScreen = () => {
                 </View>
               )}
               <View>
-                <Text style={[styles.authorName, dynamicStyles.headerText]}>
+                <Text style={styles.authorName}>
                   {detailPost.authorName}
                 </Text>
-                <Text style={dynamicStyles.subText}>{detailPost.date}</Text>
+                <Text style={styles.dateText}>{detailPost.date}</Text>
               </View>
             </View>
 
@@ -1021,7 +996,7 @@ const SocialScreen = () => {
 
             <View style={styles.detailBody}>
               <View style={styles.rowBetween}>
-                <Text style={[styles.detailTitle, dynamicStyles.headerText]}>
+                <Text style={styles.detailTitle}>
                   {detailPost.topic}
                 </Text>
                 {detailPost.mood && <Text style={{ fontSize: 28 }}>{detailPost.mood}</Text>}
@@ -1030,7 +1005,7 @@ const SocialScreen = () => {
               {detailPost.location && (
                 <View style={styles.locationRow}>
                   <MaterialCommunityIcons name="map-marker" size={16} color={colors.primary} />
-                  <Text style={dynamicStyles.subText}> {detailPost.location}</Text>
+                  <Text style={{ color: colors.textSecondary }}> {detailPost.location}</Text>
                 </View>
               )}
 
@@ -1047,7 +1022,7 @@ const SocialScreen = () => {
                 </View>
               )}
 
-              <Text style={[styles.detailText, dynamicStyles.headerText]}>
+              <Text style={styles.detailText}>
                 {detailPost.text}
               </Text>
             </View>
@@ -1080,12 +1055,12 @@ const SocialScreen = () => {
   // --- NOT LOGGED IN STATE ---
   if (!user) {
     return (
-      <View style={[styles.container, dynamicStyles.container, styles.centerContent]}>
+      <View style={[styles.container, styles.centerContent, { paddingTop: insets.top + 10 }]}>
         <MaterialCommunityIcons name="account-group" size={60} color={colors.textMuted} />
-        <Text style={[styles.emptyTitle, dynamicStyles.subText]}>
+        <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>
           Log in to use Social
         </Text>
-        <Text style={[styles.emptySubtitle, dynamicStyles.subText]}>
+        <Text style={styles.emptySubtitle}>
           Share memories with friends and family
         </Text>
       </View>
@@ -1095,19 +1070,19 @@ const SocialScreen = () => {
   // --- NO GROUPS STATE ---
   if (groups.length === 0 && !isLoading) {
     return (
-      <View style={[styles.container, dynamicStyles.container]}>
+      <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
         <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} />
         
         <View style={styles.headerRow}>
-          <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>Social</Text>
+          <Text style={[styles.headerTitle, appStyles.headerTitleStyle]}>Social</Text>
         </View>
 
         <View style={styles.centerContent}>
           <MaterialCommunityIcons name="account-group-outline" size={60} color={colors.textMuted} />
-          <Text style={[styles.emptyTitle, dynamicStyles.headerText]}>
+          <Text style={styles.emptyTitle}>
             No groups yet
           </Text>
-          <Text style={[styles.emptySubtitle, dynamicStyles.subText]}>
+          <Text style={styles.emptySubtitle}>
             Create a group or join one with an invite code
           </Text>
 
@@ -1143,12 +1118,12 @@ const SocialScreen = () => {
 
   // --- MAIN RENDER ---
   return (
-    <View style={[styles.container, dynamicStyles.container]}>
+    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} />
 
       {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={[styles.headerTitle, dynamicStyles.headerText, appStyles.headerTitleStyle]}>Social</Text>
+        <Text style={[styles.headerTitle, appStyles.headerTitleStyle]}>Social</Text>
         <TouchableOpacity onPress={() => {
           setModalMode("menu");
           setShowGroupModal(true);
@@ -1258,392 +1233,5 @@ const SocialScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 15,
-  },
-  headerTitle: {
-  },
-  groupSelector: {
-    marginBottom: 15,
-    paddingLeft: 20,
-  },
-  groupChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 10,
-    borderWidth: 1,
-  },
-  addGroupChip: {
-    paddingHorizontal: 12,
-  },
-  memberBadge: {
-    marginLeft: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  card: {
-    borderRadius: 16,
-    marginBottom: 15,
-    overflow: "hidden",
-  },
-  authorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-  },
-  authorAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  authorName: {
-    fontWeight: "600",
-    fontSize: 14,
-  },
-  dateText: {
-    fontSize: 11,
-  },
-  editBtn: {
-    padding: 6,
-  },
-  postImage: {
-    width: "100%",
-    height: 200,
-  },
-  postContent: {
-    padding: 12,
-  },
-  rowBetween: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  topicText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    flex: 1,
-    marginRight: 10,
-  },
-  textPreview: {
-    fontSize: 13,
-    marginTop: 6,
-    lineHeight: 18,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 8,
-  },
-  locText: {
-    fontSize: 11,
-    marginLeft: 4,
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 8,
-  },
-  miniTag: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  tagBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 6,
-    marginTop: 6,
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    marginTop: 50,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 12,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    marginTop: 4,
-    textAlign: "center",
-  },
-  actionButtons: {
-    marginTop: 24,
-    gap: 12,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 8,
-  },
-  actionBtnText: {
-    color: "#FFF",
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  // Modal Styles
-  modal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingTop: 10,
-    maxHeight: "80%",
-  },
-  dragHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#888",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 15,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    fontSize: 15,
-  },
-  inputBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  groupInfoCard: {
-    padding: 15,
-    borderRadius: 12,
-  },
-  groupInfoName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  codeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  inviteCode: {
-    fontWeight: "bold",
-    fontSize: 16,
-    letterSpacing: 2,
-  },
-  membersBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  memberRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(128,128,128,0.2)",
-  },
-  memberAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  memberName: {
-    fontWeight: "600",
-  },
-  // Detail Modal
-  detailModal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  detailCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "90%",
-    paddingTop: 10,
-  },
-  detailImage: {
-    width: "100%",
-    height: 300,
-  },
-  detailBody: {
-    padding: 20,
-  },
-  detailTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    flex: 1,
-  },
-  detailText: {
-    fontSize: 15,
-    lineHeight: 24,
-    marginTop: 15,
-  },
-  closeDetailBtn: {
-    position: "absolute",
-    top: 20,
-    right: 20,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  editDetailBtn: {
-    position: "absolute",
-    top: 20,
-    right: 65,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  // Reaction Styles
-  reactionBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-    paddingTop: 4,
-  },
-  reactionsLeft: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  reactionBubble: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  reactionCount: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  addReactionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  reactionPicker: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    marginHorizontal: 12,
-    marginBottom: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  emojiBtn: {
-    padding: 6,
-  },
-  // Group Settings Styles
-  settingsBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-  },
-  transferBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  shareInviteBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 12,
-  },
-  divider: {
-    height: 1,
-    marginVertical: 20,
-    marginHorizontal: -20,
-  },
-});
-
 export default SocialScreen;
+

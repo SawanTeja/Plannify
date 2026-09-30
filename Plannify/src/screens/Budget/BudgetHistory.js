@@ -4,7 +4,6 @@ import {
   FlatList,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -13,10 +12,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
 import { EmptyState } from "../../components/common";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
 import { getData } from "../../utils/storageHelper";
+import getStyles from "./BudgetHistory.styles";
 
 const BudgetHistory = () => {
   const { colors, theme } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
   const [history, setHistory] = useState([]);
   const [currency, setCurrency] = useState("$");
 
@@ -61,21 +63,6 @@ const BudgetHistory = () => {
     setDetailsVisible(true);
   };
 
-  // --- DYNAMIC STYLES ---
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    headerText: { color: colors.textPrimary },
-    subText: { color: colors.textSecondary },
-    card: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderWidth: 1,
-      shadowColor: colors.shadow,
-    },
-    modalContainer: { backgroundColor: colors.background },
-    txCard: { backgroundColor: colors.surface, borderColor: colors.border },
-  };
-
   const renderMonth = ({ item }) => {
     const isOver = item.totalSpent > item.totalBudget;
     const percentage = Math.min(
@@ -89,16 +76,15 @@ const BudgetHistory = () => {
         onPress={() => openDetails(item)}
         style={[
           styles.card,
-          dynamicStyles.card,
-          item.isCurrent && { borderColor: colors.primary, borderWidth: 1.5 },
+          item.isCurrent && styles.cardCurrent,
         ]}
       >
         <View style={styles.header}>
           <View>
-            <Text style={[styles.monthTitle, dynamicStyles.headerText]}>
+            <Text style={styles.monthTitle}>
               {item.month}
             </Text>
-            <Text style={[styles.subDate, dynamicStyles.subText]}>
+            <Text style={styles.subDate}>
               {item.transactions ? item.transactions.length : 0} Transactions
             </Text>
           </View>
@@ -125,60 +111,43 @@ const BudgetHistory = () => {
         </View>
 
         {/* Progress Bar Visual */}
-        <View style={{ marginTop: 15 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginBottom: 5,
-            }}
-          >
-            <Text style={{ fontSize: 12, color: colors.textSecondary }}>
+        <View style={styles.progressSection}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>
               Spent
             </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                color: colors.textPrimary,
-                fontWeight: "bold",
-              }}
-            >
+            <Text style={styles.progressPercent}>
               {Math.round(percentage)}%
             </Text>
           </View>
-          <View
-            style={{
-              height: 8,
-              backgroundColor: colors.background,
-              borderRadius: 4,
-              overflow: "hidden",
-            }}
-          >
+          <View style={styles.progressBarBg}>
             <View
-              style={{
-                height: "100%",
-                width: `${percentage}%`,
-                backgroundColor: isOver ? colors.danger : colors.primary,
-              }}
+              style={[
+                styles.progressBarFill,
+                {
+                  width: `${percentage}%`,
+                  backgroundColor: isOver ? colors.danger : colors.primary,
+                },
+              ]}
             />
           </View>
         </View>
 
-        <View style={[styles.stats, { borderTopColor: colors.border }]}>
-          <Text style={[styles.statText, dynamicStyles.subText]}>
+        <View style={styles.stats}>
+          <Text style={styles.statText}>
             Limit:{" "}
-            <Text style={{ fontWeight: "bold", color: colors.textPrimary }}>
+            <Text style={styles.statBold}>
               {currency}
               {item.totalBudget}
             </Text>
           </Text>
-          <Text style={[styles.statText, dynamicStyles.subText]}>
+          <Text style={styles.statText}>
             Spent:{" "}
             <Text
-              style={{
-                fontWeight: "bold",
-                color: isOver ? colors.danger : colors.textPrimary,
-              }}
+              style={[
+                styles.statBold,
+                { color: isOver ? colors.danger : colors.textPrimary },
+              ]}
             >
               {currency}
               {item.totalSpent}
@@ -187,9 +156,7 @@ const BudgetHistory = () => {
         </View>
 
         <View style={styles.miniLog}>
-          <Text
-            style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}
-          >
+          <Text style={styles.breakdownText}>
             View Breakdown →
           </Text>
         </View>
@@ -199,7 +166,7 @@ const BudgetHistory = () => {
 
   return (
     <SafeAreaView 
-      style={[styles.container, dynamicStyles.container]} 
+      style={styles.container} 
       edges={['left', 'right', 'bottom']}
     >
       <StatusBar
@@ -226,50 +193,45 @@ const BudgetHistory = () => {
       <Modal
         isVisible={detailsVisible}
         onSwipeComplete={() => setDetailsVisible(false)}
-        swipeDirection={["down"]} // Swipe DOWN to close
+        swipeDirection={["down"]}
         onBackdropPress={() => setDetailsVisible(false)}
         style={styles.detailModal}
         backdropOpacity={0.5}
-        propagateSwipe={true} // Allow scrolling inside
+        propagateSwipe={true}
       >
-        <View style={[styles.detailCard, dynamicStyles.modalContainer]}>
-          
+        <View style={styles.detailCard}>
           {/* Drag Handle */}
           <View style={styles.dragHandleContainer}>
-            <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
+            <View style={styles.dragHandle} />
           </View>
 
           {selectedMonth && (
             <>
               {/* Modal Header */}
-              <View
-                style={[
-                  styles.modalHeader,
-                  { borderBottomColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.modalTitle, dynamicStyles.headerText]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
                   {selectedMonth.month}
                 </Text>
                 <TouchableOpacity
                   onPress={() => setDetailsVisible(false)}
-                  style={[styles.closeBtn, { backgroundColor: colors.surface }]}
+                  style={styles.closeBtn}
                 >
                   <MaterialCommunityIcons
                     name="close"
-                    size={20}
-                    color={colors.textPrimary}
+                    size={24}
+                    color={colors.textSecondary}
                   />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView contentContainerStyle={{ padding: 20 }}>
-                {/* Summary Card */}
-                <View style={[styles.summaryBox, dynamicStyles.card]}>
-                  <Text style={[styles.statText, dynamicStyles.subText]}>
-                    Total Spent vs Limit
+              <ScrollView
+                contentContainerStyle={{ padding: 20, paddingBottom: 50 }}
+              >
+                {/* Summary Box */}
+                <View style={styles.summaryBox}>
+                  <Text style={styles.statText}>
+                    Total Spent
                   </Text>
-
                   <Text
                     style={[
                       styles.bigSpent,
@@ -277,27 +239,21 @@ const BudgetHistory = () => {
                         color:
                           selectedMonth.totalSpent > selectedMonth.totalBudget
                             ? colors.danger
-                            : colors.success,
+                            : colors.primary,
                       },
                     ]}
                   >
                     {currency}
                     {selectedMonth.totalSpent}
-                    <Text
-                      style={{
-                        fontSize: 16,
-                        color: colors.textSecondary,
-                        fontWeight: "normal",
-                      }}
-                    >
-                      {" "}
-                      / {currency}
-                      {selectedMonth.totalBudget}
-                    </Text>
+                  </Text>
+                  <Text style={[styles.subDate, { marginTop: 4 }]}>
+                    Budget Limit: {currency}
+                    {selectedMonth.totalBudget}
                   </Text>
                 </View>
 
-                <Text style={[styles.sectionHeader, dynamicStyles.subText]}>
+                {/* Transactions List */}
+                <Text style={styles.sectionHeader}>
                   Transaction History
                 </Text>
 
@@ -306,7 +262,7 @@ const BudgetHistory = () => {
                   selectedMonth.transactions.map((tx, index) => (
                     <View
                       key={index}
-                      style={[styles.txRow, dynamicStyles.txCard]}
+                      style={styles.txRow}
                     >
                       <View
                         style={{
@@ -341,12 +297,10 @@ const BudgetHistory = () => {
                           />
                         </View>
                         <View>
-                          <Text
-                            style={[styles.txDesc, dynamicStyles.headerText]}
-                          >
+                          <Text style={styles.txDesc}>
                             {tx.description || tx.desc}
                           </Text>
-                          <Text style={[styles.txDate, dynamicStyles.subText]}>
+                          <Text style={styles.txDate}>
                             {new Date(tx.date).toLocaleDateString()} • {tx.category || "General"}
                           </Text>
                         </View>
@@ -369,7 +323,7 @@ const BudgetHistory = () => {
                     </View>
                   ))
                 ) : (
-                  <Text style={[styles.empty, dynamicStyles.subText]}>
+                  <Text style={styles.empty}>
                     No transactions recorded.
                   </Text>
                 )}
@@ -381,103 +335,5 @@ const BudgetHistory = () => {
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  listContainer: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 10 },
-  card: { padding: 20, borderRadius: 24, marginBottom: 15 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  monthTitle: { fontSize: 18, fontWeight: "bold" },
-  subDate: { fontSize: 12, marginTop: 2 },
-  badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  badgeText: { fontWeight: "bold", fontSize: 11, textTransform: "uppercase" },
-  stats: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 15,
-    paddingTop: 15,
-    borderTopWidth: 1,
-  },
-  statText: { fontSize: 14 },
-  miniLog: { marginTop: 15, alignItems: "flex-end" },
-  emptyContainer: { alignItems: "center", marginTop: 50 },
-  empty: { textAlign: "center", marginTop: 10 },
-
-  // Modal Styles
-  modalContainer: { flex: 1 },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  closeBtn: { padding: 8, borderRadius: 20 },
-  modalTitle: { fontSize: 20, fontWeight: "bold" },
-  summaryBox: {
-    padding: 24,
-    borderRadius: 24,
-    alignItems: "center",
-    marginBottom: 25,
-    borderWidth: 1,
-  },
-  bigSpent: { fontSize: 32, fontWeight: "bold", marginTop: 5 },
-  sectionHeader: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 15,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-
-  txRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 10,
-    borderWidth: 1,
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  txDesc: { fontSize: 16, fontWeight: "600" },
-  txDate: { fontSize: 12, marginTop: 2 },
-  txAmount: { fontSize: 16, fontWeight: "bold" },
-  
-  // NEW: Swipeable Modal Styles
-  detailModal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  detailCard: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: "90%",
-    overflow: "hidden",
-    width: "100%",
-  },
-  dragHandleContainer: {
-    alignItems: "center",
-    paddingVertical: 10,
-    width: "100%",
-    backgroundColor: "transparent",
-  },
-  dragHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 10,
-    opacity: 0.5,
-  },
-});
 
 export default BudgetHistory;

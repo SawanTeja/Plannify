@@ -2,7 +2,6 @@ import React, { useContext, useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     TouchableOpacity,
     ScrollView,
     TextInput,
@@ -14,14 +13,17 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { SplitService } from '../../services/SplitService';
 import { EmptyState } from '../../components/common';
+import getStyles from './SplitFundDashboard.styles';
 
 const SplitFundDashboard = () => {
     const { colors, userData, user, lastRefreshed, appStyles, isPremium } = useContext(AppContext);
     const { showAlert } = useAlert();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+    const styles = useThemedStyles(getStyles);
     
     const [groups, setGroups] = useState([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -146,20 +148,11 @@ const SplitFundDashboard = () => {
         }
     };
 
-    const dynamicStyles = {
-        container: { backgroundColor: colors.background },
-        text: { color: colors.textPrimary },
-        subText: { color: colors.textSecondary },
-        card: { backgroundColor: colors.surface, borderColor: colors.border },
-        input: { backgroundColor: colors.background, color: colors.textPrimary, borderColor: colors.border },
-        modalContent: { backgroundColor: colors.surface, borderColor: colors.border },
-    };
-
     return (
-        <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top + 10 }]}>
+        <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
             <View style={styles.header}>
-                <Text style={[styles.title, dynamicStyles.text, appStyles.headerTitleStyle]}>SplitFund</Text>
-                <View style={{ flexDirection: 'row', gap: 15 }}>
+                <Text style={[styles.title, appStyles.headerTitleStyle]}>SplitFund</Text>
+                <View style={styles.headerActions}>
                      <TouchableOpacity onPress={() => setJoinModalVisible(true)}>
                         <MaterialCommunityIcons name="account-plus-outline" size={28} color={colors.primary} />
                     </TouchableOpacity>
@@ -173,7 +166,7 @@ const SplitFundDashboard = () => {
                 contentContainerStyle={styles.content}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadData(true)} tintColor={colors.primary} />}
             >
-                <Text style={[styles.sectionTitle, dynamicStyles.text]}>Your Groups</Text>
+                <Text style={styles.sectionTitle}>Your Groups</Text>
                 {groups.length === 0 ? (
                     <EmptyState
                         icon="account-group-outline"
@@ -186,19 +179,19 @@ const SplitFundDashboard = () => {
                     groups.map(g => (
                         <TouchableOpacity 
                             key={g._id || g.id} 
-                            style={[styles.groupCard, dynamicStyles.card]}
+                            style={styles.groupCard}
                             onPress={() => navigation.navigate('GroupDetails', { groupId: g._id || g.id, groupName: g.name })}
                         >
                             <View style={styles.groupIconBg}>
                                 <MaterialCommunityIcons name="account-group" size={24} color={colors.white} />
                             </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.groupName, dynamicStyles.text]}>{g.name}</Text>
-                                <Text style={[styles.groupMembers, dynamicStyles.subText]}>
+                            <View style={styles.groupInfo}>
+                                <Text style={styles.groupName}>{g.name}</Text>
+                                <Text style={styles.groupMembers}>
                                     {g.members?.length || 0} members {g.isOffline ? '• Offline' : ''}
                                 </Text>
                             </View>
-                            {g.isOffline && <MaterialCommunityIcons name="wifi-off" size={20} color={colors.textMuted} style={{ marginRight: 5 }} />}
+                            {g.isOffline && <MaterialCommunityIcons name="wifi-off" size={20} color={colors.textMuted} style={styles.offlineIcon} />}
                             <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textMuted} />
                         </TouchableOpacity>
                     ))
@@ -207,18 +200,18 @@ const SplitFundDashboard = () => {
 
             {/* CREATE GROUP MODAL */}
             <Modal isVisible={createModalVisible} onBackdropPress={() => setCreateModalVisible(false)} avoidKeyboard>
-                <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-                    <Text style={[styles.modalTitle, dynamicStyles.text]}>Create New Group</Text>
+                <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Create New Group</Text>
                     <TextInput 
                         placeholder="Group Name (e.g. Trip to Goa)" 
                         placeholderTextColor={colors.textMuted}
-                        style={[styles.input, dynamicStyles.input]}
+                        style={styles.input}
                         value={newGroupName}
                         onChangeText={setNewGroupName}
                     />
                     
                     <TouchableOpacity 
-                        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}
+                        style={styles.checkboxRow}
                         onPress={() => setIsOfflineGroup(!isOfflineGroup)}
                     >
                         <MaterialCommunityIcons 
@@ -226,10 +219,10 @@ const SplitFundDashboard = () => {
                             size={24} 
                             color={colors.primary} 
                         />
-                        <Text style={[dynamicStyles.text, { marginLeft: 10 }]}>Offline Group (Local only)</Text>
+                        <Text style={styles.checkboxText}>Offline Group (Local only)</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleCreateGroup}>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleCreateGroup}>
                         <Text style={styles.saveBtnText}>Create Group</Text>
                     </TouchableOpacity>
                 </View>
@@ -237,17 +230,17 @@ const SplitFundDashboard = () => {
 
             {/* JOIN GROUP MODAL */}
             <Modal isVisible={joinModalVisible} onBackdropPress={() => setJoinModalVisible(false)} avoidKeyboard>
-                <View style={[styles.modalContent, dynamicStyles.modalContent]}>
-                    <Text style={[styles.modalTitle, dynamicStyles.text]}>Join Group</Text>
+                <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Join Group</Text>
                     <TextInput 
                         placeholder="Enter Group Code" 
                         placeholderTextColor={colors.textMuted}
-                        style={[styles.input, dynamicStyles.input]}
+                        style={styles.input}
                         value={joinCode}
                         onChangeText={setJoinCode}
                         autoCapitalize="characters"
                     />
-                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleJoinGroup}>
+                    <TouchableOpacity style={styles.saveBtn} onPress={handleJoinGroup}>
                         <Text style={styles.saveBtnText}>Join Group</Text>
                     </TouchableOpacity>
                 </View>
@@ -255,25 +248,5 @@ const SplitFundDashboard = () => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
-    title: { fontSize: 28, fontWeight: 'bold' },
-    content: { paddingHorizontal: 20, paddingBottom: 100 },
-    sectionTitle: { fontSize: 18, fontWeight: '700', marginBottom: 15 },
-    emptyState: { alignItems: 'center', marginTop: 40, opacity: 0.7 },
-    emptyText: { marginTop: 10, textAlign: 'center' },
-    groupCard: { padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 15 },
-    groupIconBg: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#6366f1', alignItems: 'center', justifyContent: 'center' },
-    groupName: { fontSize: 16, fontWeight: 'bold' },
-    groupMembers: { fontSize: 12, marginTop: 2 },
-    
-    modalContent: { padding: 20, borderRadius: 20, borderWidth: 1 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
-    input: { height: 50, borderRadius: 12, borderWidth: 1, paddingHorizontal: 15, fontSize: 16, marginBottom: 20 },
-    saveBtn: { height: 50, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-    saveBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-});
 
 export default SplitFundDashboard;

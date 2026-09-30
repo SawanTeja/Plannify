@@ -3,7 +3,6 @@ import Modal from 'react-native-modal';
 import {
     View,
     Text,
-    StyleSheet,
     TouchableOpacity,
     RefreshControl,
     Clipboard,
@@ -15,10 +14,12 @@ import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
 import { SplitService } from '../../services/SplitService';
 import { simplifyDebts } from '../../utils/SplitLogic';
 import { formatCurrency } from '../../utils/formatters';
 import { FloatingActionButton } from '../../components/common';
+import getStyles from './GroupScreen.styles';
 
 const GroupScreen = ({ route }) => {
     const { colors, user } = useContext(AppContext);
@@ -26,6 +27,7 @@ const GroupScreen = ({ route }) => {
     const { groupId, groupName } = route.params;
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+    const styles = useThemedStyles(getStyles);
     const tabBarHeight = insets.bottom + 60;
     
     const [expenses, setExpenses] = useState([]);
@@ -182,13 +184,6 @@ const GroupScreen = ({ route }) => {
     // Helper to format currency
     const formatMoney = (amount) => formatCurrency(amount, colors.currency, { absolute: true });
 
-    const dynamicStyles = {
-        container: { backgroundColor: colors.background },
-        text: { color: colors.textPrimary },
-        subText: { color: colors.textSecondary },
-        card: { backgroundColor: colors.surface, borderColor: colors.border },
-    };
-
     // Derived Data
     const regularExpenses = expenses.filter(item => item.type !== 'payment' && item.splitType !== 'Payment');
     const settlementExpenses = expenses.filter(item => item.type === 'payment' || item.splitType === 'Payment');
@@ -247,13 +242,13 @@ const GroupScreen = ({ route }) => {
     };
 
     return (
-        <View style={[styles.container, dynamicStyles.container]}>
+        <View style={styles.container}>
             {/* HEADEr */}
             {group && (
-                <View style={[styles.headerCard, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+                <View style={styles.headerCard}>
                     <View style={{ marginBottom: 15 }}>
                         {!group.isOffline && (
-                            <Text style={[styles.groupCode, { color: colors.textSecondary, fontSize: 11, marginBottom: 10 }]}>
+                            <Text style={styles.groupCode}>
                                 Invite Code: {group.inviteCode}
                             </Text>
                         )}
@@ -261,27 +256,27 @@ const GroupScreen = ({ route }) => {
                     
                     <View style={styles.actionRow}>
                         <TouchableOpacity 
-                            style={[styles.actionBtn, { borderColor: colors.border }]}
+                            style={styles.actionBtn}
                             onPress={() => navigation.navigate('SettleUp', { groupId, balances, members: group.members })}
                         >
                             <MaterialCommunityIcons name="handshake" size={20} color={colors.textPrimary} />
-                            <Text style={[styles.btnText, dynamicStyles.text]}>Settle Up</Text>
+                            <Text style={styles.btnText}>Settle Up</Text>
                         </TouchableOpacity>
 
                          <TouchableOpacity 
-                            style={[styles.actionBtn, { borderColor: colors.border }]}
+                            style={styles.actionBtn}
                             onPress={() => setSpendingsModalVisible(true)}
                         >
                             <MaterialCommunityIcons name="format-list-bulleted" size={20} color={colors.textPrimary} />
-                            <Text style={[styles.btnText, dynamicStyles.text]}>Spendings</Text>
+                            <Text style={styles.btnText}>Spendings</Text>
                         </TouchableOpacity>
                         
                         <TouchableOpacity 
-                            style={[styles.actionBtn, { borderColor: colors.border }]}
+                            style={styles.actionBtn}
                             onPress={() => setHistoryModalVisible(true)}
                         >
                             <MaterialCommunityIcons name="history" size={20} color={colors.textPrimary} />
-                            <Text style={[styles.btnText, dynamicStyles.text]}>Settlement Log</Text>
+                            <Text style={styles.btnText}>Settlement Log</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -289,15 +284,15 @@ const GroupScreen = ({ route }) => {
 
             {/* DEBT GRAPH (Who owes Whom) */}
             <ScrollView 
-                contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+                contentContainerStyle={styles.scrollContent}
                 refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={loadGroupData} tintColor={colors.primary} />}
             >
-                <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Overview</Text>
+                <Text style={styles.sectionHeader}>Overview</Text>
                 
                 {simplifiedDebts.length === 0 ? (
-                    <View style={{ alignItems: 'center', marginTop: 30 }}>
+                    <View style={styles.emptyOverview}>
                          <MaterialCommunityIcons name="check-circle-outline" size={48} color={colors.success} />
-                         <Text style={{ color: colors.textMuted, marginTop: 10 }}>Everyone is settled up!</Text>
+                         <Text style={styles.emptyOverviewText}>Everyone is settled up!</Text>
                     </View>
                 ) : (
                     simplifiedDebts.map((debt, index) => {
@@ -306,23 +301,23 @@ const GroupScreen = ({ route }) => {
                         const isMeInvolved = fromName === 'You' || toName === 'You';
                         
                         return (
-                            <View key={index} style={[styles.debtCard, dynamicStyles.card, isMeInvolved ? {borderColor: colors.primary, borderWidth: 1} : {}]}>
-                                <View style={{flexDirection:'row', alignItems:'center'}}>
-                                    <View style={[styles.avatar, {backgroundColor: colors.danger+'20'}]}>
+                            <View key={index} style={[styles.debtCard, isMeInvolved && styles.debtCardInvolved]}>
+                                <View style={styles.debtMemberRow}>
+                                    <View style={[styles.avatar, styles.avatarDanger]}>
                                         <Text style={{color: colors.danger, fontWeight:'bold'}}>{fromName[0]}</Text>
                                     </View>
-                                    <Text style={[dynamicStyles.text, {marginHorizontal: 10, fontWeight:'600'}]}>{fromName}</Text>
+                                    <Text style={styles.debtMemberName}>{fromName}</Text>
                                 </View>
                                 
-                                <View style={{alignItems:'center'}}>
-                                    <Text style={{fontSize: 10, color: colors.textSecondary}}>sends</Text>
+                                <View style={styles.debtCenter}>
+                                    <Text style={styles.debtSendsText}>sends</Text>
                                     <MaterialCommunityIcons name="arrow-right" size={16} color={colors.textSecondary} />
-                                    <Text style={{fontWeight:'bold', color: colors.primary}}>{formatMoney(debt.amount)}</Text>
+                                    <Text style={styles.debtAmount}>{formatMoney(debt.amount)}</Text>
                                 </View>
 
-                                <View style={{flexDirection:'row', alignItems:'center'}}>
-                                    <Text style={[dynamicStyles.text, {marginHorizontal: 10, fontWeight:'600'}]}>{toName}</Text>
-                                    <View style={[styles.avatar, {backgroundColor: colors.success+'20'}]}>
+                                <View style={styles.debtMemberRow}>
+                                    <Text style={styles.debtMemberName}>{toName}</Text>
+                                    <View style={[styles.avatar, styles.avatarSuccess]}>
                                         <Text style={{color: colors.success, fontWeight:'bold'}}>{toName[0]}</Text>
                                     </View>
                                 </View>
@@ -333,20 +328,20 @@ const GroupScreen = ({ route }) => {
 
                 <TouchableOpacity 
                     onPress={() => setAddMemberModalVisible(true)}
-                    style={[styles.bigAddMemberBtn, { backgroundColor: colors.surfaceHighlight || '#f0f0f0', marginTop: 30 }]}
+                    style={styles.bigAddMemberBtn}
                 >
                         <MaterialCommunityIcons name="account-plus" size={24} color={colors.textPrimary} />
-                        <Text style={[styles.bigAddMemberText, { color: colors.textPrimary }]}>
+                        <Text style={styles.bigAddMemberText}>
                             Add Member
                         </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                     onPress={confirmDeleteGroup}
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, marginTop: 10, marginBottom: 20 }}
+                    style={styles.deleteGroupBtn}
                 >
                     <MaterialCommunityIcons name="trash-can-outline" size={20} color={colors.danger} style={{ marginRight: 8 }} />
-                    <Text style={{ color: colors.danger, fontWeight: 'bold' }}>Delete Group</Text>
+                    <Text style={styles.deleteGroupText}>Delete Group</Text>
                 </TouchableOpacity>
             </ScrollView>
 
@@ -358,40 +353,40 @@ const GroupScreen = ({ route }) => {
 
             {/* ADD MEMBER MODAL (OFFLINE ONLY) */}
             <Modal isVisible={addMemberModalVisible} onBackdropPress={() => setAddMemberModalVisible(false)} avoidKeyboard>
-                <View style={[styles.modalContent, dynamicStyles.card, { padding: 20, borderRadius: 15 }]}>
-                    <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }]}>Add Member</Text>
+                <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>Add Member</Text>
                     <TextInput 
                         placeholder="Member Name"
                         placeholderTextColor={colors.textMuted}
-                        style={{ height: 50, borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingHorizontal: 10, color: colors.textPrimary, marginBottom: 15 }}
+                        style={styles.input}
                         value={newMemberName}
                         onChangeText={setNewMemberName}
                     />
-                    <TouchableOpacity style={{ backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center' }} onPress={handleAddMember}>
-                        <Text style={{ color: 'white', fontWeight: 'bold' }}>Add Member</Text>
+                    <TouchableOpacity style={styles.modalSaveBtn} onPress={handleAddMember}>
+                        <Text style={styles.modalSaveBtnText}>Add Member</Text>
                     </TouchableOpacity>
                 </View>
             </Modal>
 
             {/* MEMBERS MODAL */}
             <Modal isVisible={membersModalVisible} onBackdropPress={() => setMembersModalVisible(false)} avoidKeyboard>
-                <View style={[styles.modalContent, dynamicStyles.card, { padding: 20, borderRadius: 15 }]}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <Text style={[dynamicStyles.text, { fontSize: 18, fontWeight: 'bold' }]}>Group Members</Text>
+                <View style={styles.modalContent}>
+                    <View style={styles.modalHeaderRow}>
+                        <Text style={styles.modalTitleLeft}>Group Members</Text>
                         <TouchableOpacity onPress={() => setMembersModalVisible(false)}>
                             <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
-                    <ScrollView style={{maxHeight: 400}}>
+                    <ScrollView style={styles.memberList}>
                         {group?.members?.map((member, index) => {
                             const isMe = String(member._id || member.id) === String(user?.user?._id || user?.user?.id);
                             return (
-                                <View key={index} style={{flexDirection: 'row', alignItems:'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: colors.border}}>
-                                    <View style={{flexDirection: 'row', alignItems:'center'}}>
-                                        <View style={[styles.avatar, {backgroundColor: colors.primary+'20', marginRight: 15}]}>
+                                <View key={index} style={styles.memberRow}>
+                                    <View style={styles.debtMemberRow}>
+                                        <View style={[styles.avatar, styles.avatarPrimary, { marginRight: 15 }]}>
                                             <Text style={{color: colors.primary, fontWeight:'bold'}}>{(member.name || '?')[0]}</Text>
                                         </View>
-                                        <Text style={[dynamicStyles.text, {fontSize: 16, fontWeight: '500'}]}>
+                                        <Text style={styles.memberNameText}>
                                             {member.name || 'Unknown'} {isMe && '(You)'}
                                         </Text>
                                     </View>
@@ -408,10 +403,10 @@ const GroupScreen = ({ route }) => {
             </Modal>
 
             {/* SPENDINGS MODAL */}
-             <Modal isVisible={spendingsModalVisible} onBackdropPress={() => setSpendingsModalVisible(false)} style={{ margin: 0, justifyContent: 'flex-end' }}>
-                <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '60%', padding: 20 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <Text style={[dynamicStyles.text, { fontSize: 20, fontWeight: 'bold' }]}>Total Spending</Text>
+             <Modal isVisible={spendingsModalVisible} onBackdropPress={() => setSpendingsModalVisible(false)} style={styles.bottomModal}>
+                <View style={styles.spendingSheet}>
+                    <View style={styles.modalHeaderRow}>
+                        <Text style={styles.modalTitleLarge}>Total Spending</Text>
                         <TouchableOpacity onPress={() => setSpendingsModalVisible(false)}>
                             <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
@@ -419,14 +414,14 @@ const GroupScreen = ({ route }) => {
                     
                     <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
                         {memberSpendings.map((member, index) => (
-                             <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                                 <View style={{flexDirection:'row', alignItems:'center'}}>
-                                     <View style={[styles.avatar, {backgroundColor: colors.primary+'20', marginRight: 10}]}>
+                             <View key={index} style={styles.spendingRow}>
+                                 <View style={styles.debtMemberRow}>
+                                     <View style={[styles.avatar, styles.avatarPrimary, { marginRight: 10 }]}>
                                          <Text style={{color: colors.primary, fontWeight:'bold'}}>{member.name[0]}</Text>
                                      </View>
-                                     <Text style={[dynamicStyles.text, {fontSize: 16, fontWeight: '600'}]}>{member.name}</Text>
+                                     <Text style={styles.memberNameText}>{member.name}</Text>
                                  </View>
-                                 <Text style={{color: colors.primary, fontWeight: 'bold', fontSize: 16}}>{formatMoney(member.amount)}</Text>
+                                 <Text style={styles.spendingAmount}>{formatMoney(member.amount)}</Text>
                              </View>
                         ))}
                         
@@ -440,10 +435,10 @@ const GroupScreen = ({ route }) => {
             </Modal>
 
             {/* HISTORY LOG MODAL */}
-            <Modal isVisible={historyModalVisible} onBackdropPress={() => setHistoryModalVisible(false)} style={{ margin: 0, justifyContent: 'flex-end' }}>
-                <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, height: '70%', padding: 20 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <Text style={[dynamicStyles.text, { fontSize: 20, fontWeight: 'bold' }]}>Settlement Log</Text>
+            <Modal isVisible={historyModalVisible} onBackdropPress={() => setHistoryModalVisible(false)} style={styles.bottomModal}>
+                <View style={styles.historySheet}>
+                    <View style={styles.modalHeaderRow}>
+                        <Text style={styles.modalTitleLarge}>Settlement Log</Text>
                         <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
                             <MaterialCommunityIcons name="close" size={24} color={colors.textPrimary} />
                         </TouchableOpacity>
@@ -456,7 +451,7 @@ const GroupScreen = ({ route }) => {
                             <View>
                                 {settlementExpenses.length > 0 && (
                                     <View style={{marginBottom: 20}}>
-                                        <Text style={{color: colors.primary, fontWeight:'bold', marginBottom: 10}}>Settlements</Text>
+                                        <Text style={styles.historySectionTitle}>Settlements</Text>
                                         {[...settlementExpenses].reverse().map((item, index) => {
                                              const month = new Date(item.date).toLocaleString('default', { month: 'short', day: 'numeric', hour:'2-digit', minute:'2-digit' });
                                              const payerName = group?.members?.find(m => String(m._id || m.id) === String(item.paidBy))?.name || 'Someone';
@@ -465,15 +460,15 @@ const GroupScreen = ({ route }) => {
                                              const payeeName = group?.members?.find(m => String(m._id || m.id) === String(payeeId))?.name || 'Someone';
                                              
                                              return (
-                                                 <View key={index} style={{ flexDirection: 'row', marginBottom: 10, paddingBottom: 10, borderBottomWidth: 0.5, borderBottomColor: colors.border, alignItems:'center' }}>
+                                                 <View key={index} style={styles.historyItem}>
                                                      <MaterialCommunityIcons name="check-circle" size={20} color={colors.success} style={{ marginRight: 10 }} />
                                                      <View style={{ flex: 1 }}>
-                                                         <Text style={[dynamicStyles.text, { fontSize: 14 }]}>
+                                                         <Text style={styles.historyItemText}>
                                                             <Text style={{fontWeight:'bold'}}>{payerName}</Text> paid <Text style={{fontWeight:'bold'}}>{payeeName}</Text>
                                                          </Text>
-                                                         <Text style={{ color: colors.textSecondary, fontSize: 11 }}>{month}</Text>
+                                                         <Text style={styles.historyDate}>{month}</Text>
                                                      </View>
-                                                     <Text style={{ color: colors.success, fontWeight:'bold' }}>{formatMoney(item.amount)}</Text>
+                                                     <Text style={styles.historyAmount}>{formatMoney(item.amount)}</Text>
                                                  </View>
                                              );
                                         })}
@@ -482,13 +477,13 @@ const GroupScreen = ({ route }) => {
 
                                 {(group?.activities || []).length > 0 && (
                                      <View>
-                                         <Text style={{color: colors.textSecondary, fontWeight:'bold', marginBottom: 10, marginTop: 10}}>Other Activity</Text>
+                                         <Text style={styles.historyActivityTitle}>Other Activity</Text>
                                          {[...(group?.activities || [])].reverse().map((act, index) => (
-                                            <View key={index} style={{ flexDirection: 'row', marginBottom: 15, borderBottomWidth: 0.5, borderBottomColor: colors.border, paddingBottom: 10 }}>
+                                            <View key={index} style={styles.activityItem}>
                                                 <MaterialCommunityIcons name="clock-outline" size={16} color={colors.textMuted} style={{ marginTop: 2, marginRight: 10 }} />
                                                 <View style={{ flex: 1 }}>
-                                                    <Text style={[dynamicStyles.text, { fontSize: 14 }]}>{act.text}</Text>
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 11, marginTop: 2 }}>
+                                                    <Text style={styles.activityText}>{act.text}</Text>
+                                                    <Text style={styles.activityDate}>
                                                         {new Date(act.date).toLocaleString()}
                                                     </Text>
                                                 </View>
@@ -504,22 +499,5 @@ const GroupScreen = ({ route }) => {
         </View>
     );
 };
- 
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    headerCard: { padding: 15, paddingBottom: 10, borderBottomWidth: 1 },
-    groupCode: { fontWeight: 'bold', textAlign: 'center', marginBottom: 5, fontSize: 12 },
-    actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
-    actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 8, borderRadius: 8, borderWidth: 1, gap: 6 },
-    btnText: { fontWeight: '600', fontSize: 13 },
-    
-    sectionHeader: { fontSize: 12, fontWeight: 'bold', marginTop: 20, marginBottom: 10, textTransform: 'uppercase' },
-    
-    bigAddMemberBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, marginVertical: 20, gap: 10 },
-    bigAddMemberText: { fontWeight: 'bold', fontSize: 16 },
-
-    debtCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
-    avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }
-});
 
 export default GroupScreen;

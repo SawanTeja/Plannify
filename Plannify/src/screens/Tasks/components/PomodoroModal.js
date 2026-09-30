@@ -7,13 +7,14 @@ import {
   Animated,
   Easing,
   Modal,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { AppContext } from "../../../context/AppContext";
+import { useThemedStyles } from "../../../hooks/useThemedStyles";
+import { getStyles } from "./PomodoroModal.styles";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -26,6 +27,7 @@ Notifications.setNotificationHandler({
 const PomodoroModal = ({ visible, onClose }) => {
   useKeepAwake();
   const { colors } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
 
   const [minutes, setMinutes] = useState("25");
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -98,35 +100,17 @@ const PomodoroModal = ({ visible, onClose }) => {
     return `${mStr}:${sStr}`;
   };
 
-  // Dynamic Styles
-  const dynamicStyles = {
-    container: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-      borderWidth: 1,
-      shadowColor: colors.primary, // Glow color for container
-    },
-    textPrimary: { color: colors.textPrimary },
-    timerRing: { borderColor: isActive ? colors.danger : colors.primary },
-    input: {
-      color: colors.textPrimary,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-    },
-    closeBtn: { borderColor: colors.textMuted },
-  };
-
   return (
     <Modal visible={visible} animationType="fade" transparent={true}>
       <View style={styles.overlay}>
-        <View style={[styles.container, dynamicStyles.container]}>
+        <View style={styles.container}>
           <View style={styles.header}>
             <MaterialCommunityIcons
               name="timer-outline"
               size={24}
               color={colors.primary}
             />
-            <Text style={[styles.title, dynamicStyles.textPrimary]}>
+            <Text style={styles.title}>
               Focus Mode
             </Text>
           </View>
@@ -135,43 +119,33 @@ const PomodoroModal = ({ visible, onClose }) => {
           <Animated.View
             style={[
               styles.timerCircle,
-              dynamicStyles.timerRing,
+              isActive && styles.timerCircleActive,
               {
                 transform: [{ scale: pulseAnim }],
-                shadowColor: isActive ? colors.danger : colors.primary,
-                backgroundColor: colors.background,
               },
             ]}
           >
             <Text
               style={[
                 styles.timerText,
-                {
-                  color: isActive ? colors.danger : colors.textPrimary,
-                  fontSize: timeLeft > 3600 ? 42 : 56,
-                },
+                timeLeft > 3600 && styles.timerTextLong,
+                isActive && styles.timerTextActive,
               ]}
             >
               {formatTime(timeLeft)}
             </Text>
-            <Text
-              style={{
-                color: colors.textSecondary,
-                fontSize: 12,
-                marginTop: -5,
-              }}
-            >
+            <Text style={styles.statusSubText}>
               {isActive ? "STAY FOCUSED" : "READY?"}
             </Text>
           </Animated.View>
 
           {!isActive && (
             <View style={styles.inputRow}>
-              <Text style={{ color: colors.textSecondary, fontWeight: "600" }}>
+              <Text style={styles.inputLabel}>
                 Duration (min):{" "}
               </Text>
               <TextInput
-                style={[styles.input, dynamicStyles.input]}
+                style={styles.input}
                 keyboardType="numeric"
                 value={minutes}
                 onChangeText={setMinutes}
@@ -183,7 +157,7 @@ const PomodoroModal = ({ visible, onClose }) => {
             <TouchableOpacity
               style={[
                 styles.btn,
-                { backgroundColor: isActive ? colors.danger : colors.primary },
+                isActive && styles.btnActive,
               ]}
               onPress={() => setIsActive(!isActive)}
             >
@@ -193,10 +167,10 @@ const PomodoroModal = ({ visible, onClose }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.btn, styles.closeBtn, dynamicStyles.closeBtn]}
+              style={[styles.btn, styles.closeBtn]}
               onPress={onClose}
             >
-              <Text style={[styles.btnText, { color: colors.textSecondary }]}>
+              <Text style={styles.closeBtnText}>
                 Close
               </Text>
             </TouchableOpacity>
@@ -206,89 +180,5 @@ const PomodoroModal = ({ visible, onClose }) => {
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)", // Deep focus background
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  container: {
-    width: "85%",
-    padding: 30,
-    borderRadius: 30,
-    alignItems: "center",
-    // Base shadow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 30,
-  },
-  title: { fontSize: 22, fontWeight: "bold", letterSpacing: 1 },
-  timerCircle: {
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 30,
-    // Neon Glow
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  timerText: {
-    fontWeight: "bold",
-    fontVariant: ["tabular-nums"], // Monospaced numbers prevent jitter
-    textShadowColor: "rgba(0,0,0,0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  inputRow: { flexDirection: "row", alignItems: "center", marginBottom: 25 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    minWidth: 80,
-    textAlign: "center",
-    marginLeft: 10,
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  row: { flexDirection: "column", gap: 15, width: "100%" },
-  btn: {
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  closeBtn: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    elevation: 0,
-  },
-  btnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-});
 
 export default PomodoroModal;

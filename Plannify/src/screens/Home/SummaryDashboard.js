@@ -7,7 +7,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   UIManager,
@@ -17,9 +16,10 @@ import Modal from "react-native-modal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SideMenu from "../../components/SideMenu";
 import { AppContext } from "../../context/AppContext";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
 import { getData } from "../../utils/storageHelper";
 import { getLocalDateString, getLocalToday } from "../../utils/dateHelper";
-
+import getStyles from "./SummaryDashboard.styles";
 
 // Enable LayoutAnimation for Android
 if (
@@ -75,6 +75,7 @@ const ALL_FEATURES = [
 const SummaryDashboard = () => {
   const navigation = useNavigation();
   const { userData, colors, appStyles, isPremium } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
   const safeAreaInsets = useSafeAreaInsets();
 
   // --- STATE ---
@@ -213,64 +214,14 @@ const SummaryDashboard = () => {
 
 
   
-  // --- STYLES GENERATOR ---
-  const dynamicStyles = {
-    screen: {
-      flex: 1,
-      backgroundColor: colors.background,
-      paddingTop: safeAreaInsets.top + 10,
-    },
-    headerText: { color: colors.textPrimary },
-    subText: { color: colors.textSecondary },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: 28,
-      padding: 20,
-      justifyContent: "space-between",
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 5,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    iconCircle: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    quickBtn: {
-      backgroundColor: colors.surfaceHighlight,
-      borderRadius: 24,
-      width: "30%",
-      aspectRatio: 1,
-      borderWidth: 1,
-      borderColor: colors.border,
-      overflow: "hidden",
-    },
-    profileAvatar: {
-      width: 45,
-      height: 45,
-      borderRadius: 22.5,
-      justifyContent: "center",
-      alignItems: "center",
-      borderWidth: 2,
-      borderColor: colors.border,
-    },
-  };
-
   // --- RENDERERS ---
   const renderHeader = () => (
     <View style={styles.headerRow}>
       <View>
-        <Text style={[styles.greetingText, dynamicStyles.subText]}>
+        <Text style={styles.greetingText}>
           Good Morning,
         </Text>
-        <Text style={[styles.nameText, dynamicStyles.headerText, appStyles.headerTitleStyle]}>
+        <Text style={[styles.nameText, appStyles.headerTitleStyle]}>
           {userData.name}
         </Text>
       </View>
@@ -285,16 +236,16 @@ const SummaryDashboard = () => {
         {userData.image ? (
           <Image
             source={{ uri: userData.image }}
-            style={dynamicStyles.profileAvatar}
+            style={styles.profileAvatar}
           />
         ) : (
           <View
             style={[
-              dynamicStyles.profileAvatar,
-              { backgroundColor: colors.primary },
+              styles.profileAvatar,
+              styles.profileAvatarDefault,
             ]}
           >
-            <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "bold" }}>
+            <Text style={styles.avatarInitial}>
               {userData.name?.[0]?.toUpperCase() || "G"}
             </Text>
           </View>
@@ -304,9 +255,9 @@ const SummaryDashboard = () => {
   );
 
   return (
-    <View style={dynamicStyles.screen}>
+    <View style={[styles.screen, { paddingTop: safeAreaInsets.top + 10 }]}>
       <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -320,19 +271,19 @@ const SummaryDashboard = () => {
         {/* --- BENTO GRID --- */}
         <View style={styles.bentoContainer}>
           {/* COLUMN 1: Habits (Big Vertical) */}
-          <View style={{ flex: 1, gap: 15 }}>
+          <View style={styles.bentoColumn}>
             <TouchableOpacity
               style={[
-                dynamicStyles.card,
-                { flex: 1, backgroundColor: colors.surface },
+                styles.card,
+                styles.cardHabit,
               ]}
               activeOpacity={0.9}
               onPress={() => navigation.navigate("Habits")}
             >
               <View
                 style={[
-                  dynamicStyles.iconCircle,
-                  { backgroundColor: colors.primary + "20" },
+                  styles.iconCircle,
+                  styles.iconCirclePrimary,
                 ]}
               >
                 <MaterialCommunityIcons
@@ -342,25 +293,17 @@ const SummaryDashboard = () => {
                 />
               </View>
               <View>
-                <Text style={[styles.cardValue, { color: colors.textPrimary }]}>
+                <Text style={styles.cardValue}>
                   {globalStreak}
                 </Text>
-                <Text
-                  style={[styles.cardLabel, { color: colors.textSecondary }]}
-                >
+                <Text style={styles.cardLabel}>
                   Day Streak
                 </Text>
-                <View style={{ flexDirection: "row", marginTop: 5 }}>
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      color: colors.success,
-                      fontWeight: "bold",
-                    }}
-                  >
+                <View style={styles.streakRow}>
+                  <Text style={styles.streakIncrease}>
                     +12%{" "}
                   </Text>
-                  <Text style={{ fontSize: 10, color: colors.textMuted }}>
+                  <Text style={styles.streakTime}>
                     this week
                   </Text>
                 </View>
@@ -369,29 +312,18 @@ const SummaryDashboard = () => {
           </View>
 
           {/* COLUMN 2: Tasks & Budget (Stacked) */}
-          <View style={{ flex: 1, gap: 15 }}>
+          <View style={styles.bentoColumn}>
             {/* TASKS */}
             <TouchableOpacity
-              style={dynamicStyles.card}
+              style={styles.card}
               activeOpacity={0.9}
               onPress={() => navigation.navigate("Tasks")}
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginBottom: 10,
-                }}
-              >
+              <View style={styles.cardHeaderRow}>
                 <View
                   style={[
-                    dynamicStyles.iconCircle,
-                    {
-                      width: 36,
-                      height: 36,
-                      backgroundColor: colors.secondary + "20",
-                      marginBottom: 0,
-                    },
+                    styles.iconCircle,
+                    styles.iconCircleSecondary,
                   ]}
                 >
                   <MaterialCommunityIcons
@@ -400,39 +332,26 @@ const SummaryDashboard = () => {
                     color={colors.secondary}
                   />
                 </View>
-                <Text
-                  style={[styles.cardValueSmall, { color: colors.textPrimary }]}
-                >
+                <Text style={styles.cardValueSmall}>
                   {pendingTasks}
                 </Text>
               </View>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
+              <Text style={styles.cardLabel}>
                 Tasks Pending
               </Text>
             </TouchableOpacity>
 
             {/* BUDGET */}
             <TouchableOpacity
-              style={dynamicStyles.card}
+              style={styles.card}
               activeOpacity={0.9}
               onPress={() => navigation.navigate("BudgetTab")}
             >
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginBottom: 10,
-                }}
-              >
+              <View style={styles.cardHeaderRow}>
                 <View
                   style={[
-                    dynamicStyles.iconCircle,
-                    {
-                      width: 36,
-                      height: 36,
-                      backgroundColor: colors.accent + "20",
-                      marginBottom: 0,
-                    },
+                    styles.iconCircle,
+                    styles.iconCircleAccent,
                   ]}
                 >
                   <MaterialCommunityIcons
@@ -445,7 +364,7 @@ const SummaryDashboard = () => {
               <Text
                 style={[
                   styles.cardValueSmall,
-                  { fontSize: 20, color: colors.textPrimary },
+                  { fontSize: 20 },
                 ]}
               >
                 {budgetStatus.currency}
@@ -453,32 +372,21 @@ const SummaryDashboard = () => {
               </Text>
 
               {/* Modern Progress Bar */}
-              <View
-                style={{
-                  height: 4,
-                  backgroundColor: colors.border,
-                  borderRadius: 2,
-                  marginVertical: 8,
-                  overflow: "hidden",
-                }}
-              >
+              <View style={styles.progressBarBg}>
                 <View
-                  style={{
-                    height: "100%",
-                    backgroundColor:
-                      budgetStatus.spent > budgetStatus.limit
-                        ? colors.danger
-                        : colors.accent,
-                    width: `${Math.min((budgetStatus.spent / (budgetStatus.limit || 1)) * 100, 100)}%`,
-                  }}
+                  style={[
+                    styles.progressBarFill,
+                    {
+                      backgroundColor:
+                        budgetStatus.spent > budgetStatus.limit
+                          ? colors.danger
+                          : colors.accent,
+                      width: `${Math.min((budgetStatus.spent / (budgetStatus.limit || 1)) * 100, 100)}%`,
+                    },
+                  ]}
                 />
               </View>
-              <Text
-                style={[
-                  styles.cardLabel,
-                  { color: colors.textSecondary, fontSize: 11 },
-                ]}
-              >
+              <Text style={styles.cardLabelSmall}>
                 of {budgetStatus.currency}
                 {budgetStatus.limit} limit
               </Text>
@@ -490,36 +398,26 @@ const SummaryDashboard = () => {
         {userData.userType === "student" && (
           <TouchableOpacity
             style={[
-              dynamicStyles.card,
-              {
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 15,
-                paddingVertical: 25,
-              },
+              styles.card,
+              styles.attendanceCard,
             ]}
             activeOpacity={0.9}
             onPress={() => navigation.navigate("Attendance")}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>
+            <View style={styles.attendanceLeft}>
+              <Text style={styles.cardLabel}>
                 Attendance Rate
               </Text>
-              <Text
-                style={[
-                  styles.cardValue,
-                  { fontSize: 32, color: colors.textPrimary },
-                ]}
-              >
+              <Text style={styles.cardValue}>
                 {attendanceAvg ? `${attendanceAvg.toFixed(0)}%` : "--"}
               </Text>
               <Text
-                style={{
-                  color: lowAttendanceCount > 0 ? colors.danger : colors.success,
-                  fontSize: 12,
-                  marginTop: 4,
-                  fontWeight: "600",
-                }}
+                style={[
+                  styles.attendanceStatus,
+                  {
+                    color: lowAttendanceCount > 0 ? colors.danger : colors.success,
+                  },
+                ]}
               >
                 {lowAttendanceCount > 0
                   ? `Warning: Low in ${lowAttendanceCount} subject${lowAttendanceCount > 1 ? 's' : ''}`
@@ -528,17 +426,7 @@ const SummaryDashboard = () => {
             </View>
 
             {/* Circular Indicator Placeholder */}
-            <View
-              style={{
-                width: 60,
-                height: 60,
-                borderRadius: 30,
-                borderWidth: 4,
-                borderColor: colors.surfaceHighlight,
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
+            <View style={styles.attendanceIndicator}>
               <MaterialCommunityIcons
                 name="school"
                 size={24}
@@ -549,22 +437,9 @@ const SummaryDashboard = () => {
         )}
 
         {/* --- QUICK ACTIONS --- */}
-        <View style={{ marginTop: 30 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 15,
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: "700",
-                color: colors.textPrimary,
-              }}
-            >
+        <View style={styles.shortcutsSection}>
+          <View style={styles.shortcutsHeader}>
+            <Text style={styles.shortcutsTitle}>
               Shortcuts
             </Text>
             <TouchableOpacity onPress={() => setEditModalVisible(true)}>
@@ -575,28 +450,20 @@ const SummaryDashboard = () => {
               />
             </TouchableOpacity>
           </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
+          <View style={styles.shortcutsGrid}>
             {activeFeatures.map((f) => (
               <TouchableOpacity
                 key={f.id}
-                style={dynamicStyles.quickBtn}
+                style={styles.quickBtn}
                 onPress={() => navigation.navigate(f.route)}
               >
-                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                <View style={styles.quickBtnContent}>
                   <MaterialCommunityIcons
                     name={f.icon}
                     size={28}
                     color={colors.primary}
                   />
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: "600",
-                      color: colors.textSecondary,
-                      marginTop: 8,
-                      textAlign: "center",
-                    }}
-                  >
+                  <Text style={styles.quickBtnText}>
                     {f.name}
                   </Text>
                 </View>
@@ -604,7 +471,6 @@ const SummaryDashboard = () => {
             ))}
           </View>
         </View>
-
 
       </ScrollView>
 
@@ -622,21 +488,16 @@ const SummaryDashboard = () => {
         backdropOpacity={0.7}
         propagateSwipe={true}
       >
-        <View style={[styles.bottomModalContent, { backgroundColor: colors.surface }]}>
+        <View style={styles.bottomModalContent}>
           {/* Drag Handle */}
           <View style={styles.dragHandleContainer}>
-            <View style={[styles.dragHandle, { backgroundColor: colors.border }]} />
+            <View style={styles.dragHandle} />
           </View>
 
-          <Text
-            style={[
-              styles.modalTitle,
-              { color: colors.textPrimary }
-            ]}
-          >
+          <Text style={styles.modalTitle}>
             Edit Shortcuts
           </Text>
-          <View style={{ maxHeight: 400 }}>
+          <View style={styles.modalScrollContainer}>
             <ScrollView showsVerticalScrollIndicator={false}>
               {ALL_FEATURES.map((f) => {
                 if (f.studentOnly && userData.userType !== "student")
@@ -649,13 +510,7 @@ const SummaryDashboard = () => {
                   <TouchableOpacity
                     key={f.id}
                     onPress={() => toggleShortcut(f.id)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      paddingVertical: 15,
-                      borderBottomWidth: 1,
-                      borderColor: colors.border,
-                    }}
+                    style={styles.shortcutItem}
                   >
                     <MaterialCommunityIcons
                       name={
@@ -664,13 +519,7 @@ const SummaryDashboard = () => {
                       size={24}
                       color={active ? colors.primary : colors.textMuted}
                     />
-                    <Text
-                      style={{
-                        marginLeft: 15,
-                        fontSize: 16,
-                        color: colors.textPrimary,
-                      }}
-                    >
+                    <Text style={styles.shortcutItemText}>
                       {f.name}
                     </Text>
                   </TouchableOpacity>
@@ -679,16 +528,10 @@ const SummaryDashboard = () => {
             </ScrollView>
           </View>
           <TouchableOpacity
-            style={{
-              backgroundColor: colors.primary,
-              padding: 15,
-              borderRadius: 15,
-              alignItems: "center",
-              marginTop: 20,
-            }}
+            style={styles.doneBtn}
             onPress={() => setEditModalVisible(false)}
           >
-            <Text style={{ color: colors.white, fontWeight: "bold" }}>
+            <Text style={styles.doneBtnText}>
               Done
             </Text>
           </TouchableOpacity>
@@ -697,46 +540,5 @@ const SummaryDashboard = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 25,
-  },
-  greetingText: { fontSize: 16, fontWeight: "500" },
-  nameText: { letterSpacing: -0.5 },
-  menuBtn: { padding: 8, borderRadius: 12, borderWidth: 1 },
-  bentoContainer: { flexDirection: "row", gap: 15 },
-  cardValue: { fontSize: 32, fontWeight: "800" },
-  cardValueSmall: { fontSize: 22, fontWeight: "800" },
-  cardLabel: { fontSize: 13, fontWeight: "600", marginTop: 2 },
-  
-  // --- MODAL STYLES ---
-  bottomModal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  bottomModalContent: {
-    padding: 25,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    paddingBottom: 40,
-  },
-  dragHandleContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-    marginTop: -10,
-  },
-  dragHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 10,
-    opacity: 0.5,
-  },
-  modalTitle: { fontSize: 20, fontWeight: "bold", marginBottom: 20 },
-});
 
 export default SummaryDashboard;

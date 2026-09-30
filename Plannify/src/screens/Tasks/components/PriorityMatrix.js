@@ -1,27 +1,24 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useContext } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { AppContext } from "../../../context/AppContext";
+import { useThemedStyles } from "../../../hooks/useThemedStyles";
+import { getStyles } from "./PriorityMatrix.styles";
 
 const PriorityMatrix = ({ tasks }) => {
   const { colors } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
 
   // Filter tasks
   const high = tasks.filter((t) => t.priority === "High");
   const medium = tasks.filter((t) => t.priority === "Medium");
   const low = tasks.filter((t) => t.priority === "Low");
 
-  const renderTaskList = (list, iconColor) => {
+  const renderTaskList = (list) => {
     if (!list || list.length === 0)
       return (
-        <View style={{ padding: 10, opacity: 0.5 }}>
-          <Text
-            style={{
-              color: colors.textSecondary,
-              fontStyle: "italic",
-              fontSize: 12,
-            }}
-          >
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>
             No tasks here
           </Text>
         </View>
@@ -30,56 +27,43 @@ const PriorityMatrix = ({ tasks }) => {
     return list.map((item, index) => (
       <View
         key={index}
-        style={[styles.taskItem, { borderBottomColor: colors.border }]}
+        style={styles.taskItem}
       >
-        <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+        <View style={styles.taskRow}>
           <MaterialCommunityIcons
             name="checkbox-blank-circle-outline"
             size={16}
             color={colors.textMuted}
-            style={{ marginTop: 2, marginRight: 8 }}
+            style={styles.taskIcon}
           />
           <View>
-            <Text style={[styles.taskTitle, { color: colors.textPrimary }]}>
+            <Text style={styles.taskTitle}>
               {item.title}
             </Text>
 
-            <View
-              style={{
-                flexDirection: "row",
-                marginTop: 4,
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
+            <View style={styles.metaRow}>
               {item.dateLabel && (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={styles.metaItem}>
                   <MaterialCommunityIcons
                     name="calendar"
                     size={10}
                     color={colors.primary}
-                    style={{ marginRight: 3 }}
+                    style={styles.metaIcon}
                   />
-                  <Text
-                    style={{
-                      color: colors.primary,
-                      fontSize: 10,
-                      fontWeight: "bold",
-                    }}
-                  >
+                  <Text style={styles.metaDateText}>
                     {item.dateLabel}
                   </Text>
                 </View>
               )}
               {item.duration ? (
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={styles.metaItem}>
                   <MaterialCommunityIcons
                     name="clock-outline"
                     size={10}
                     color={colors.textSecondary}
-                    style={{ marginRight: 3 }}
+                    style={styles.metaIcon}
                   />
-                  <Text style={{ color: colors.textSecondary, fontSize: 10 }}>
+                  <Text style={styles.metaDurationText}>
                     {item.duration}
                   </Text>
                 </View>
@@ -96,31 +80,29 @@ const PriorityMatrix = ({ tasks }) => {
       style={[
         styles.bucket,
         {
-          backgroundColor: colors.surface,
           borderLeftColor: color,
-          shadowColor: colors.shadow,
         },
       ]}
     >
       <View style={styles.bucketHeader}>
-        <Text style={[styles.bucketTitle, { color: colors.textPrimary }]}>
+        <Text style={styles.bucketTitle}>
           {title}
         </Text>
         <View style={[styles.countBadge, { backgroundColor: color + "20" }]}>
-          <Text style={{ color: color, fontWeight: "bold", fontSize: 10 }}>
+          <Text style={[styles.countText, { color }]}>
             {count}
           </Text>
         </View>
       </View>
 
-      <View style={styles.listContainer}>{renderTaskList(list, color)}</View>
+      <View style={styles.listContainer}>{renderTaskList(list)}</View>
     </View>
   );
 
   return (
     <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
+      style={styles.scrollContainer}
+      contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
       <Bucket
@@ -139,58 +121,12 @@ const PriorityMatrix = ({ tasks }) => {
 
       <Bucket
         title="☕ Low Priority"
-        count={medium.length}
+        count={low.length}
         color={colors.accent}
         list={low}
       />
     </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  bucket: {
-    marginBottom: 20,
-    padding: 15,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    // Modern Shadow
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "transparent", // Handled dynamically via background color mostly
-  },
-  bucketHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.05)",
-  },
-  bucketTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  listContainer: {
-    marginTop: 0,
-  },
-  taskItem: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.03)",
-  },
-  taskTitle: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-});
 
 export default PriorityMatrix;

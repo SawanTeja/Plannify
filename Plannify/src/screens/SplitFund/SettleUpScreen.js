@@ -2,7 +2,6 @@ import React, { useContext, useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     TouchableOpacity,
     ScrollView,
     ActivityIndicator
@@ -12,9 +11,12 @@ import { useAlert } from '../../context/AlertContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SplitService } from '../../services/SplitService';
 import { simplifyDebts } from '../../utils/SplitLogic';
+import { useThemedStyles } from '../../hooks/useThemedStyles';
+import { getStyles } from './SettleUpScreen.styles';
 
 const SettleUpScreen = ({ route }) => {
     const { colors, user } = useContext(AppContext);
+    const styles = useThemedStyles(getStyles);
     const { showAlert } = useAlert();
     // Initial balances from params, but we will refresh them locally too
     const { groupId, balances: initialBalances, members } = route.params;
@@ -107,34 +109,27 @@ const SettleUpScreen = ({ route }) => {
         return member?.name || 'Unknown';
     };
 
-    const dynamicStyles = {
-        container: { backgroundColor: colors.background },
-        text: { color: colors.textPrimary },
-        subText: { color: colors.textSecondary },
-        card: { backgroundColor: colors.surface, borderColor: colors.border },
-    };
-
     return (
-        <View style={[styles.container, dynamicStyles.container]}>
+        <View style={styles.container}>
             {/* Refresh Indicator */}
             {refreshing && (
-                <View style={{ padding: 10 }}>
+                <View style={styles.refreshContainer}>
                     <ActivityIndicator size="small" color={colors.primary} />
                 </View>
             )}
 
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }}>
+            <ScrollView contentContainerStyle={styles.scrollContent}>
                 
-                <Text style={[styles.title, dynamicStyles.text]}>Outstanding Debts</Text>
-                <Text style={[styles.subtitle, dynamicStyles.subText]}>
+                <Text style={styles.title}>Outstanding Debts</Text>
+                <Text style={styles.subtitle}>
                     Below is the most efficient way to settle all group debts.
                 </Text>
 
                 {suggestions.length === 0 ? (
                     <View style={styles.emptyState}>
                         <MaterialCommunityIcons name="check-circle-outline" size={64} color={colors.success} />
-                        <Text style={[styles.emptyText, dynamicStyles.text]}>All settled up!</Text>
-                        <Text style={[styles.emptySub, dynamicStyles.subText]}>No one owes anything in this group.</Text>
+                        <Text style={styles.emptyText}>All settled up!</Text>
+                        <Text style={styles.emptySub}>No one owes anything in this group.</Text>
                     </View>
                 ) : (
                     suggestions.map((s, index) => {
@@ -143,30 +138,30 @@ const SettleUpScreen = ({ route }) => {
                          return (
                             <View 
                                 key={index} 
-                                style={[styles.debtCard, dynamicStyles.card]}
+                                style={styles.debtCard}
                             >
                                 <View style={styles.debtInfo}>
                                     <View style={styles.avatarRow}>
                                         {/* Payer Avatar */}
-                                        <View style={[styles.avatar, { backgroundColor: colors.danger + '20' }]}>
-                                             <Text style={{ color: colors.danger, fontWeight: 'bold' }}>
+                                        <View style={[styles.avatar, styles.avatarPayer]}>
+                                             <Text style={styles.avatarTextDanger}>
                                                  {getName(s.from)[0]}
                                              </Text>
                                         </View>
-                                        <MaterialCommunityIcons name="arrow-right-thin" size={24} color={colors.textSecondary} style={{ marginHorizontal: 8 }} />
+                                        <MaterialCommunityIcons name="arrow-right-thin" size={24} color={colors.textSecondary} style={styles.arrowIcon} />
                                         {/* Payee Avatar */}
-                                        <View style={[styles.avatar, { backgroundColor: colors.success + '20' }]}>
-                                             <Text style={{ color: colors.success, fontWeight: 'bold' }}>
+                                        <View style={[styles.avatar, styles.avatarPayee]}>
+                                             <Text style={styles.avatarTextSuccess}>
                                                  {getName(s.to)[0]}
                                              </Text>
                                         </View>
                                     </View>
 
-                                    <View style={{ marginTop: 10 }}>
-                                        <Text style={[dynamicStyles.text, { fontSize: 16 }]}>
-                                            <Text style={{ fontWeight: 'bold' }}>{getName(s.from)}</Text> owes <Text style={{ fontWeight: 'bold' }}>{getName(s.to)}</Text>
+                                    <View style={styles.debtDetail}>
+                                        <Text style={styles.debtDescription}>
+                                            <Text style={styles.boldText}>{getName(s.from)}</Text> owes <Text style={styles.boldText}>{getName(s.to)}</Text>
                                         </Text>
-                                        <Text style={[styles.amountText, { color: colors.textPrimary }]}>
+                                        <Text style={styles.amountText}>
                                             {colors.currency}{s.amount}
                                         </Text>
                                     </View>
@@ -175,7 +170,7 @@ const SettleUpScreen = ({ route }) => {
                                 <TouchableOpacity 
                                     style={[
                                         styles.settleBtn, 
-                                        { backgroundColor: isMyDebt ? colors.primary : colors.surfaceHighlight }
+                                        isMyDebt ? styles.settleBtnActive : styles.settleBtnInactive
                                     ]}
                                     onPress={() => handleSettleDebt(s)}
                                     disabled={loading}
@@ -189,11 +184,7 @@ const SettleUpScreen = ({ route }) => {
                                                 size={16} 
                                                 color={isMyDebt ? 'white' : colors.primary} 
                                             />
-                                            <Text style={{ 
-                                                color: isMyDebt ? 'white' : colors.primary, 
-                                                fontWeight: 'bold', 
-                                                marginLeft: 4 
-                                            }}>
+                                            <Text style={isMyDebt ? styles.settleBtnTextActive : styles.settleBtnTextInactive}>
                                                 Settle
                                             </Text>
                                         </>
@@ -207,40 +198,5 @@ const SettleUpScreen = ({ route }) => {
         </View>
     );
 };
-
-const styles = StyleSheet.create({
-    container: { flex: 1 },
-    title: { fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
-    subtitle: { fontSize: 14, marginBottom: 25 },
-    
-    debtCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 15,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginBottom: 15,
-    },
-    debtInfo: { flex: 1, marginRight: 10 },
-    avatarRow: { flexDirection: 'row', alignItems: 'center' },
-    avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    
-    amountText: { fontSize: 20, fontWeight: 'bold', marginTop: 4 },
-    
-    settleBtn: {
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        minWidth: 90,
-        justifyContent: 'center'
-    },
-    
-    emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
-    emptyText: { fontSize: 20, fontWeight: 'bold', marginTop: 20 },
-    emptySub: { fontSize: 14, marginTop: 5 }
-});
 
 export default SettleUpScreen;

@@ -6,7 +6,6 @@ import {
   FlatList,
   LayoutAnimation,
   Platform,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -22,6 +21,8 @@ import { AppContext } from "../../context/AppContext";
 import { EmptyState, FloatingActionButton } from "../../components/common";
 import { getData, storeData } from "../../utils/storageHelper";
 import { updateNightlyReminder } from "../../services/NotificationService";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
+import { getStyles } from "./HabitScreen.styles";
 
 // Components
 import HabitCard from "../Tasks/components/HabitCard";
@@ -59,6 +60,7 @@ const CATEGORIES = [
 
 const HabitScreen = () => {
   const { colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
   const insets = useSafeAreaInsets();
   const tabBarHeight = insets.bottom + 60;
 
@@ -360,30 +362,12 @@ const HabitScreen = () => {
     ]);
   };
 
-  const dynamicStyles = {
-    screen: { 
-        backgroundColor: colors.background,
-        paddingTop: insets.top 
-    },
-    textPrimary: { color: colors.textPrimary },
-    modalContent: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    input: {
-      backgroundColor: colors.background,
-      color: colors.textPrimary,
-      borderColor: colors.border,
-    },
-    fab: { backgroundColor: colors.primary, shadowColor: colors.primary },
-  };
-
   return (
-    <View style={[styles.screen, dynamicStyles.screen]}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={[styles.title, dynamicStyles.textPrimary, appStyles.headerTitleStyle]}>
+          <Text style={[styles.title, appStyles.headerTitleStyle]}>
             Habit Tracker
           </Text>
           <TouchableOpacity
@@ -408,7 +392,7 @@ const HabitScreen = () => {
               <LevelProgress stats={userStats} />
 
               {/* Date Strip */}
-              <View style={{ marginBottom: 15 }}>
+              <View style={styles.dateStripContainer}>
                 <WeeklyStrip
                   selectedDate={selectedDate}
                   onSelectDate={setSelectedDate}
@@ -425,7 +409,7 @@ const HabitScreen = () => {
 
             return (
               <View style={styles.habitRow}>
-                <View style={{ flex: 1 }}>
+                <View style={styles.habitCardContainer}>
                   <HabitCard
                     item={{ ...item, streak: streak }}
                     isDone={item.history && item.history[selectedDate]}
@@ -471,15 +455,8 @@ const HabitScreen = () => {
           animationOut="fadeOut"
           backdropOpacity={0.7}
         >
-          <View
-            style={[
-              styles.modalContent,
-              dynamicStyles.modalContent,
-              // Keep Calendar rounded and centered
-              { borderRadius: 24 },
-            ]}
-          >
-            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+          <View style={styles.calendarModalContent}>
+            <Text style={styles.modalTitle}>
               Consistency Heatmap
             </Text>
 
@@ -488,7 +465,7 @@ const HabitScreen = () => {
               onDayPress={(day) => setTempSelectedDate(day.dateString)}
               markingType={"custom"}
               markedDates={markedDates}
-              style={{ borderRadius: 10, marginBottom: 20 }}
+              style={styles.calendarView}
               theme={{
                 calendarBackground: colors.surface,
                 dayTextColor: colors.textPrimary,
@@ -501,14 +478,12 @@ const HabitScreen = () => {
 
             <View style={styles.modalActions}>
               <TouchableOpacity onPress={() => setCalendarVisible(false)}>
-                <Text
-                  style={[styles.cancelText, { color: colors.textSecondary }]}
-                >
+                <Text style={styles.cancelText}>
                   Close
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                style={styles.saveBtn}
                 onPress={() => {
                   setSelectedDate(tempSelectedDate);
                   setCalendarVisible(false);
@@ -527,25 +502,23 @@ const HabitScreen = () => {
           onSwipeComplete={() => setAddVisible(false)}
           swipeDirection={["down"]}
           onBackdropPress={() => setAddVisible(false)}
-          style={styles.bottomModal} // 3. BOTTOM POSITIONING
+          style={styles.bottomModal}
           avoidKeyboard={true}
           backdropOpacity={0.7}
         >
-          <View style={[styles.bottomModalContent, dynamicStyles.modalContent]}>
+          <View style={styles.bottomModalContent}>
             {/* 4. DRAG HANDLE */}
             <View style={styles.dragHandleContainer}>
-              <View
-                style={[styles.dragHandle, { backgroundColor: colors.border }]}
-              />
+              <View style={styles.dragHandle} />
             </View>
 
-            <Text style={[styles.modalTitle, dynamicStyles.textPrimary]}>
+            <Text style={styles.modalTitle}>
               New Habit
             </Text>
 
-            <Text style={[styles.label, dynamicStyles.textPrimary]}>Title</Text>
+            <Text style={styles.label}>Title</Text>
             <TextInput
-              style={[styles.input, dynamicStyles.input]}
+              style={styles.input}
               placeholder="e.g. Drink Water"
               placeholderTextColor={colors.textMuted}
               value={title}
@@ -553,16 +526,12 @@ const HabitScreen = () => {
               autoFocus
             />
 
-            <Text style={[styles.label, dynamicStyles.textPrimary]}>
+            <Text style={styles.label}>
               Duration (Optional)
             </Text>
-            <View style={{ flexDirection: "row", gap: 10, marginBottom: 15 }}>
+            <View style={styles.durationRow}>
               <TextInput
-                style={[
-                  styles.input,
-                  dynamicStyles.input,
-                  { flex: 1, marginBottom: 0 },
-                ]}
+                style={[styles.input, styles.durationInput]}
                 placeholder="Hours"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
@@ -570,11 +539,7 @@ const HabitScreen = () => {
                 onChangeText={setHours}
               />
               <TextInput
-                style={[
-                  styles.input,
-                  dynamicStyles.input,
-                  { flex: 1, marginBottom: 0 },
-                ]}
+                style={[styles.input, styles.durationInput]}
                 placeholder="Mins"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
@@ -583,7 +548,7 @@ const HabitScreen = () => {
               />
             </View>
 
-            <Text style={[styles.label, dynamicStyles.textPrimary]}>
+            <Text style={styles.label}>
               Category
             </Text>
             <View style={styles.catCloud}>
@@ -593,21 +558,14 @@ const HabitScreen = () => {
                   onPress={() => setCategory(c)}
                   style={[
                     styles.catChip,
-                    {
-                      backgroundColor:
-                        category === c ? colors.primary : colors.background,
-                      borderColor:
-                        category === c ? colors.primary : colors.border,
-                    },
+                    category === c && styles.catChipActive,
                   ]}
                 >
                   <Text
-                    style={{
-                      color:
-                        category === c ? colors.white : colors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: "600",
-                    }}
+                    style={[
+                      styles.catChipText,
+                      category === c && styles.catChipTextActive,
+                    ]}
                   >
                     {c}
                   </Text>
@@ -617,14 +575,12 @@ const HabitScreen = () => {
 
             <View style={styles.modalActions}>
               <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <Text
-                  style={[styles.cancelText, { color: colors.textSecondary }]}
-                >
+                <Text style={styles.cancelText}>
                   Cancel
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+                style={styles.saveBtn}
                 onPress={handleAddHabit}
               >
                 <Text style={styles.saveBtnText}>Create Habit</Text>
@@ -645,98 +601,5 @@ const HabitScreen = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10, // Standardize to just 10, since wrapper handles insets? No, wait.
-  },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  title: { fontWeight: "bold" },
-  habitRow: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  deleteBtn: { padding: 10, marginLeft: 5, justifyContent: "center" },
-
-  fab: {
-    position: "absolute",
-    right: 25,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 10,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-  },
-
-  // --- NEW MODAL STYLES ---
-  bottomModal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  bottomModalContent: {
-    padding: 25,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    paddingBottom: 40,
-  },
-  modalContent: {
-    padding: 25,
-    borderWidth: 1,
-  },
-  // Drag Handle Styles
-  dragHandleContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-    marginTop: -10, // Pull it up slightly
-  },
-  dragHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 10,
-    opacity: 0.5,
-  },
-
-  modalTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 20 },
-  label: { marginBottom: 8, fontWeight: "600", fontSize: 14 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  catCloud: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 25,
-  },
-  catChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    gap: 20,
-  },
-  saveBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12 },
-  saveBtnText: { color: "#fff", fontWeight: "bold" },
-  cancelText: { fontWeight: "600" },
-});
 
 export default HabitScreen;

@@ -8,10 +8,8 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
-  // Modal, // REMOVED standard Modal
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,6 +18,8 @@ import {
 // 1. IMPORT ENHANCED MODAL
 import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
+import getStyles from "./JournalModal.styles";
 
 const MOODS = ["😊", "😂", "🥰", "😐", "😢", "😡"];
 
@@ -33,6 +33,7 @@ const JournalModal = ({
   onDeleteTag,
 }) => {
   const { colors } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
 
   // Fields
   const [topic, setTopic] = useState("");
@@ -196,29 +197,6 @@ const JournalModal = ({
     }
   };
 
-  // Dynamic Styles
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    headerText: { color: colors.textPrimary },
-    textSecondary: { color: colors.textSecondary },
-    input: { backgroundColor: colors.surface, color: colors.textPrimary },
-    modalHeader: {
-      backgroundColor: colors.background, // Match container
-      borderBottomColor: colors.border,
-    },
-    chipActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    chipInactive: {
-      backgroundColor: colors.surface,
-      borderColor: colors.border,
-    },
-    chipTextActive: { color: colors.white },
-    chipTextInactive: { color: colors.textSecondary },
-    dragHandle: { backgroundColor: colors.border },
-  };
-
   return (
     <Modal
       isVisible={visible}
@@ -229,10 +207,10 @@ const JournalModal = ({
       avoidKeyboard={true}
       propagateSwipe={true} // Allows scrolling inside without closing modal
     >
-      <View style={[styles.sheetContainer, dynamicStyles.container]}>
+      <View style={styles.sheetContainer}>
         {/* 2. Drag Handle */}
         <View style={styles.dragHandleContainer}>
-          <View style={[styles.dragHandle, dynamicStyles.dragHandle]} />
+          <View style={styles.dragHandle} />
         </View>
 
         <KeyboardAvoidingView
@@ -240,20 +218,20 @@ const JournalModal = ({
           style={{ flex: 1 }}
         >
           {/* Header */}
-          <View style={[styles.header, dynamicStyles.modalHeader]}>
+          <View style={styles.header}>
             <TouchableOpacity onPress={onClose} style={styles.headerBtn}>
-              <Text style={[styles.cancelText, dynamicStyles.textSecondary]}>
+              <Text style={styles.cancelText}>
                 Cancel
               </Text>
             </TouchableOpacity>
-            <Text style={[styles.title, dynamicStyles.headerText]}>
+            <Text style={styles.title}>
               {initialData ? "Edit Memory" : "New Memory"}
             </Text>
             <TouchableOpacity onPress={handleSave} style={styles.headerBtn} disabled={isSaving}>
               {isSaving ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={[styles.saveText, { color: colors.primary }]}>
+                <Text style={styles.saveText}>
                   Save
                 </Text>
               )}
@@ -263,7 +241,7 @@ const JournalModal = ({
           <ScrollView contentContainerStyle={styles.content}>
             {/* Topic Input */}
             <TextInput
-              style={[styles.topicInput, { color: colors.textPrimary }]}
+              style={styles.topicInput}
               placeholder="Title (e.g. Trip to Mountains)"
               placeholderTextColor={colors.textMuted}
               value={topic}
@@ -272,19 +250,14 @@ const JournalModal = ({
             />
 
             {/* Location Bar */}
-            <View
-              style={[
-                styles.locationContainer,
-                { backgroundColor: colors.surfaceHighlight },
-              ]}
-            >
+            <View style={styles.locationContainer}>
               <MaterialCommunityIcons
                 name="map-marker"
                 size={20}
                 color={colors.primary}
               />
               <TextInput
-                style={[styles.locationInput, { color: colors.textPrimary }]}
+                style={styles.locationInput}
                 placeholder="Add location..."
                 placeholderTextColor={colors.textMuted}
                 value={locationName}
@@ -307,7 +280,7 @@ const JournalModal = ({
             </View>
 
             {/* Mood Selector */}
-            <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
+            <Text style={styles.sectionLabel}>
               How did you feel?
             </Text>
             <View style={styles.moodRow}>
@@ -317,24 +290,16 @@ const JournalModal = ({
                   onPress={() => setSelectedMood(m)}
                   style={[
                     styles.moodItem,
-                    {
-                      backgroundColor:
-                        selectedMood === m
-                          ? colors.surfaceHighlight
-                          : "transparent",
-                      borderColor:
-                        selectedMood === m ? colors.primary : "transparent",
-                      borderWidth: 1,
-                    },
+                    selectedMood === m && styles.moodItemSelected,
                   ]}
                 >
-                  <Text style={{ fontSize: 28 }}>{m}</Text>
+                  <Text style={styles.moodItemEmoji}>{m}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             {/* Tags */}
-            <Text style={[styles.sectionLabel, dynamicStyles.textSecondary]}>
+            <Text style={styles.sectionLabel}>
               Tags
             </Text>
             <View style={styles.tagSection}>
@@ -346,12 +311,7 @@ const JournalModal = ({
                 <TouchableOpacity
                   style={[
                     styles.tagChip,
-                    {
-                      borderColor: colors.primary,
-                      borderWidth: 1,
-                      borderStyle: "dashed",
-                      backgroundColor: "transparent",
-                    },
+                    styles.tagChipAdd,
                   ]}
                   onPress={() => setShowTagInput(!showTagInput)}
                 >
@@ -360,14 +320,7 @@ const JournalModal = ({
                     size={16}
                     color={colors.primary}
                   />
-                  <Text
-                    style={{
-                      color: colors.primary,
-                      fontSize: 12,
-                      fontWeight: "bold",
-                      marginLeft: 4,
-                    }}
-                  >
+                  <Text style={styles.tagChipAddText}>
                     New
                   </Text>
                 </TouchableOpacity>
@@ -380,16 +333,16 @@ const JournalModal = ({
                     style={[
                       styles.tagChip,
                       selectedTags.includes(tag)
-                        ? dynamicStyles.chipActive
-                        : dynamicStyles.chipInactive,
+                        ? styles.tagChipActive
+                        : styles.tagChipInactive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.tagText,
                         selectedTags.includes(tag)
-                          ? dynamicStyles.chipTextActive
-                          : dynamicStyles.chipTextInactive,
+                          ? styles.tagTextActive
+                          : styles.tagTextInactive,
                       ]}
                     >
                       #{tag}
@@ -401,11 +354,7 @@ const JournalModal = ({
               {showTagInput && (
                 <View style={styles.newTagRow}>
                   <TextInput
-                    style={[
-                      styles.smallInput,
-                      dynamicStyles.input,
-                      { borderColor: colors.border },
-                    ]}
+                    style={styles.smallInput}
                     placeholder="Tag name..."
                     placeholderTextColor={colors.textMuted}
                     value={newTagInput}
@@ -414,9 +363,9 @@ const JournalModal = ({
                   />
                   <TouchableOpacity
                     onPress={handleAddTag}
-                    style={{ marginLeft: 10 }}
+                    style={styles.addTagBtn}
                   >
-                    <Text style={{ color: colors.primary, fontWeight: "bold" }}>
+                    <Text style={styles.addTagBtnText}>
                       Add
                     </Text>
                   </TouchableOpacity>
@@ -426,7 +375,7 @@ const JournalModal = ({
 
             {/* Main Note */}
             <TextInput
-              style={[styles.textInput, dynamicStyles.input]}
+              style={styles.textInput}
               multiline
               placeholder="Write your memories here..."
               placeholderTextColor={colors.textMuted}
@@ -438,10 +387,7 @@ const JournalModal = ({
             <View style={styles.mediaButtonsRow}>
               {/* Camera Button */}
               <TouchableOpacity
-                style={[
-                  styles.mediaBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
+                style={styles.mediaBtn}
                 onPress={pickFromCamera}
               >
                 <MaterialCommunityIcons
@@ -449,17 +395,14 @@ const JournalModal = ({
                   size={24}
                   color={colors.primary}
                 />
-                <Text style={[styles.mediaBtnText, { color: colors.textPrimary }]}>
+                <Text style={styles.mediaBtnText}>
                   Camera
                 </Text>
               </TouchableOpacity>
 
               {/* Gallery Button */}
               <TouchableOpacity
-                style={[
-                  styles.mediaBtn,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
-                ]}
+                style={styles.mediaBtn}
                 onPress={pickImage}
               >
                 <MaterialCommunityIcons
@@ -467,7 +410,7 @@ const JournalModal = ({
                   size={24}
                   color={colors.secondary}
                 />
-                <Text style={[styles.mediaBtnText, { color: colors.textPrimary }]}>
+                <Text style={styles.mediaBtnText}>
                   Gallery
                 </Text>
               </TouchableOpacity>
@@ -493,143 +436,5 @@ const JournalModal = ({
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  // Modal Styles
-  modalStyle: {
-    margin: 0,
-    justifyContent: "flex-end",
-  },
-  sheetContainer: {
-    height: "92%", // Takes up most of the screen like a pageSheet
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    overflow: "hidden",
-  },
-  dragHandleContainer: {
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  dragHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 10,
-    opacity: 0.5,
-  },
-
-  // Existing Styles
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-  },
-  headerBtn: { padding: 5 },
-  title: { fontSize: 18, fontWeight: "bold" },
-  cancelText: { fontSize: 16 },
-  saveText: { fontSize: 16, fontWeight: "bold" },
-
-  content: { padding: 20, paddingBottom: 50 },
-
-  topicInput: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  locationInput: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-
-  sectionLabel: { fontSize: 14, fontWeight: "600", marginBottom: 10 },
-  moodRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 25,
-  },
-  moodItem: { padding: 10, borderRadius: 20 },
-
-  tagSection: { marginBottom: 25 },
-  tagChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-  },
-  tagText: { fontSize: 12, fontWeight: "600" },
-  newTagRow: { flexDirection: "row", alignItems: "center", marginTop: 10 },
-  smallInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    width: 150,
-  },
-
-  textInput: {
-    fontSize: 16,
-    minHeight: 150,
-    marginBottom: 20,
-    textAlignVertical: "top",
-    lineHeight: 24,
-    borderRadius: 12,
-    padding: 15,
-  },
-  // Media Buttons Styles
-  mediaButtonsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-    marginBottom: 20,
-  },
-  mediaBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  mediaBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  previewContainer: {
-    marginTop: 10,
-    borderRadius: 16,
-    overflow: "hidden",
-    position: "relative",
-  },
-  previewImage: {
-    width: "100%",
-    height: 300,
-    resizeMode: "contain", // Show full aspect ratio
-    backgroundColor: "#000", // Background for non-square aspect ratios
-  },
-  removeImageBtn: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    borderRadius: 12,
-  },
-});
 
 export default JournalModal;

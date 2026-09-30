@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -16,12 +15,15 @@ import {
 } from "react-native";
 import Modal from "react-native-modal";
 import { AppContext } from "../../context/AppContext";
+import { useThemedStyles } from "../../hooks/useThemedStyles";
 import { uploadToCloudinary } from "../../utils/cloudinaryHelper";
+import getStyles from "./SocialPostModal.styles";
 
 const MOODS = ["😊", "😢", "😡", "😴", "🤔", "🥳", "😌", "🤩", "😰", "🥰"];
 
 const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
   const { colors, user } = useContext(AppContext);
+  const styles = useThemedStyles(getStyles);
 
   const [topic, setTopic] = useState("");
   const [text, setText] = useState("");
@@ -143,19 +145,18 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
 
       // Upload new image to Cloudinary ONLY IF LOGGED IN
       const isLoggedIn = !!(user && user.idToken);
-      
+
       if (image && !image.includes("cloudinary.com")) {
         if (isLoggedIn) {
-            try {
-              finalImage = await uploadToCloudinary(image);
-            } catch (error) {
-              console.error("Upload failed:", error);
-              // Keep local image and mark as pending
-              uploadStatus = "pending";
-            }
+          try {
+            finalImage = await uploadToCloudinary(image);
+          } catch (error) {
+            console.error("Upload failed:", error);
+            uploadStatus = "pending";
+          }
         } else {
-            console.log("👤 Not logged in - skipping Cloudinary upload for now");
-            uploadStatus = "pending"; // Will try to sync later when logged in
+          console.log("👤 Not logged in - skipping Cloudinary upload for now");
+          uploadStatus = "pending";
         }
       }
 
@@ -179,19 +180,6 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
     }
   };
 
-  const dynamicStyles = {
-    modalContent: { backgroundColor: colors.surface },
-    input: {
-      color: colors.textPrimary,
-      borderColor: colors.border,
-      backgroundColor: colors.background,
-    },
-    textPrimary: { color: colors.textPrimary },
-    textSecondary: { color: colors.textSecondary },
-    chipActive: { backgroundColor: colors.primary },
-    chipInactive: { backgroundColor: colors.surfaceHighlight },
-  };
-
   return (
     <Modal
       isVisible={visible}
@@ -206,11 +194,11 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1, justifyContent: "flex-end" }}
       >
-        <View style={[styles.modalContent, dynamicStyles.modalContent]}>
+        <View style={styles.modalContent}>
           <View style={styles.dragHandle} />
 
           <View style={styles.header}>
-            <Text style={[styles.title, dynamicStyles.textPrimary]}>
+            <Text style={styles.title}>
               {initialData ? "Edit Post" : "New Post"}
             </Text>
             <TouchableOpacity onPress={onClose}>
@@ -234,18 +222,18 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
               ) : (
                 <View style={styles.imageButtons}>
                   <TouchableOpacity
-                    style={[styles.imageBtn, { backgroundColor: colors.surfaceHighlight }]}
+                    style={styles.imageBtn}
                     onPress={handlePickImage}
                   >
                     <MaterialCommunityIcons name="image" size={24} color={colors.primary} />
-                    <Text style={dynamicStyles.textSecondary}>Gallery</Text>
+                    <Text style={styles.imageBtnText}>Gallery</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.imageBtn, { backgroundColor: colors.surfaceHighlight }]}
+                    style={styles.imageBtn}
                     onPress={handleTakePhoto}
                   >
                     <MaterialCommunityIcons name="camera" size={24} color={colors.primary} />
-                    <Text style={dynamicStyles.textSecondary}>Camera</Text>
+                    <Text style={styles.imageBtnText}>Camera</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -253,7 +241,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
 
             {/* Topic */}
             <TextInput
-              style={[styles.input, styles.topicInput, dynamicStyles.input]}
+              style={[styles.input, styles.topicInput]}
               placeholder="Title..."
               placeholderTextColor={colors.textMuted}
               value={topic}
@@ -262,7 +250,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
 
             {/* Text */}
             <TextInput
-              style={[styles.input, styles.textInput, dynamicStyles.input]}
+              style={[styles.input, styles.textInput]}
               placeholder="Write your thoughts..."
               placeholderTextColor={colors.textMuted}
               value={text}
@@ -274,7 +262,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
             {/* Location */}
             <View style={styles.row}>
               <TextInput
-                style={[styles.input, { flex: 1 }, dynamicStyles.input]}
+                style={[styles.input, { flex: 1 }]}
                 placeholder="Location..."
                 placeholderTextColor={colors.textMuted}
                 value={location}
@@ -289,7 +277,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
             </View>
 
             {/* Mood */}
-            <Text style={[styles.label, dynamicStyles.textSecondary]}>Mood</Text>
+            <Text style={styles.label}>Mood</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.moodRow}>
                 {MOODS.map((m) => (
@@ -298,7 +286,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
                     onPress={() => setMood(mood === m ? "" : m)}
                     style={[
                       styles.moodBtn,
-                      mood === m && dynamicStyles.chipActive,
+                      mood === m && styles.moodBtnActive,
                     ]}
                   >
                     <Text style={{ fontSize: 24 }}>{m}</Text>
@@ -308,10 +296,10 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
             </ScrollView>
 
             {/* Tags */}
-            <Text style={[styles.label, dynamicStyles.textSecondary]}>Tags</Text>
+            <Text style={styles.label}>Tags</Text>
             <View style={styles.row}>
               <TextInput
-                style={[styles.input, { flex: 1 }, dynamicStyles.input]}
+                style={[styles.input, { flex: 1 }]}
                 placeholder="Add tag..."
                 placeholderTextColor={colors.textMuted}
                 value={tagInput}
@@ -331,9 +319,9 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
                   <TouchableOpacity
                     key={t}
                     onPress={() => handleRemoveTag(t)}
-                    style={[styles.tag, dynamicStyles.chipInactive]}
+                    style={styles.tag}
                   >
-                    <Text style={dynamicStyles.textPrimary}>#{t}</Text>
+                    <Text style={styles.tagText}>#{t}</Text>
                     <MaterialCommunityIcons name="close" size={14} color={colors.textMuted} />
                   </TouchableOpacity>
                 ))}
@@ -342,7 +330,7 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
 
             {/* Save Button */}
             <TouchableOpacity
-              style={[styles.saveBtn, { backgroundColor: colors.primary }]}
+              style={styles.saveBtn}
               onPress={handleSave}
               disabled={isUploading}
             >
@@ -360,143 +348,5 @@ const SocialPostModal = ({ visible, onClose, onSave, initialData }) => {
     </Modal>
   );
 };
-
-const styles = StyleSheet.create({
-  modal: {
-    justifyContent: "flex-end",
-    margin: 0,
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingTop: 10,
-    maxHeight: "90%",
-  },
-  dragHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: "#888",
-    borderRadius: 2,
-    alignSelf: "center",
-    marginBottom: 10,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  imageSection: {
-    marginBottom: 15,
-  },
-  imageButtons: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  imageBtn: {
-    flex: 1,
-    height: 80,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 4,
-  },
-  imagePreview: {
-    position: "relative",
-  },
-  previewImage: {
-    width: "100%",
-    height: 200,
-    borderRadius: 12,
-  },
-  removeImageBtn: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 15,
-    marginBottom: 12,
-  },
-  topicInput: {
-    fontWeight: "600",
-    fontSize: 16,
-  },
-  textInput: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-  row: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 12,
-  },
-  iconBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 8,
-    marginTop: 5,
-  },
-  moodRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 12,
-  },
-  moodBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
-  },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 15,
-    gap: 4,
-  },
-  saveBtn: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  saveBtnText: {
-    color: "#FFF",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-});
 
 export default SocialPostModal;
