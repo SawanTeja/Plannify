@@ -140,7 +140,7 @@ const JournalScreen = () => {
   const handleSaveEntry = async (entryData) => {
     let savedEntry = null;
     let updatedEntries = [];
-    
+
     if (entryData.id) {
       // Editing existing entry
       updatedEntries = entries.map((e) =>
@@ -162,7 +162,7 @@ const JournalScreen = () => {
       };
       updatedEntries = [savedEntry, ...entries];
     }
-    
+
     // Save immediately with local image
     LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
     setEntries(updatedEntries);
@@ -170,40 +170,33 @@ const JournalScreen = () => {
     setModalVisible(false);
     setEntryToEdit(null);
 
-    // If upload is pending AND USER IS LOGGED IN, handle background upload
-    // CHANGED: Only upload if user is PREMIUM
     if (savedEntry && savedEntry.uploadStatus === 'pending' && savedEntry.image && user?.idToken) {
-      
+
       if (!isPremium) {
-          console.log('⚠️ User is NOT Premium. Skipping cloud upload.');
-          // We keep the local image but mark upload as 'skipped' or just leave it local?
-          // Let's mark it as 'local_only' or just don't try to upload. 
-          // If we leave it as 'pending', it might try again? 
-          // Let's just NOT trigger the upload logic.
-          // ideally we update the status so it doesn't look like it's pending forever.
-           setEntries(prevEntries => {
-              const newEntries = prevEntries.map(e =>
-                e.id === savedEntry.id 
-                  ? { ...e, uploadStatus: 'local' } 
-                  : e
-              );
-              storeData("journal_data", newEntries);
-              return newEntries;
-            });
-          return;
+        console.log('⚠️ User is NOT Premium. Skipping cloud upload.');
+        setEntries(prevEntries => {
+          const newEntries = prevEntries.map(e =>
+            e.id === savedEntry.id
+              ? { ...e, uploadStatus: 'local' }
+              : e
+          );
+          storeData("journal_data", newEntries);
+          return newEntries;
+        });
+        return;
       }
 
       console.log('📤 Starting background upload for entry:', savedEntry.id);
-      
+
       try {
         const cloudUrl = await uploadToCloudinary(savedEntry.image);
         console.log('✅ Background upload complete:', cloudUrl);
-        
+
         // Update entry with cloud URL
         setEntries(prevEntries => {
           const newEntries = prevEntries.map(e =>
-            e.id === savedEntry.id 
-              ? { ...e, image: cloudUrl, uploadStatus: 'complete', updatedAt: new Date().toISOString() } 
+            e.id === savedEntry.id
+              ? { ...e, image: cloudUrl, uploadStatus: 'complete', updatedAt: new Date().toISOString() }
               : e
           );
           // Save and sync
@@ -217,8 +210,8 @@ const JournalScreen = () => {
         // Mark as failed but keep local image
         setEntries(prevEntries => {
           const newEntries = prevEntries.map(e =>
-            e.id === savedEntry.id 
-              ? { ...e, uploadStatus: 'failed' } 
+            e.id === savedEntry.id
+              ? { ...e, uploadStatus: 'failed' }
               : e
           );
           storeData("journal_data", newEntries);
@@ -233,10 +226,10 @@ const JournalScreen = () => {
 
   const handleDelete = (id) => {
     if (detailEntry && detailEntry.id === id) setDetailEntry(null);
-    
+
     // Find the entry to get its _id for backend
     const entryToDelete = entries.find(e => e.id === id);
-    
+
     showAlert("Delete", "Delete this memory? This will also remove the image from cloud storage.", [
       { text: "Cancel", style: "cancel" },
       {
@@ -244,15 +237,15 @@ const JournalScreen = () => {
         style: "destructive",
         onPress: async () => {
           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-          
+
           // 1. Mark as deleted locally (soft delete for sync)
-          const updated = entries.map(e => 
+          const updated = entries.map(e =>
             e.id === id ? { ...e, isDeleted: true, updatedAt: new Date().toISOString() } : e
           );
           // Filter out deleted for UI but keep in storage for sync
           setEntries(updated.filter(e => !e.isDeleted));
           await storeData("journal_data", updated);
-          
+
           // 2. Call backend to delete from Cloudinary and mark as deleted
           if (user?.idToken && entryToDelete?._id) {
             try {
@@ -264,7 +257,7 @@ const JournalScreen = () => {
               // Entry is still marked as deleted locally, will sync later
             }
           }
-          
+
           // 3. Sync to propagate deletion to other devices
           syncNow();
         },
@@ -338,11 +331,12 @@ const JournalScreen = () => {
         {item.uploadStatus && (
           <View style={[
             styles.statusDot,
-            { backgroundColor: 
-              item.uploadStatus === 'complete' ? '#22C55E' :  // Green
-              item.uploadStatus === 'failed' ? '#EF4444' :    // Red
-              item.uploadStatus === 'downloading' ? '#FBBF24' : // Yellow
-              '#F97316' // Orange (pending upload)
+            {
+              backgroundColor:
+                item.uploadStatus === 'complete' ? '#22C55E' :  // Green
+                  item.uploadStatus === 'failed' ? '#EF4444' :    // Red
+                    item.uploadStatus === 'downloading' ? '#FBBF24' : // Yellow
+                      '#F97316' // Orange (pending upload)
             }
           ]}>
             {item.uploadStatus === 'pending' && (
@@ -588,8 +582,8 @@ const JournalScreen = () => {
             viewMode === "month" && !selectedMonthData
               ? getGroupedByMonth()
               : getFilteredEntries(
-                  selectedMonthData ? selectedMonthData.data : entries,
-                )
+                selectedMonthData ? selectedMonthData.data : entries,
+              )
           }
           keyExtractor={(item) =>
             (item._id || item.id || `${item.monthIndex}-${item.year}` || Math.random()).toString()
@@ -648,17 +642,17 @@ const JournalScreen = () => {
         animationOut="fadeOut"
       >
         <View style={styles.fullScreenContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.fullScreenCloseBtn}
             onPress={() => setFullScreenImage(null)}
           >
-             <MaterialCommunityIcons name="close" size={30} color="#fff" />
+            <MaterialCommunityIcons name="close" size={30} color="#fff" />
           </TouchableOpacity>
           {fullScreenImage && (
-             <Image 
-               source={{ uri: fullScreenImage }} 
-               style={styles.fullScreenImage} 
-             />
+            <Image
+              source={{ uri: fullScreenImage }}
+              style={styles.fullScreenImage}
+            />
           )}
         </View>
       </Modal>
