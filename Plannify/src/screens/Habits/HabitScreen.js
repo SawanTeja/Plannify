@@ -7,7 +7,6 @@ import {
   LayoutAnimation,
   Platform,
   Text,
-  TextInput,
   TouchableOpacity,
   UIManager,
   View,
@@ -27,6 +26,7 @@ import { getStyles } from "./HabitScreen.styles";
 // Components
 import HabitCard from "../Tasks/components/HabitCard";
 import WeeklyStrip from "../Tasks/components/WeeklyStrip";
+import HabitModal from "./HabitModal";
 
 // Gamification Imports
 import AchievementModal from "./gamification/AchievementModal";
@@ -49,14 +49,7 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const CATEGORIES = [
-  "General ⚡",
-  "Health 💪",
-  "Study 📚",
-  "Work 💼",
-  "Mindfulness 🧘",
-  "Skill 🎨",
-];
+
 
 const HabitScreen = () => {
   const { colors, theme, syncNow, lastRefreshed, appStyles } = useContext(AppContext);
@@ -81,12 +74,6 @@ const HabitScreen = () => {
 
   const [addVisible, setAddVisible] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
-
-  // Form State
-  const [title, setTitle] = useState("");
-  const [hours, setHours] = useState("");
-  const [minutes, setMinutes] = useState("");
-  const [category, setCategory] = useState("General ⚡");
 
   const checkMissingHabits = useCallback((currentHabits) => {
     if (!currentHabits) return;
@@ -315,21 +302,12 @@ const HabitScreen = () => {
     setMarkedDates(marks);
   }, [habits, selectedDate, colors, today]);
 
-  const handleAddHabit = async () => {
-    if (!title.trim()) return;
-
-    let formattedDuration = "";
-    const h = parseInt(hours) || 0;
-    const m = parseInt(minutes) || 0;
-    if (h > 0 && m > 0) formattedDuration = `${h} hr ${m} min`;
-    else if (h > 0) formattedDuration = `${h} hr`;
-    else if (m > 0) formattedDuration = `${m} min`;
-
+  const handleAddHabit = async ({ title, category, duration }) => {
     const newHabit = {
       id: Date.now(),
       title,
       category,
-      duration: formattedDuration,
+      duration,
       history: {},
       updatedAt: new Date(), // Fix: Add timestamp
     };
@@ -338,10 +316,6 @@ const HabitScreen = () => {
     await storeData("habits_data", updated);
     syncNow();
     checkMissingHabits(updated);
-    setTitle("");
-    setHours("");
-    setMinutes("");
-    setAddVisible(false);
   };
 
   const deleteHabit = (id) => {
@@ -495,99 +469,12 @@ const HabitScreen = () => {
           </View>
         </Modal>
 
-        {/* --- ADD HABIT MODAL (Floating Slide-up Window) --- */}
-        <Modal
-          isVisible={addVisible}
-          // 2. ENABLE SLIDE TO CLOSE
-          onSwipeComplete={() => setAddVisible(false)}
-          swipeDirection={["down"]}
-          onBackdropPress={() => setAddVisible(false)}
-          style={styles.bottomModal}
-          avoidKeyboard={true}
-          backdropOpacity={0.7}
-        >
-          <View style={styles.bottomModalContent}>
-            {/* 4. DRAG HANDLE */}
-            <View style={styles.dragHandleContainer}>
-              <View style={styles.dragHandle} />
-            </View>
-
-            <Text style={styles.modalTitle}>
-              New Habit
-            </Text>
-
-            <Text style={styles.label}>Title</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Drink Water"
-              placeholderTextColor={colors.textMuted}
-              value={title}
-              onChangeText={setTitle}
-              autoFocus
-            />
-
-            <Text style={styles.label}>
-              Duration (Optional)
-            </Text>
-            <View style={styles.durationRow}>
-              <TextInput
-                style={[styles.input, styles.durationInput]}
-                placeholder="Hours"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-                value={hours}
-                onChangeText={setHours}
-              />
-              <TextInput
-                style={[styles.input, styles.durationInput]}
-                placeholder="Mins"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-                value={minutes}
-                onChangeText={setMinutes}
-              />
-            </View>
-
-            <Text style={styles.label}>
-              Category
-            </Text>
-            <View style={styles.catCloud}>
-              {CATEGORIES.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setCategory(c)}
-                  style={[
-                    styles.catChip,
-                    category === c && styles.catChipActive,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.catChipText,
-                      category === c && styles.catChipTextActive,
-                    ]}
-                  >
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <Text style={styles.cancelText}>
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveBtn}
-                onPress={handleAddHabit}
-              >
-                <Text style={styles.saveBtnText}>Create Habit</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        {/* --- ADD HABIT MODAL --- */}
+        <HabitModal
+          visible={addVisible}
+          onClose={() => setAddVisible(false)}
+          onSave={handleAddHabit}
+        />
 
         <AchievementModal
           visible={achievementData.visible}
